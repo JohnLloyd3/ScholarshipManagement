@@ -39,6 +39,71 @@ if ($action === 'delete') {
     exit;
 }
 
+if ($action === 'set_application_status') {
+    $id = (int)($_POST['id'] ?? 0);
+    $status = trim($_POST['status'] ?? '');
+    if ($id && in_array($status, ['submitted','pending','approved','rejected'], true)) {
+        $stmt = $pdo->prepare('UPDATE applications SET status = :s WHERE id = :id');
+        $stmt->execute([':s' => $status, ':id' => $id]);
+
+        // If there is a review record for this application, keep latest one in sync
+        $rst = $pdo->prepare('SELECT id FROM reviews WHERE application_id = :aid ORDER BY created_at DESC LIMIT 1');
+        $rst->execute([':aid' => $id]);
+        $r = $rst->fetch();
+        if ($r) {
+            $pdo->prepare('UPDATE reviews SET status = :s WHERE id = :id')->execute([':s' => $status, ':id' => $r['id']]);
+        }
+
+        $_SESSION['success'] = 'Application status updated.';
+    }
+    header('Location: ../admin/applications.php');
+    exit;
+}
+
+if ($action === 'update_application') {
+    $id = (int)($_POST['id'] ?? 0);
+    $title = trim($_POST['title'] ?? '');
+    $details = trim($_POST['details'] ?? '');
+    $status = trim($_POST['status'] ?? '');
+    $reviewer = trim($_POST['reviewer_id'] ?? '');
+    $reviewerId = ($reviewer !== '' && ctype_digit($reviewer)) ? (int)$reviewer : null;
+
+    if ($id && $title !== '' && in_array($status, ['submitted','pending','approved','rejected'], true)) {
+        $stmt = $pdo->prepare('UPDATE applications SET title = :t, details = :d, status = :s, reviewer_id = :rid WHERE id = :id');
+        $stmt->execute([
+            ':t' => $title,
+            ':d' => $details,
+            ':s' => $status,
+            ':rid' => $reviewerId,
+            ':id' => $id
+        ]);
+
+        // Ensure a review row exists when reviewer is assigned
+        if ($reviewerId) {
+            $rst = $pdo->prepare('SELECT id FROM reviews WHERE application_id = :aid AND reviewer_id = :rid ORDER BY created_at DESC LIMIT 1');
+            $rst->execute([':aid' => $id, ':rid' => $reviewerId]);
+            if (!$rst->fetch()) {
+                $pdo->prepare('INSERT INTO reviews (application_id, reviewer_id, status) VALUES (:app, :rev, :st)')
+                    ->execute([':app' => $id, ':rev' => $reviewerId, ':st' => ($status === 'submitted' ? 'pending' : $status)]);
+            }
+        }
+
+        // Keep latest review status in sync if exists
+        $rst = $pdo->prepare('SELECT id FROM reviews WHERE application_id = :aid ORDER BY created_at DESC LIMIT 1');
+        $rst->execute([':aid' => $id]);
+        $r = $rst->fetch();
+        if ($r) {
+            $pdo->prepare('UPDATE reviews SET status = :s WHERE id = :id')->execute([':s' => $status, ':id' => $r['id']]);
+        }
+
+        $_SESSION['success'] = 'Application updated.';
+    } else {
+        $_SESSION['flash'] = 'Invalid application update.';
+    }
+    header('Location: ../admin/applications.php?edit=' . $id);
+    exit;
+}
+
 if ($action === 'activate_user' || $action === 'deactivate_user') {
     $user_id = (int)($_POST['user_id'] ?? 0);
     $active = $action === 'activate_user' ? 1 : 0;
@@ -60,6 +125,18 @@ if ($action === 'update_role') {
         $stmt = $pdo->prepare('UPDATE users SET role = :r WHERE id = :id');
         $stmt->execute([':r' => $role, ':id' => $user_id]);
         $_SESSION['success'] = 'User role updated.';
+    }
+    header('Location: ../admin/users.php');
+    exit;
+}
+
+if ($action === 'delete_user') {
+    $user_id = (int)($_POST['user_id'] ?? 0);
+    if ($user_id && $user_id != $_SESSION['user_id']) {
+        // Deleting a user will also delete related reviews (via FK) and set application.user_id NULL (via FK)
+        $stmt = $pdo->prepare('DELETE FROM users WHERE id = :id');
+        $stmt->execute([':id' => $user_id]);
+        $_SESSION['success'] = 'User deleted.';
     }
     header('Location: ../admin/users.php');
     exit;

@@ -105,14 +105,18 @@ if ($action === 'create') {
         $details_full .= "\n\n$details";
     }
 
-    $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, title, details, document, status) VALUES (:uid, :sid, :title, :details, :doc, :status)');
+    // Capture applicant email for easier reporting/filters
+    $email = $_SESSION['user']['email'] ?? null;
+
+    $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, title, details, document, status, email) VALUES (:uid, :sid, :title, :details, :doc, :status, :email)');
     $stmt->execute([
         ':uid' => $user_id,
         ':sid' => $scholarship_id,
         ':title' => $title,
         ':details' => $details_full,
         ':doc' => $documentPath,
-        ':status' => 'submitted'
+        ':status' => 'submitted',
+        ':email' => $email
     ]);
 
     $_SESSION['success'] = 'Application submitted successfully!';

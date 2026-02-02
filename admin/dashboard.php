@@ -65,6 +65,16 @@ $recent = $stmt->fetchAll();
       </div>
 
       <section class="panel">
+        <h3>Master Controls</h3>
+        <p class="muted">Quick access to manage every part of the system.</p>
+        <p>
+          <a class="btn" href="users.php">Manage Users</a>
+          <a class="btn" href="scholarships.php" style="margin-left:10px">Manage Scholarships</a>
+          <a class="btn" href="applications.php" style="margin-left:10px">Manage Applications</a>
+        </p>
+      </section>
+
+      <section class="panel">
         <h3>Recent Applications</h3>
         <table style="width:100%;border-collapse:collapse">
           <thead><tr><th>#</th><th>Applicant</th><th>Title</th><th>Status</th><th>Actions</th></tr></thead>

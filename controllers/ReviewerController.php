@@ -15,8 +15,19 @@ if ($action === 'approve' || $action === 'reject') {
     $id = (int)($_POST['id'] ?? 0);
     if ($id) {
         $status = ($action === 'approve') ? 'approved' : 'rejected';
+        // Update review record
         $stmt = $pdo->prepare('UPDATE reviews SET status = :s WHERE id = :id');
         $stmt->execute([':s' => $status, ':id' => $id]);
+
+        // Also update the linked application status
+        $stmt = $pdo->prepare('SELECT application_id FROM reviews WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+        if ($row && !empty($row['application_id'])) {
+            $appStatus = ($status === 'approved') ? 'approved' : 'rejected';
+            $pdo->prepare('UPDATE applications SET status = :s WHERE id = :aid')
+                ->execute([':s' => $appStatus, ':aid' => $row['application_id']]);
+        }
         $_SESSION['success'] = 'Review updated.';
     }
     header('Location: ../reviewer/dashboard.php');

@@ -7,11 +7,12 @@
 // Email configuration - update these for your SMTP server
 define('EMAIL_FROM', 'noreply@scholarshipmanagement.com');
 define('EMAIL_FROM_NAME', 'Scholarship Management System');
-define('SMTP_ENABLED', false); // Set to true if using SMTP
+define('SMTP_ENABLED', true); // Set to true if using SMTP
 define('SMTP_HOST', 'smtp.gmail.com');
 define('SMTP_PORT', 587);
-define('SMTP_USER', '');
-define('SMTP_PASS', '');
+// Tip: for production, prefer environment variables over hard-coding secrets in git.
+define('SMTP_USER', getenv('SMTP_USER') ?: 'johnlloydracaza09399561410@gmail.com');
+define('SMTP_PASS', getenv('SMTP_PASS') ?: 'euqzqfuztprtrlhb');
 
 /**
  * Send email using PHP mail() or SMTP
@@ -43,12 +44,174 @@ function sendEmailPHP($to, $subject, $message, $html = true) {
 
 /**
  * Send email using SMTP (requires PHPMailer or similar)
- * For now, falls back to PHP mail()
+ * Implemented with a small SMTP client (STARTTLS) so it works on XAMPP without extra dependencies.
  */
 function sendEmailSMTP($to, $subject, $message, $html = true) {
-    // For production, integrate PHPMailer here
-    // For now, use PHP mail()
-    return sendEmailPHP($to, $subject, $message, $html);
+    $host = SMTP_HOST;
+    $port = SMTP_PORT;
+    $user = SMTP_USER;
+    $pass = SMTP_PASS;
+
+    if (!$host || !$port || !$user || !$pass) {
+        error_log('[SMTP Error] Missing SMTP configuration.');
+        return false;
+    }
+
+    $timeout = 15;
+    $fp = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT);
+    if (!$fp) {
+        error_log("[SMTP Error] Connection failed: {$errno} {$errstr}");
+        return false;
+    }
+
+    stream_set_timeout($fp, $timeout);
+
+    $read = function () use ($fp) {
+        $data = '';
+        while (!feof($fp)) {
+            $line = fgets($fp, 515);
+            if ($line === false) break;
+            $data .= $line;
+            // multi-line responses have a hyphen after the code, final line has space
+            if (preg_match('/^\d{3}\s/', $line)) break;
+        }
+        return $data;
+    };
+
+    $write = function ($cmd) use ($fp) {
+        return fwrite($fp, $cmd . "\r\n");
+    };
+
+    $expect = function ($resp, $codes) {
+        foreach ((array)$codes as $code) {
+            if (strpos($resp, (string)$code) === 0) return true;
+        }
+        return false;
+    };
+
+    $banner = $read();
+    if (!$expect($banner, 220)) {
+        error_log('[SMTP Error] Invalid banner: ' . trim($banner));
+        fclose($fp);
+        return false;
+    }
+
+    $write('EHLO localhost');
+    $ehlo = $read();
+    if (!$expect($ehlo, 250)) {
+        $write('HELO localhost');
+        $helo = $read();
+        if (!$expect($helo, 250)) {
+            error_log('[SMTP Error] EHLO/HELO failed: ' . trim($ehlo . $helo));
+            fclose($fp);
+            return false;
+        }
+    }
+
+    // STARTTLS
+    $write('STARTTLS');
+    $starttls = $read();
+    if (!$expect($starttls, 220)) {
+        error_log('[SMTP Error] STARTTLS failed: ' . trim($starttls));
+        fclose($fp);
+        return false;
+    }
+
+    if (!@stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+        error_log('[SMTP Error] TLS negotiation failed. Ensure PHP OpenSSL is enabled in XAMPP.');
+        fclose($fp);
+        return false;
+    }
+
+    // EHLO again after TLS
+    $write('EHLO localhost');
+    $ehlo2 = $read();
+    if (!$expect($ehlo2, 250)) {
+        error_log('[SMTP Error] EHLO after TLS failed: ' . trim($ehlo2));
+        fclose($fp);
+        return false;
+    }
+
+    // AUTH LOGIN
+    $write('AUTH LOGIN');
+    $auth = $read();
+    if (!$expect($auth, 334)) {
+        error_log('[SMTP Error] AUTH LOGIN not accepted: ' . trim($auth));
+        fclose($fp);
+        return false;
+    }
+
+    $write(base64_encode($user));
+    $uResp = $read();
+    if (!$expect($uResp, 334)) {
+        error_log('[SMTP Error] Username rejected: ' . trim($uResp));
+        fclose($fp);
+        return false;
+    }
+
+    $write(base64_encode($pass));
+    $pResp = $read();
+    if (!$expect($pResp, 235)) {
+        error_log('[SMTP Error] Password rejected: ' . trim($pResp));
+        fclose($fp);
+        return false;
+    }
+
+    $from = EMAIL_FROM;
+    $fromName = EMAIL_FROM_NAME;
+
+    $write('MAIL FROM:<' . $from . '>');
+    $mf = $read();
+    if (!$expect($mf, 250)) {
+        error_log('[SMTP Error] MAIL FROM failed: ' . trim($mf));
+        fclose($fp);
+        return false;
+    }
+
+    $write('RCPT TO:<' . $to . '>');
+    $rt = $read();
+    if (!$expect($rt, [250, 251])) {
+        error_log('[SMTP Error] RCPT TO failed: ' . trim($rt));
+        fclose($fp);
+        return false;
+    }
+
+    $write('DATA');
+    $dataResp = $read();
+    if (!$expect($dataResp, 354)) {
+        error_log('[SMTP Error] DATA not accepted: ' . trim($dataResp));
+        fclose($fp);
+        return false;
+    }
+
+    // Headers + body
+    $headers = [];
+    $headers[] = 'From: ' . $fromName . ' <' . $from . '>';
+    $headers[] = 'To: <' . $to . '>';
+    $headers[] = 'Subject: ' . $subject;
+    $headers[] = 'MIME-Version: 1.0';
+    $headers[] = $html
+        ? 'Content-Type: text/html; charset=UTF-8'
+        : 'Content-Type: text/plain; charset=UTF-8';
+
+    // Normalize line endings and dot-stuff per SMTP rules
+    $body = str_replace(["\r\n", "\r"], "\n", $message);
+    $body = preg_replace("/\n\./", "\n..", $body);
+    $body = str_replace("\n", "\r\n", $body);
+
+    $payload = implode("\r\n", $headers) . "\r\n\r\n" . $body . "\r\n.";
+    fwrite($fp, $payload . "\r\n");
+
+    $sent = $read();
+    if (!$expect($sent, 250)) {
+        error_log('[SMTP Error] Message not accepted: ' . trim($sent));
+        fclose($fp);
+        return false;
+    }
+
+    $write('QUIT');
+    fclose($fp);
+    return true;
 }
 
 /**

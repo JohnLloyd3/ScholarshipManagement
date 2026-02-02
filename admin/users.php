@@ -6,8 +6,30 @@ require_role('admin');
 
 $pdo = getPDO();
 
-// Get all users
-$stmt = $pdo->query('SELECT id, username, first_name, last_name, email, role, active, email_verified, created_at FROM users ORDER BY created_at DESC');
+// Filters
+$q = trim($_GET['q'] ?? '');
+$role = trim($_GET['role'] ?? '');
+$active = trim($_GET['active'] ?? '');
+
+$sql = 'SELECT id, username, first_name, last_name, email, role, active, created_at FROM users WHERE 1=1';
+$params = [];
+
+if ($q !== '') {
+  $sql .= ' AND (username LIKE :q OR email LIKE :q OR first_name LIKE :q OR last_name LIKE :q)';
+  $params[':q'] = '%' . $q . '%';
+}
+if ($role !== '' && in_array($role, ['admin','reviewer','student','staff'], true)) {
+  $sql .= ' AND role = :role';
+  $params[':role'] = $role;
+}
+if ($active !== '' && in_array($active, ['0','1'], true)) {
+  $sql .= ' AND active = :active';
+  $params[':active'] = (int)$active;
+}
+
+$sql .= ' ORDER BY created_at DESC';
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $users = $stmt->fetchAll();
 ?>
 <!doctype html>
@@ -56,6 +78,34 @@ $users = $stmt->fetchAll();
 
       <section class="panel">
         <h3>All Users</h3>
+        <form method="GET" style="margin: 10px 0; display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+          <div class="form-group" style="margin:0; min-width:240px;">
+            <label style="display:block;font-weight:bold;margin-bottom:6px;">Search</label>
+            <input type="text" name="q" value="<?= htmlspecialchars($q) ?>" placeholder="username, email, name">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="display:block;font-weight:bold;margin-bottom:6px;">Role</label>
+            <select name="role">
+              <option value="">All</option>
+              <option value="student" <?= $role==='student'?'selected':'' ?>>Student</option>
+              <option value="staff" <?= $role==='staff'?'selected':'' ?>>Staff</option>
+              <option value="reviewer" <?= $role==='reviewer'?'selected':'' ?>>Reviewer</option>
+              <option value="admin" <?= $role==='admin'?'selected':'' ?>>Admin</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="display:block;font-weight:bold;margin-bottom:6px;">Status</label>
+            <select name="active">
+              <option value="">All</option>
+              <option value="1" <?= $active==='1'?'selected':'' ?>>Active</option>
+              <option value="0" <?= $active==='0'?'selected':'' ?>>Inactive</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <button type="submit" class="submit-btn" style="padding:10px 14px;">Filter</button>
+            <a href="users.php" style="margin-left:10px;">Reset</a>
+          </div>
+        </form>
         <table style="width:100%;border-collapse:collapse">
           <thead>
             <tr>
@@ -65,7 +115,6 @@ $users = $stmt->fetchAll();
               <th>Email</th>
               <th>Role</th>
               <th>Status</th>
-              <th>Email Verified</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -107,9 +156,13 @@ $users = $stmt->fetchAll();
                     </form>
                   <?php endif; ?>
                 </td>
-                <td><?= $u['email_verified'] ? '<span style="color:green">✓</span>' : '<span style="color:red">✗</span>' ?></td>
                 <td>
-                  <small><?= htmlspecialchars($u['created_at']) ?></small>
+                  <form style="display:inline" method="POST" action="../controllers/AdminController.php" onsubmit="return confirm('Delete this user? This cannot be undone.');">
+                    <input type="hidden" name="action" value="delete_user">
+                    <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
+                    <button type="submit" style="background:none;border:none;color:red;cursor:pointer;text-decoration:underline" <?= $u['id'] == $_SESSION['user_id'] ? 'disabled' : '' ?>>Delete</button>
+                  </form>
+                  <span style="margin-left:10px"><small><?= htmlspecialchars($u['created_at']) ?></small></span>
                 </td>
               </tr>
             <?php endforeach; ?>

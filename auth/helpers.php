@@ -1,12 +1,17 @@
 <?php
 // Simple auth helpers
 
+// Base URL for redirects inside this app (XAMPP: http://localhost/ScholarshipManagement/)
+if (!defined('APP_BASE')) {
+    define('APP_BASE', '/ScholarshipManagement');
+}
+
 function require_login()
 {
     session_start();
     if (!isset($_SESSION['user_id'])) {
         $_SESSION['flash'] = 'Please log in.';
-        header('Location: /SchorlarshipManagement/auth/login.php');
+        header('Location: ' . APP_BASE . '/auth/login.php');
         exit;
     }
     
@@ -14,20 +19,14 @@ function require_login()
     require_once __DIR__ . '/../config/db.php';
     try {
         $pdo = getPDO();
-        $stmt = $pdo->prepare('SELECT active, email_verified FROM users WHERE id = :id');
+        $stmt = $pdo->prepare('SELECT active FROM users WHERE id = :id');
         $stmt->execute([':id' => $_SESSION['user_id']]);
         $user = $stmt->fetch();
         
         if ($user && !$user['active']) {
             session_destroy();
             $_SESSION['flash'] = 'Your account has been deactivated.';
-            header('Location: /SchorlarshipManagement/auth/login.php');
-            exit;
-        }
-        
-        if ($user && !$user['email_verified']) {
-            $_SESSION['pending_verification'] = $_SESSION['user']['email'] ?? '';
-            header('Location: /SchorlarshipManagement/auth/verify_email.php');
+            header('Location: ' . APP_BASE . '/auth/login.php');
             exit;
         }
     } catch (Exception $e) {
@@ -46,13 +45,14 @@ function require_role($role)
     session_start();
     if (!isset($_SESSION['user_id'])) {
         $_SESSION['flash'] = 'Please log in.';
-        header('Location: /SchorlarshipManagement/auth/login.php');
+        header('Location: ' . APP_BASE . '/auth/login.php');
         exit;
     }
     $r = $_SESSION['user']['role'] ?? 'student';
-    if ($r !== $role) {
+    $allowed = is_array($role) ? $role : [$role];
+    if (!in_array($r, $allowed, true)) {
         $_SESSION['flash'] = 'Access denied.';
-        header('Location: /SchorlarshipManagement/auth/login.php');
+        header('Location: ' . APP_BASE . '/auth/login.php');
         exit;
     }
 }

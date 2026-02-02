@@ -57,6 +57,8 @@ function getPDO()
             role ENUM('admin','reviewer','student','staff') DEFAULT 'student',
             active TINYINT(1) DEFAULT 1,
             email_verified TINYINT(1) DEFAULT 0,
+            secret_question VARCHAR(255) NULL,
+            secret_answer_hash VARCHAR(255) NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
         
@@ -66,6 +68,12 @@ function getPDO()
         } catch (Exception $e) {}
         try {
             $pdo->exec("ALTER TABLE users ADD COLUMN email_verified TINYINT(1) DEFAULT 0");
+        } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN secret_question VARCHAR(255) NULL");
+        } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN secret_answer_hash VARCHAR(255) NULL");
         } catch (Exception $e) {}
         try {
             $pdo->exec("ALTER TABLE users MODIFY role ENUM('admin','reviewer','student','staff') DEFAULT 'student'");

@@ -34,12 +34,12 @@ if (isset($_SESSION['user_id'])) {
         <input type="hidden" name="action" value="request_password_reset">
         
         <div class="form-group">
-          <label for="email">Email Address</label>
-          <input id="email" name="email" type="email" placeholder="your@email.com" required autofocus>
-          <small>Enter your registered email address. We'll send you a reset code.</small>
+          <label for="identifier">Username or Email</label>
+          <input id="identifier" name="identifier" type="text" placeholder="username or you@email.com" required autofocus>
+          <small>We will verify your identity via secret question or email code to reset your password.</small>
         </div>
 
-        <button type="submit" class="submit-btn">Send Reset Code</button>
+        <button type="submit" class="submit-btn">Continue</button>
       </form>
 
       <div class="auth-links">
