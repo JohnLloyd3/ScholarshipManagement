@@ -1,0 +1,25 @@
+[
+    {
+        "id": "1769998368143",
+        "username": "johnlloyd1",
+        "password": "$2y$10$9MnqeMt4Ke2Oey0dpvPXXO0XYvgxszTls8vf.rF62eGTOTCMCvbGC",
+        "first_name": "John Lloyd",
+        "last_name": "Racaza",
+        "email": "johnlloydracaza88gmail.com",
+        "phone": "09951954551",
+        "address": "Lower Tunghaan Minglanilla,Cebu",
+        "created_at": "2026-02-02T03:12:48+01:00"
+    },
+    {
+        "id": "1770008080155",
+        "username": "leonelen1",
+        "password": "$2y$10$U2UUpkv9D4zo1A3IJ\/jLWuwZi3FqgzbX2e7R2u.oSsr0NCw\/zpoTG",
+        "first_name": "leonelen",
+        "last_name": "carmen",
+        "email": "leonelencarmen@gmail.com",
+        "phone": "093213323",
+        "address": "qweqweqwe",
+        "created_at": "2026-02-02T05:54:40+01:00",
+        "role": "student"
+    }
+]
