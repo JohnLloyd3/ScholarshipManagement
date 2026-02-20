@@ -102,10 +102,9 @@ if ($action === 'register') {
     $secretQuestion = trim($_POST['secret_question'] ?? '');
     $secretAnswer = trim($_POST['secret_answer'] ?? '');
 
-    // Validate role - only allow student, staff, and reviewer for public registration
-    $allowedRoles = ['student', 'staff', 'reviewer'];
-    if (!in_array($role, $allowedRoles)) {
-        $_SESSION['flash'] = "Please select a valid account type.";
+    // Validate role - only allow student for public registration
+    if ($role !== 'student') {
+        $_SESSION['flash'] = "Only students can self-register. Staff/Reviewer accounts must be created by admin.";
         header("Location: ../auth/register.php");
         exit;
     }
@@ -327,19 +326,16 @@ if ($action === 'register') {
                 ':exp' => $expires
             ]);
 
-            if (sendVerificationCode($user['email'], $code, 'password_reset')) {
-                $_SESSION['pending_reset'] = [
-                    'user_id' => $user['id'],
-                    'reset_type' => 'email',
-                    'email' => $user['email']
-                ];
-                $_SESSION['success'] = 'A reset code was sent to your email. Enter it below to reset your password.';
-                header("Location: ../auth/reset_password.php");
-                exit;
-            }
-
-            $_SESSION['flash'] = 'Could not send reset email. Please try again or contact administrator.';
-            header("Location: ../auth/forgot_password.php");
+            $subject = 'Password Reset Code';
+            $message = getPasswordResetEmailTemplate($code);
+            queueEmail($user['email'], $subject, $message, $user['id']);
+            $_SESSION['pending_reset'] = [
+                'user_id' => $user['id'],
+                'reset_type' => 'email',
+                'email' => $user['email']
+            ];
+            $_SESSION['success'] = 'A reset code was queued to your email. Please check your inbox.';
+            header("Location: ../auth/reset_password.php");
             exit;
         } catch (PDOException $e) {
             error_log('[request_password_reset] ' . $e->getMessage());

@@ -1,33 +1,175 @@
 /* ==================================
+   STAFF DASHBOARD STAT CARDS
+================================== */
+.stats-grid {
+  display: flex;
+  gap: 2rem;
+  margin: 2rem 0 1rem 0;
+  flex-wrap: wrap;
+}
+.stat-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(185,28,28,0.08);
+  padding: 1.5rem 2.5rem;
+  min-width: 180px;
+  text-align: center;
+  border: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.stat-card .value {
+  font-size: 2.2rem;
+  color: #b71c1c;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.stat-card .label {
+  color: #444;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+/* ==================================
+   STAFF DASHBOARD QUICK ACTIONS
+================================== */
+.panel {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 6px 24px rgba(185,28,28,0.08);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.panel h3 {
+  color: #b71c1c;
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  letter-spacing: -0.01em;
+}
+.quick-actions {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+.quick-actions .btn {
+  background: #b71c1c;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 8px rgba(185,28,28,0.08);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.quick-actions .btn:hover {
+  background: #a30000;
+  box-shadow: 0 6px 18px rgba(185,28,28,0.16);
+  transform: translateY(-2px);
+}
+@media (max-width: 600px) {
+  .app-table thead {
+    display: none;
+  }
+  .app-table, .app-table tbody, .app-table tr, .app-table td {
+    display: block;
+    width: 100%;
+  }
+  .app-table tr {
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(185,28,28,0.08);
+    border-radius: 12px;
+    background: #fff;
+    padding: 1rem;
+  }
+  .app-table td {
+    padding: 0.75rem 1rem;
+    border: none;
+    position: relative;
+  }
+  .app-table td:before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #b91c1c;
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.95rem;
+  }
+}
+/* ==================================
+   APPLICATIONS TABLE ENHANCEMENTS
+================================== */
+.app-table tbody tr {
+  transition: background 0.25s, box-shadow 0.25s;
+}
+.app-table tbody tr:hover {
+  background: #ffeaea;
+  box-shadow: 0 2px 8px rgba(185,28,28,0.10);
+}
+.app-table td span {
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.app-table td span:hover {
+  box-shadow: 0 2px 8px rgba(185,28,28,0.12);
+  background: #fff3f3 !important;
+  color: #b71c1c !important;
+}
+/* ==================================
    MINIMALIST SCHOOL THEME
    Red & White Academic Design
 ================================== */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Enhanced Panel Styles */
+.panel {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 6px 24px rgba(185,28,28,0.08);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.panel:hover {
+  border-color: #ef4444;
+  box-shadow: 0 12px 32px rgba(185,28,28,0.12);
+}
+.panel h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #b91c1c;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.panel .muted {
+  color: #6b7280;
+  font-size: 1rem;
+  line-height: 1.7;
 }
 
-:root {
-  /* School Colors - Minimalist Palette */
-  --primary: #b91c1c;        /* Deep red */
-  --primary-light: #dc2626;
-  --accent: #ef4444;          /* Vivid red */
-  --accent-light: #fee2e2;
-  --background: #fef2f2;      /* Very light red / off-white */
-  --surface: #ffffff;          /* Pure white */
-  --text-primary: #111827;     /* Near black */
-  --text-secondary: #6b7280;   /* Gray */
-  --border: #e5e7eb;           /* Light gray */
-  --success: #16a34a;          /* Green */
-  --warning: #f97316;          /* Amber */
-  --error: #b91c1c;            /* Red */
+/* Enhanced Button Styles */
+.btn {
+  display: inline-block;
+  padding: 0.9rem 2rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(185,28,28,0.08);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+  font-family: inherit;
+  margin: 0.5rem 0.5rem 0.5rem 0;
 }
-
-body {
+.btn:hover {
+  background: var(--primary-light);
+  box-shadow: 0 6px 18px rgba(185,28,28,0.16);
+  transform: translateY(-2px);
+}
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--background);
   color: var(--text-primary);

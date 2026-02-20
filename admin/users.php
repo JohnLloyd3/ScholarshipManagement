@@ -61,12 +61,51 @@ $users = $stmt->fetchAll();
     </aside>
 
     <main class="main">
+
       <div class="header-row">
         <div>
           <h2>User Management</h2>
           <p class="muted">Manage user accounts, roles, and activation</p>
         </div>
       </div>
+
+      <section class="panel">
+        <h3>Create Staff/Reviewer Account</h3>
+        <form method="POST" action="../controllers/AdminController.php" autocomplete="off" style="margin-bottom:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:end;">
+          <input type="hidden" name="action" value="create_user">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" name="username" required>
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" required>
+          </div>
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" name="first_name" required>
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" name="last_name" required>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" required>
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select name="role" required>
+              <option value="">Select role</option>
+              <option value="staff">Staff</option>
+              <option value="reviewer">Reviewer</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button type="submit" class="submit-btn">Create User</button>
+          </div>
+        </form>
+      </section>
 
       <?php if (!empty($_SESSION['success'])): ?>
         <div class="flash success-flash"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>

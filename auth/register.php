@@ -69,13 +69,10 @@ if (isset($_SESSION['user_id'])) {
 
         <div class="form-group">
           <label for="role">Account Type</label>
-          <select id="role" name="role" required>
-            <option value="">Select your account type</option>
-            <option value="student">Student - Apply for scholarships</option>
-            <option value="staff">Staff - Manage scholarship programs</option>
-            <option value="reviewer">Reviewer - Review applications</option>
+          <select id="role" name="role" required readonly>
+            <option value="student" selected>Student - Apply for scholarships</option>
           </select>
-          <small>Choose the role that best describes your purpose in this system</small>
+          <small>Only students can self-register. Staff/Reviewer accounts must be created by admin.</small>
         </div>
 
         <div class="form-group">

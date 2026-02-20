@@ -218,7 +218,10 @@ CREATE TABLE `scholarships` (
   `description` text DEFAULT NULL,
   `organization` varchar(150) DEFAULT NULL,
   `status` enum('open','closed') DEFAULT 'open',
-  `created_at` datetime DEFAULT current_timestamp()
+  `deadline` date DEFAULT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  UNIQUE KEY `unique_scholarship` (`title`,`organization`,`deadline`,`amount`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --

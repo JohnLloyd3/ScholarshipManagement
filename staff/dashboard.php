@@ -17,7 +17,7 @@ $pendingApplications = $pdo->query("SELECT COUNT(*) FROM applications WHERE stat
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Staff Dashboard</title>
   <link rel="stylesheet" href="../assets/style.css">
-  <link rel="stylesheet" href="../member/dashboard.css">
+  <link rel="stylesheet" href="../assets/staff-dashboard.css">
 </head>
 <body>
   <div class="dashboard-app">
@@ -31,7 +31,6 @@ $pendingApplications = $pdo->query("SELECT COUNT(*) FROM applications WHERE stat
       </div>
       <nav>
         <a href="dashboard.php">Dashboard</a>
-        <a href="scholarships.php">Manage Scholarships</a>
         <a href="applications.php">View Applications</a>
         <a href="../auth/logout.php">Logout</a>
       </nav>
@@ -53,18 +52,28 @@ $pendingApplications = $pdo->query("SELECT COUNT(*) FROM applications WHERE stat
       <?php endif; ?>
 
       <div class="stats-grid">
-        <div class="stat-card"><div class="value"><?= htmlspecialchars($totalOpenScholarships) ?></div><div class="label">Open Scholarships</div></div>
-        <div class="stat-card"><div class="value"><?= htmlspecialchars($totalApplications) ?></div><div class="label">Total Applications</div></div>
-        <div class="stat-card"><div class="value"><?= htmlspecialchars($pendingApplications) ?></div><div class="label">Pending/Submitted</div></div>
-        <div class="stat-card"><div class="value">—</div><div class="label">Staff Tools</div></div>
+        <div class="stat-card">
+          <div class="value" style="font-size:2.2rem;color:#b71c1c;font-weight:700;"><?= htmlspecialchars($totalOpenScholarships) ?></div>
+          <div class="label" style="color:#444;font-size:1.1rem;margin-bottom:8px;">Open Scholarships</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" style="font-size:2.2rem;color:#b71c1c;font-weight:700;"><?= htmlspecialchars($totalApplications) ?></div>
+          <div class="label" style="color:#444;font-size:1.1rem;margin-bottom:8px;">Total Applications</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" style="font-size:2.2rem;color:#b71c1c;font-weight:700;"><?= htmlspecialchars($pendingApplications) ?></div>
+          <div class="label" style="color:#444;font-size:1.1rem;margin-bottom:8px;">Pending/Submitted</div>
+        </div>
       </div>
 
       <section class="panel">
         <h3>Quick Actions</h3>
-        <p>
-          <a class="btn" href="scholarships.php">Create/Edit Scholarships</a>
-          <a class="btn" href="applications.php" style="margin-left:10px">View Applications</a>
-        </p>
+        <div class="quick-actions">
+            <button class="btn" onclick="location.href='../auth/applicant_register.php'">Applicant Registration Form</button>
+            <button class="btn" onclick="location.href='post_scholarship.php'">Scholarship Posting Form</button>
+            <button class="btn" onclick="location.href='scholarships.php'">Create/Edit Scholarships</button>
+            <button class="btn" onclick="location.href='applications.php'">View Applications</button>
+        </div>
       </section>
     </main>
   </div>

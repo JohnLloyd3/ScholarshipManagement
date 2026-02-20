@@ -35,7 +35,7 @@ if ($q !== '') {
   $sql .= ' AND (a.title LIKE :q OR u.username LIKE :q OR a.email LIKE :q OR s.title LIKE :q)';
   $params[':q'] = '%' . $q . '%';
 }
-if ($status !== '' && in_array($status, ['submitted','pending','approved','rejected'], true)) {
+if ($status !== '' && in_array($status, ['draft','submitted','pending','under_review','approved','rejected','waitlisted'], true)) {
   $sql .= ' AND a.status = :st';
   $params[':st'] = $status;
 }
@@ -110,10 +110,13 @@ if ($editId) {
             <label style="display:block;font-weight:bold;margin-bottom:6px;">Status</label>
             <select name="status">
               <option value="">All</option>
+              <option value="draft" <?= $status==='draft'?'selected':'' ?>>Draft</option>
               <option value="submitted" <?= $status==='submitted'?'selected':'' ?>>Submitted</option>
               <option value="pending" <?= $status==='pending'?'selected':'' ?>>Pending</option>
+              <option value="under_review" <?= $status==='under_review'?'selected':'' ?>>Under Review</option>
               <option value="approved" <?= $status==='approved'?'selected':'' ?>>Approved</option>
               <option value="rejected" <?= $status==='rejected'?'selected':'' ?>>Rejected</option>
+              <option value="waitlisted" <?= $status==='waitlisted'?'selected':'' ?>>Waitlisted</option>
             </select>
           </div>
           <div class="form-group" style="margin:0;">
@@ -165,8 +168,8 @@ if ($editId) {
             <div class="form-group">
               <label style="display:block;font-weight:bold;margin-bottom:6px;">Status</label>
               <select name="status">
-                <?php foreach (['submitted','pending','approved','rejected'] as $st): ?>
-                  <option value="<?= $st ?>" <?= ($editApp['status'] ?? '') === $st ? 'selected' : '' ?>><?= ucfirst($st) ?></option>
+                <?php foreach (['draft','submitted','pending','under_review','approved','rejected','waitlisted'] as $st): ?>
+                  <option value="<?= $st ?>" <?= ($editApp['status'] ?? '') === $st ? 'selected' : '' ?>><?= ucfirst(str_replace('_', ' ', $st)) ?></option>
                 <?php endforeach; ?>
               </select>
             </div>

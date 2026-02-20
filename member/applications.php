@@ -85,8 +85,21 @@ $apps = $stmt->fetchAll();
                   </td>
                   <td><?= htmlspecialchars($a['title']) ?></td>
                   <td>
-                    <span style="color:<?= $a['status'] == 'approved' ? 'green' : ($a['status'] == 'rejected' ? 'red' : 'orange') ?>">
-                      <?= ucfirst(htmlspecialchars($a['status'])) ?>
+                    <?php
+                      $status = $a['status'];
+                      $status_color = [
+                        'draft' => '#999',
+                        'submitted' => '#2196F3',
+                        'pending' => '#FF9800',
+                        'under_review' => '#2196F3',
+                        'approved' => '#4CAF50',
+                        'rejected' => '#f44336',
+                        'waitlisted' => '#FFC107'
+                      ];
+                      $color = $status_color[$status] ?? '#999';
+                    ?>
+                    <span style="color:<?= $color ?>">
+                      <?= ucfirst(str_replace('_', ' ', htmlspecialchars($status))) ?>
                     </span>
                   </td>
                   <td><?php if (!empty($a['document'])): ?><a href="../<?= htmlspecialchars($a['document']) ?>" target="_blank">View</a><?php else: ?>—<?php endif; ?></td>

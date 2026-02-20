@@ -45,6 +45,7 @@ $recent = $stmt->fetchAll();
         <a href="applications.php">Applications</a>
         <a href="scholarships.php">Scholarships</a>
         <a href="users.php">Users</a>
+        <a href="analytics.php">Analytics</a>
         <a href="../auth/logout.php">Logout</a>
       </nav>
     </aside>

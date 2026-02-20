@@ -90,6 +90,7 @@ if ($edit_id) {
         <h3><?= $edit_scholarship ? 'Edit Scholarship' : 'Create New Scholarship' ?></h3>
         <div class="form-modal">
           <form method="POST" action="../controllers/AdminController.php">
+
             <input type="hidden" name="action" value="<?= $edit_scholarship ? 'update_scholarship' : 'create_scholarship' ?>">
             <?php if ($edit_scholarship): ?>
               <input type="hidden" name="id" value="<?= $edit_scholarship['id'] ?>">
@@ -111,11 +112,63 @@ if ($edit_id) {
             </div>
 
             <div class="form-group">
+              <label>Category</label>
+              <select name="category">
+                <option value="">Select category</option>
+                <option value="Academic" <?= ($edit_scholarship['category'] ?? '') == 'Academic' ? 'selected' : '' ?>>Academic</option>
+                <option value="Sports" <?= ($edit_scholarship['category'] ?? '') == 'Sports' ? 'selected' : '' ?>>Sports</option>
+                <option value="Financial Aid" <?= ($edit_scholarship['category'] ?? '') == 'Financial Aid' ? 'selected' : '' ?>>Financial Aid</option>
+                <option value="Other" <?= ($edit_scholarship['category'] ?? '') == 'Other' ? 'selected' : '' ?>>Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Required Documents</label>
+              <div id="documents-container">
+                <div class="requirement-item">
+                  <input type="text" name="documents[]" placeholder="e.g., Transcript of Records">
+                  <button type="button" class="btn-remove-req" onclick="this.parentElement.remove()">Remove</button>
+                </div>
+              </div>
+              <button type="button" class="btn-add-req" onclick="addDocument()">Add Document</button>
+            </div>
+
+            <div class="form-group">
+              <label>GPA Requirement</label>
+              <input type="number" step="0.01" min="0" max="5" name="gpa_requirement" value="<?= htmlspecialchars($edit_scholarship['gpa_requirement'] ?? '') ?>" placeholder="e.g., 3.5">
+            </div>
+
+            <div class="form-group">
+              <label>Income Bracket Requirement</label>
+              <input type="number" step="0.01" min="0" name="income_requirement" value="<?= htmlspecialchars($edit_scholarship['income_requirement'] ?? '') ?>" placeholder="e.g., 250000">
+            </div>
+
+            <div class="form-group">
+              <label>Maximum Number of Scholars</label>
+              <input type="number" min="1" name="max_scholars" value="<?= htmlspecialchars($edit_scholarship['max_scholars'] ?? '') ?>" placeholder="e.g., 10">
+            </div>
+
+            <div class="form-group">
+              <label>Application Deadline</label>
+              <input type="date" name="deadline" value="<?= htmlspecialchars($edit_scholarship['deadline'] ?? '') ?>">
+            </div>
+
+            <div class="form-group">
               <label>Status</label>
               <select name="status">
                 <option value="open" <?= ($edit_scholarship['status'] ?? 'open') == 'open' ? 'selected' : '' ?>>Open</option>
                 <option value="closed" <?= ($edit_scholarship['status'] ?? '') == 'closed' ? 'selected' : '' ?>>Closed</option>
+                <option value="archived" <?= ($edit_scholarship['status'] ?? '') == 'archived' ? 'selected' : '' ?>>Archived</option>
               </select>
+            </div>
+
+            <div class="form-group">
+              <label>Auto-Close</label>
+              <select name="auto_close">
+                <option value="0" <?= ($edit_scholarship['auto_close'] ?? 0) == 0 ? 'selected' : '' ?>>No</option>
+                <option value="1" <?= ($edit_scholarship['auto_close'] ?? 0) == 1 ? 'selected' : '' ?>>Yes</option>
+              </select>
+              <small>If enabled, scholarship will close automatically when deadline or max scholars is reached.</small>
             </div>
 
             <div class="form-group">
