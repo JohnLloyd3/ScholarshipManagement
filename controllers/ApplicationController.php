@@ -20,9 +20,22 @@ if ($action === 'create') {
     $full_time = isset($_POST['full_time']) ? 1 : 0;
     $other_info = trim($_POST['other_info'] ?? '');
 
+    // 3.3 Validate application entries
+    $validation_errors = [];
     if (!$scholarship_id) {
-        $_SESSION['flash'] = 'Please select a scholarship.';
-        header('Location: ../member/apply_scholarship.php');
+        $validation_errors[] = 'Please select a scholarship.';
+    }
+    if ($title === '') {
+        $validation_errors[] = 'Application title is required.';
+    }
+    if ($gpa === '') {
+        $validation_errors[] = 'GPA is required.';
+    } elseif (!is_numeric($gpa) || (floatval($gpa) < 0 || floatval($gpa) > 4.0)) {
+        $validation_errors[] = 'GPA must be a number between 0 and 4.0.';
+    }
+    if (!empty($validation_errors)) {
+        $_SESSION['flash'] = implode(' ', $validation_errors);
+        header('Location: ../member/apply_scholarship.php' . ($scholarship_id ? '?scholarship_id=' . $scholarship_id : ''));
         exit;
     }
 

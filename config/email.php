@@ -341,3 +341,52 @@ function getPasswordResetEmailTemplate($code) {
 function generateVerificationCode() {
     return str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
 }
+
+/**
+ * Send application decision notification email to applicant (3.6 Notify Applicants)
+ */
+function sendApplicationDecisionEmail($to, $applicantName, $scholarshipTitle, $status, $comments = '') {
+    $subject = 'Scholarship Application Update - ' . ($status === 'approved' ? 'Approved' : 'Update');
+    $message = getApplicationDecisionEmailTemplate($applicantName, $scholarshipTitle, $status, $comments);
+    return sendEmail($to, $subject, $message, true);
+}
+
+/**
+ * Email template for application approved/rejected notification
+ */
+function getApplicationDecisionEmailTemplate($applicantName, $scholarshipTitle, $status, $comments = '') {
+    $isApproved = ($status === 'approved');
+    $statusLabel = $isApproved ? 'Approved' : 'Rejected';
+    $statusColor = $isApproved ? '#2e7d32' : '#c62828';
+    $statusText = $isApproved
+        ? 'Congratulations! Your scholarship application has been <strong style="color:' . $statusColor . '">approved</strong>.'
+        : 'Your scholarship application has been <strong style="color:' . $statusColor . '">rejected</strong>.';
+    $commentsHtml = $comments ? '<p><strong>Comments:</strong> ' . htmlspecialchars($comments) . '</p>' : '';
+    return "
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='UTF-8'>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .status-box { padding: 16px; border-radius: 8px; margin: 20px 0; }
+            .footer { margin-top: 30px; font-size: 12px; color: #666; }
+        </style>
+    </head>
+    <body>
+        <div class='container'>
+            <h2>Scholarship Application Update</h2>
+            <p>Hello " . htmlspecialchars($applicantName) . ",</p>
+            <p>Your application for <strong>" . htmlspecialchars($scholarshipTitle) . "</strong> has been reviewed.</p>
+            <p>" . $statusText . "</p>
+            " . $commentsHtml . "
+            <p>Log in to your account to view full details.</p>
+            <div class='footer'>
+                <p>© " . date('Y') . " Scholarship Management System</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    ";
+}

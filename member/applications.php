@@ -39,6 +39,7 @@ $apps = $stmt->fetchAll();
         <a href="dashboard.php">Dashboard</a>
         <a href="applications.php">Your Applications</a>
         <a href="apply_scholarship.php">Apply for Scholarship</a>
+        <a href="notifications.php">Notifications</a>
         <a href="../auth/logout.php">Logout</a>
       </nav>
     </aside>

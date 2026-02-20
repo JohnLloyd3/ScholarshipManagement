@@ -79,11 +79,9 @@ if ($pdo) {
         ]);
     }
 
-    // Active scholarships - try few patterns
+    // Open scholarships available to apply (2.7 status tracking)
     $activeScholarships = try_count($pdo, [
-        ['sql' => 'SELECT COUNT(*) FROM scholarships WHERE student_id = :id AND status = "active"', 'params' => [':id' => $studentId ?? 0]],
-        ['sql' => 'SELECT COUNT(*) FROM scholarships WHERE status = "active" AND student_id = :id', 'params' => [':id' => $studentId ?? 0]],
-        ['sql' => 'SELECT COUNT(*) FROM scholarships WHERE student_email = :email', 'params' => [':email' => $user['email'] ?? '']]
+        ['sql' => 'SELECT COUNT(*) FROM scholarships WHERE status = "open"', 'params' => []]
     ]);
 
     // Pending reviews for this user
@@ -122,8 +120,9 @@ if ($pdo) {
 
       <nav>
         <a href="dashboard.php">Dashboard</a>
-        <a href="applications.php">Applications</a>
+        <a href="applications.php">Your Applications</a>
         <a href="apply_scholarship.php">Apply for Scholarship</a>
+        <a href="notifications.php">Notifications</a>
         <a href="../auth/logout.php">Logout</a>
       </nav>
     </aside>
@@ -180,7 +179,7 @@ if ($pdo) {
 
         <section class="panel">
           <h3>Scholarship Status</h3>
-          <p class="muted"><?php if ($activeScholarships > 0) { echo "You have $activeScholarships active scholarship(s)."; } else { echo "You don't have any active scholarship yet. Apply now to start your application."; } ?></p>
+          <p class="muted"><?php if ($activeScholarships > 0) { echo "There are $activeScholarships open scholarship(s) you can apply for."; } else { echo "No open scholarships at the moment. Check back later."; } ?></p>
         </section>
 
         <section class="panel quick-actions">

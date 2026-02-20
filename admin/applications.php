@@ -172,6 +172,11 @@ if ($editId) {
             </div>
 
             <div class="form-group">
+              <label style="display:block;font-weight:bold;margin-bottom:6px;">Reviewer comments (included in notification email)</label>
+              <textarea name="review_comments" rows="3" placeholder="Optional message to applicant when approving/rejecting"><?= htmlspecialchars($_POST['review_comments'] ?? '') ?></textarea>
+            </div>
+
+            <div class="form-group">
               <label style="display:block;font-weight:bold;margin-bottom:6px;">Reviewer</label>
               <select name="reviewer_id">
                 <option value="">— None —</option>

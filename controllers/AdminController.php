@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/email.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['user']['role'] ?? '') !== 'admin') {
     $_SESSION['flash'] = 'Admin access only.';
@@ -43,6 +44,11 @@ if ($action === 'set_application_status') {
     $id = (int)($_POST['id'] ?? 0);
     $status = trim($_POST['status'] ?? '');
     if ($id && in_array($status, ['submitted','pending','approved','rejected'], true)) {
+        // Fetch application for notification (before update)
+        $appStmt = $pdo->prepare('SELECT a.user_id, a.email, a.title, a.scholarship_id, s.title AS scholarship_title FROM applications a LEFT JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id');
+        $appStmt->execute([':id' => $id]);
+        $appRow = $appStmt->fetch();
+
         $stmt = $pdo->prepare('UPDATE applications SET status = :s WHERE id = :id');
         $stmt->execute([':s' => $status, ':id' => $id]);
 
@@ -52,6 +58,33 @@ if ($action === 'set_application_status') {
         $r = $rst->fetch();
         if ($r) {
             $pdo->prepare('UPDATE reviews SET status = :s WHERE id = :id')->execute([':s' => $status, ':id' => $r['id']]);
+        }
+
+        // 3.6 Notify applicant when approved or rejected
+        if ($appRow && in_array($status, ['approved', 'rejected'], true)) {
+            $userId = $appRow['user_id'];
+            $email = $appRow['email'];
+            $scholarshipTitle = $appRow['scholarship_title'] ?? $appRow['title'];
+            $applicantName = 'Applicant';
+            if ($userId) {
+                $u = $pdo->prepare('SELECT email, first_name, last_name FROM users WHERE id = :id');
+                $u->execute([':id' => $userId]);
+                $uRow = $u->fetch();
+                if ($uRow) {
+                    $email = $email ?: $uRow['email'];
+                    $applicantName = trim(($uRow['first_name'] ?? '') . ' ' . ($uRow['last_name'] ?? '')) ?: 'Applicant';
+                }
+                $ins = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type) VALUES (:uid, :title, :msg, :type)');
+                $ins->execute([
+                    ':uid' => $userId,
+                    ':title' => 'Application ' . ucfirst($status),
+                    ':msg' => 'Your application for "' . $scholarshipTitle . '" has been ' . $status . '.',
+                    ':type' => $status === 'approved' ? 'success' : 'warning'
+                ]);
+            }
+            if ($email) {
+                @sendApplicationDecisionEmail($email, $applicantName, $scholarshipTitle, $status, '');
+            }
         }
 
         $_SESSION['success'] = 'Application status updated.';
@@ -66,9 +99,16 @@ if ($action === 'update_application') {
     $details = trim($_POST['details'] ?? '');
     $status = trim($_POST['status'] ?? '');
     $reviewer = trim($_POST['reviewer_id'] ?? '');
+    $reviewComments = trim($_POST['review_comments'] ?? '');
     $reviewerId = ($reviewer !== '' && ctype_digit($reviewer)) ? (int)$reviewer : null;
 
     if ($id && $title !== '' && in_array($status, ['submitted','pending','approved','rejected'], true)) {
+        // Fetch current application for notification (before update)
+        $oldStmt = $pdo->prepare('SELECT a.status, a.user_id, a.email, a.scholarship_id, s.title AS scholarship_title FROM applications a LEFT JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id');
+        $oldStmt->execute([':id' => $id]);
+        $oldApp = $oldStmt->fetch();
+        $scholarshipTitle = $oldApp['scholarship_title'] ?? null;
+
         $stmt = $pdo->prepare('UPDATE applications SET title = :t, details = :d, status = :s, reviewer_id = :rid WHERE id = :id');
         $stmt->execute([
             ':t' => $title,
@@ -94,6 +134,37 @@ if ($action === 'update_application') {
         $r = $rst->fetch();
         if ($r) {
             $pdo->prepare('UPDATE reviews SET status = :s WHERE id = :id')->execute([':s' => $status, ':id' => $r['id']]);
+        }
+
+        // 3.6 Notify applicant when status changed to approved or rejected
+        if ($oldApp && in_array($status, ['approved', 'rejected'], true)) {
+            $userId = $oldApp['user_id'];
+            $email = $oldApp['email'];
+            $schTitle = $scholarshipTitle ?: $title;
+            $applicantName = 'Applicant';
+            if ($userId) {
+                $u = $pdo->prepare('SELECT email, first_name, last_name FROM users WHERE id = :id');
+                $u->execute([':id' => $userId]);
+                $uRow = $u->fetch();
+                if ($uRow) {
+                    $email = $email ?: $uRow['email'];
+                    $applicantName = trim(($uRow['first_name'] ?? '') . ' ' . ($uRow['last_name'] ?? '')) ?: 'Applicant';
+                }
+                $ins = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type) VALUES (:uid, :title, :msg, :type)');
+                $msg = 'Your application for "' . $schTitle . '" has been ' . $status . '.';
+                if ($reviewComments !== '') {
+                    $msg .= "\n\nComment: " . $reviewComments;
+                }
+                $ins->execute([
+                    ':uid' => $userId,
+                    ':title' => 'Application ' . ucfirst($status),
+                    ':msg' => $msg,
+                    ':type' => $status === 'approved' ? 'success' : 'warning'
+                ]);
+            }
+            if ($email) {
+                @sendApplicationDecisionEmail($email, $applicantName, $schTitle, $status, $reviewComments);
+            }
         }
 
         $_SESSION['success'] = 'Application updated.';

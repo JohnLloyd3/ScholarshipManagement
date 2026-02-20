@@ -69,8 +69,9 @@ if ($scholarship_id) {
       </div>
       <nav>
         <a href="dashboard.php">Dashboard</a>
-        <a href="applications.php">Applications</a>
+        <a href="applications.php">Your Applications</a>
         <a href="apply_scholarship.php">Apply for Scholarship</a>
+        <a href="notifications.php">Notifications</a>
         <a href="../auth/logout.php">Logout</a>
       </nav>
     </aside>
@@ -148,8 +149,8 @@ if ($scholarship_id) {
             </div>
 
             <div class="form-group">
-              <label>Application Details</label>
-              <textarea name="details" rows="5" placeholder="Tell us why you deserve this scholarship..."></textarea>
+              <label>Application Details *</label>
+              <textarea name="details" rows="5" placeholder="Tell us why you deserve this scholarship..." required></textarea>
             </div>
 
             <div class="form-group">

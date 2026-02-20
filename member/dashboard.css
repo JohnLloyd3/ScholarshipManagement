@@ -1,16 +1,16 @@
 /* ==================================
-   DASHBOARD - Minimalist School Theme
+   DASHBOARD - Red & White Theme
 ================================== */
 
 :root {
-  --bg: #fafbfc;
+  --bg: #fef2f2;
   --card: #ffffff;
   --muted: #6b7280;
-  --primary: #1e3a5f;
-  --primary-light: #2d4f7c;
-  --accent: #4a90e2;
+  --primary: #b91c1c;
+  --primary-light: #dc2626;
+  --accent: #ef4444;
   --border: #e5e7eb;
-  --text-primary: #1a1a1a;
+  --text-primary: #111827;
   --text-secondary: #6b7280;
 }
 
@@ -343,7 +343,7 @@ table td {
 }
 
 table tbody tr:hover {
-  background: rgba(30, 58, 95, 0.02);
+  background: rgba(185, 28, 28, 0.03);
 }
 
 @media (max-width: 900px) {

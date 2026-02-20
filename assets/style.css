@@ -1,6 +1,6 @@
 /* ==================================
    MINIMALIST SCHOOL THEME
-   Clean, Simple, Academic Design
+   Red & White Academic Design
 ================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -13,18 +13,18 @@
 
 :root {
   /* School Colors - Minimalist Palette */
-  --primary: #1e3a5f;        /* Deep navy blue */
-  --primary-light: #2d4f7c;
-  --accent: #4a90e2;          /* Soft blue */
-  --accent-light: #6ba3e8;
-  --background: #fafbfc;      /* Off-white */
+  --primary: #b91c1c;        /* Deep red */
+  --primary-light: #dc2626;
+  --accent: #ef4444;          /* Vivid red */
+  --accent-light: #fee2e2;
+  --background: #fef2f2;      /* Very light red / off-white */
   --surface: #ffffff;          /* Pure white */
-  --text-primary: #1a1a1a;     /* Near black */
+  --text-primary: #111827;     /* Near black */
   --text-secondary: #6b7280;   /* Gray */
   --border: #e5e7eb;           /* Light gray */
-  --success: #10b981;          /* Green */
-  --warning: #f59e0b;          /* Amber */
-  --error: #ef4444;            /* Red */
+  --success: #16a34a;          /* Green */
+  --warning: #f97316;          /* Amber */
+  --error: #b91c1c;            /* Red */
 }
 
 body {
@@ -173,7 +173,7 @@ p {
 .hero {
   text-align: center;
   padding: 8rem 2rem;
-  background: linear-gradient(135deg, rgba(30, 58, 95, 0.05) 0%, rgba(74, 144, 226, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.06) 0%, rgba(248, 113, 113, 0.06) 100%);
   position: relative;
   overflow: hidden;
 }
@@ -190,8 +190,8 @@ p {
       0deg,
       transparent,
       transparent 2px,
-      rgba(30, 58, 95, 0.03) 2px,
-      rgba(30, 58, 95, 0.03) 4px
+      rgba(185, 28, 28, 0.04) 2px,
+      rgba(185, 28, 28, 0.04) 4px
     );
   pointer-events: none;
 }
