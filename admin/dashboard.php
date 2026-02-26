@@ -1,25 +1,40 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
-require_once __DIR__ . '/../config/db.php';
-
-// Only admin can access
+error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
 session_start();
-if (!isset($_SESSION['user_id']) || ($_SESSION['user']['role'] ?? '') !== 'admin') {
-    $_SESSION['flash'] = 'Admin access only.';
-    header('Location: ../auth/login.php');
-    exit;
-}
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
+
+// Authentication
+requireLogin();
+requireRole('admin', 'Admin access required');
 
 $pdo = getPDO();
 
-// Stats
-$totalApplications = $pdo->query('SELECT COUNT(*) FROM applications')->fetchColumn();
-$pendingReviews = $pdo->query("SELECT COUNT(*) FROM reviews WHERE status = 'pending'")->fetchColumn();
-$totalUsers = $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+try {
+    // Stats
+    $totalApplications = $pdo->query('SELECT COUNT(*) FROM applications')->fetchColumn() ?: 0;
+    $pendingApplications = $pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'pending'")->fetchColumn() ?: 0;
+    $pendingReviews = $pdo->query("SELECT COUNT(*) FROM reviews WHERE status = 'pending'")->fetchColumn() ?: 0;
+    $totalUsers = $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() ?: 0;
+    $totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn() ?: 0;
 
-// Recent applications
-$stmt = $pdo->query('SELECT a.*, u.first_name, u.last_name FROM applications a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC LIMIT 12');
-$recent = $stmt->fetchAll();
+    // Recent applications
+    $stmt = $pdo->query('SELECT a.id, a.title, a.status, a.created_at, a.submitted_at, u.first_name, u.last_name, s.title as scholarship_title 
+                         FROM applications a 
+                         LEFT JOIN users u ON a.user_id = u.id 
+                         LEFT JOIN scholarships s ON a.scholarship_id = s.id 
+                         ORDER BY a.created_at DESC LIMIT 12');
+    $recent = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (Exception $e) {
+    error_log('Admin Dashboard Error: ' . $e->getMessage());
+    $totalApplications = 0;
+    $pendingApplications = 0;
+    $pendingReviews = 0;
+    $totalUsers = 0;
+    $totalScholarships = 0;
+    $recent = [];
+}
 ?>
 <!doctype html>
 <html>

@@ -101,3 +101,194 @@ function generateCSRFToken() {
     }
     return $_SESSION['csrf_token'];
 }
+/**
+ * Hash password using bcrypt
+ * @param string $password Plain text password
+ * @return string Hashed password
+ */
+function hashPassword($password) {
+    return password_hash($password, PASSWORD_BCRYPT, ['cost' => 10]);
+}
+
+/**
+ * Verify password against hash
+ * @param string $password Plain text password
+ * @param string $hash Password hash
+ * @return bool True if matches
+ */
+function verifyPassword($password, $hash) {
+    return password_verify($password, $hash);
+}
+
+/**
+ * Validate email format
+ * @param string $email Email to validate
+ * @return bool True if valid
+ */
+function isValidEmail($email) {
+    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+}
+
+/**
+ * Validate password strength
+ * Requirements: min 8 chars, 1 uppercase, 1 lowercase, 1 number
+ * @param string $password Password to validate
+ * @return bool True if strong
+ */
+function isStrongPassword($password) {
+    return preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/', $password);
+}
+
+/**
+ * Validate GPA format (0.0 - 4.0)
+ * @param float $gpa GPA to validate
+ * @return bool True if valid
+ */
+function isValidGPA($gpa) {
+    $gpa = floatval($gpa);
+    return $gpa >= 0.0 && $gpa <= 4.0;
+}
+
+/**
+ * Validate phone number
+ * @param string $phone Phone to validate
+ * @return bool True if valid
+ */
+function isValidPhone($phone) {
+    return preg_match('/^[0-9\-\+\s\(\)]{10,}$/', $phone);
+}
+
+/**
+ * Sanitize string input
+ * @param string $string String to sanitize
+ * @return string Sanitized string
+ */
+function sanitizeString($string) {
+    return htmlspecialchars(trim($string), ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Sanitize email
+ * @param string $email Email to sanitize
+ * @return string Sanitized email
+ */
+function sanitizeEmail($email) {
+    return filter_var(trim($email), FILTER_SANITIZE_EMAIL);
+}
+
+/**
+ * Get client IP address
+ * @return string Client IP
+ */
+function getClientIP() {
+    if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+        $ip = $_SERVER['HTTP_CLIENT_IP'];
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ip = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
+    } else {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    }
+    
+    return filter_var(trim($ip), FILTER_VALIDATE_IP) ?: '127.0.0.1';
+}
+
+/**
+ * Generate numeric verification code
+ * @param int $length Code length
+ * @return string Numeric code
+ */
+function generateVerificationCode($length = 6) {
+    return str_pad(random_int(0, pow(10, $length) - 1), $length, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Set security headers
+ */
+function setSecurityHeaders() {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('X-XSS-Protection: 1; mode=block');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+}
+
+/**
+ * Check if user is logged in
+ * @return bool True if logged in
+ */
+function isLoggedIn() {
+    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+}
+
+/**
+ * Get current user from session
+ * @return array|null User data or null
+ */
+function getCurrentUser() {
+    return $_SESSION['user'] ?? null;
+}
+
+/**
+ * Get current user ID
+ * @return int|null User ID or null
+ */
+function getCurrentUserID() {
+    return $_SESSION['user_id'] ?? null;
+}
+
+/**
+ * Check if user has role
+ * @param string $role Role to check
+ * @return bool True if user has role
+ */
+function hasRole($role) {
+    $user = getCurrentUser();
+    return $user && $user['role'] === $role;
+}
+
+/**
+ * Check if user has any of the roles
+ * @param array $roles Roles to check
+ * @return bool True if user has any role
+ */
+function hasAnyRole($roles) {
+    $user = getCurrentUser();
+    return $user && in_array($user['role'], $roles);
+}
+
+/**
+ * Redirect to login if not authenticated
+ * @param string $redirectTo URL to redirect after login (optional)
+ */
+function requireLogin($redirectTo = null) {
+    if (!isLoggedIn()) {
+        $_SESSION['redirect_after_login'] = $redirectTo ?? $_SERVER['REQUEST_URI'];
+        header('Location: ../auth/login.php');
+        exit;
+    }
+}
+
+/**
+ * Redirect if no permission
+ * @param string $role Required role
+ * @param string $message Error message
+ */
+function requireRole($role, $message = 'Access Denied') {
+    if (!hasRole($role)) {
+        $_SESSION['error'] = $message;
+        header('Location: ../index.php');
+        exit;
+    }
+}
+
+/**
+ * Redirect if no permission for any role
+ * @param array $roles Allowed roles
+ * @param string $message Error message
+ */
+function requireAnyRole($roles, $message = 'Access Denied') {
+    if (!hasAnyRole($roles)) {
+        $_SESSION['error'] = $message;
+        header('Location: ../index.php');
+        exit;
+    }
+}

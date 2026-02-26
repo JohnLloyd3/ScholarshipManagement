@@ -1,547 +1,365 @@
--- phpMyAdmin SQL Dump
--- version 5.2.1
--- https://www.phpmyadmin.net/
---
--- Host: 127.0.0.1
--- Generation Time: Feb 02, 2026 at 09:10 AM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+-- Scholarship Management System Database Schema
+-- Original schema structure - no sample data
+
+-- ==========================================
+-- 1. USERS TABLE (Core user management)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  email VARCHAR(150) NOT NULL UNIQUE,
+  phone VARCHAR(50),
+  address TEXT,
+  role ENUM('admin','reviewer','student','staff') DEFAULT 'student',
+  active TINYINT(1) DEFAULT 1,
+  email_verified TINYINT(1) DEFAULT 0,
+  secret_question VARCHAR(255),
+  secret_answer_hash VARCHAR(255),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_email (email),
+  INDEX idx_role (role),
+  INDEX idx_active (active),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 2. STUDENT PROFILES TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS student_profiles (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL UNIQUE,
+  student_number VARCHAR(50) UNIQUE,
+  gpa DECIMAL(3,2),
+  university VARCHAR(150),
+  course VARCHAR(150),
+  enrollment_status ENUM('full-time','part-time','graduated') DEFAULT 'full-time',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_gpa (gpa),
+  INDEX idx_enrollment_status (enrollment_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 3. SCHOLARSHIPS TABLE (Scholarship postings)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS scholarships (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  organization VARCHAR(150),
+  requirements TEXT,
+  amount DECIMAL(12,2),
+  deadline DATE,
+  status ENUM('open','closed','cancelled') DEFAULT 'open',
+  created_by INT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_scholarship (title, organization, deadline),
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_status (status),
+  INDEX idx_deadline (deadline),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 4. ELIGIBILITY REQUIREMENTS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS eligibility_requirements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  scholarship_id INT NOT NULL,
+  requirement VARCHAR(255),
+  requirement_type ENUM('gpa','enrollment','field','documents') DEFAULT 'documents',
+  value VARCHAR(100),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+  INDEX idx_scholarship_id (scholarship_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 5. APPLICATIONS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS applications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  scholarship_id INT NOT NULL,
+  title VARCHAR(255),
+  details TEXT,
+  motivational_letter TEXT,
+  gpa DECIMAL(3,2),
+  status ENUM('draft','submitted','pending','approved','rejected','withdrawn') DEFAULT 'draft',
+  submitted_at DATETIME,
+  reviewed_at DATETIME,
+  reviewer_id INT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE KEY unique_application (user_id, scholarship_id),
+  INDEX idx_user_id (user_id),
+  INDEX idx_scholarship_id (scholarship_id),
+  INDEX idx_status (status),
+  INDEX idx_submitted_at (submitted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 6. DOCUMENTS TABLE (File uploads)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS documents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  application_id INT NOT NULL,
+  user_id INT NOT NULL,
+  document_type VARCHAR(100),
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  file_size INT,
+  mime_type VARCHAR(100),
+  verification_status ENUM('pending','verified','rejected','needs_resubmission') DEFAULT 'pending',
+  verified_by INT,
+  verified_at DATETIME,
+  notes TEXT,
+  uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_application_id (application_id),
+  INDEX idx_verification_status (verification_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 7. REVIEWS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  application_id INT NOT NULL,
+  reviewer_id INT NOT NULL,
+  rating INT DEFAULT 0,
+  comments TEXT,
+  documents_verified TINYINT(1) DEFAULT 0,
+  status ENUM('pending','approved','rejected') DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_application_id (application_id),
+  INDEX idx_reviewer_id (reviewer_id),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 8. AWARDS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS awards (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  application_id INT NOT NULL,
+  user_id INT NOT NULL,
+  scholarship_id INT NOT NULL,
+  award_amount DECIMAL(12,2),
+  award_date DATE,
+  status ENUM('pending','approved','disbursed','cancelled','rejected') DEFAULT 'pending',
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+  INDEX idx_scholarship_id (scholarship_id),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 9. DISBURSEMENTS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS disbursements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  award_id INT NOT NULL,
+  user_id INT NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  disbursement_date DATE,
+  payment_method VARCHAR(50),
+  transaction_reference VARCHAR(255),
+  status ENUM('pending','processed','completed','failed') DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_award_id (award_id),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 10. NOTIFICATIONS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  title VARCHAR(255),
+  message TEXT,
+  type ENUM('info','success','warning','error','application','deadline') DEFAULT 'info',
+  related_application_id INT,
+  related_scholarship_id INT,
+  seen TINYINT(1) DEFAULT 0,
+  seen_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (related_application_id) REFERENCES applications(id) ON DELETE SET NULL,
+  FOREIGN KEY (related_scholarship_id) REFERENCES scholarships(id) ON DELETE SET NULL,
+  INDEX idx_user_id (user_id),
+  INDEX idx_seen (seen),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 11. ANNOUNCEMENTS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS announcements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  type ENUM('info','success','warning','urgent') DEFAULT 'info',
+  created_by INT NOT NULL,
+  published TINYINT(1) DEFAULT 1,
+  published_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_published (published),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 12. PASSWORD RESETS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS password_resets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  email VARCHAR(150),
+  token VARCHAR(200) NOT NULL UNIQUE,
+  used TINYINT(1) DEFAULT 0,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_token (token),
+  INDEX idx_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 13. EMAIL VERIFICATION CODES TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS email_verification_codes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT,
+  email VARCHAR(150) NOT NULL,
+  code VARCHAR(10) NOT NULL,
+  type ENUM('verification','login','password_reset') DEFAULT 'verification',
+  used TINYINT(1) DEFAULT 0,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_code_email (code, email),
+  INDEX idx_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 14. DEADLINE REMINDERS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS deadline_reminders (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  scholarship_id INT NOT NULL,
+  reminder_type ENUM('7_days','1_day','deadline') DEFAULT '7_days',
+  sent TINYINT(1) DEFAULT 0,
+  sent_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+  INDEX idx_sent (sent),
+  INDEX idx_user_scholarship (user_id, scholarship_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 15. AUDIT LOG TABLE (Security)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT,
+  action VARCHAR(255),
+  entity_type VARCHAR(100),
+  entity_id INT,
+  old_values JSON,
+  new_values JSON,
+  ip_address VARCHAR(45),
+  user_agent VARCHAR(500),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_user_id (user_id),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 16. LOGIN ATTEMPTS TABLE (Security)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(150) NOT NULL,
+  ip_address VARCHAR(45),
+  success TINYINT(1) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_email (email),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 17. ACTIVATIONS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS activations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL UNIQUE,
+  token VARCHAR(200) NOT NULL UNIQUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_token (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- INSERT SAMPLE DATA
+-- ==========================================
+
+-- Sample Admin User
+INSERT IGNORE INTO users (id, username, password, first_name, last_name, email, phone, role, active, email_verified, created_at) 
+VALUES (1, 'admin', '$2y$10$Ue5kqmNfp1NTkIo5LZfx9exVfBo/7r5K3dZLW.d7K4KLNjDnZdU6W', 'System', 'Admin', 'admin@scholarships.com', '+63900000001', 'admin', 1, 1, NOW());
+
+-- Sample Staff User
+INSERT IGNORE INTO users (id, username, password, first_name, last_name, email, phone, role, active, email_verified, created_at) 
+VALUES (2, 'staff1', '$2y$10$Ue5kqmNfp1NTkIo5LZfx9exVfBo/7r5K3dZLW.d7K4KLNjDnZdU6W', 'John', 'Staff', 'staff@scholarships.com', '+63900000002', 'staff', 1, 1, NOW());
+
+-- Sample Reviewer User
+INSERT IGNORE INTO users (id, username, password, first_name, last_name, email, phone, role, active, email_verified, created_at) 
+VALUES (3, 'reviewer1', '$2y$10$Ue5kqmNfp1NTkIo5LZfx9exVfBo/7r5K3dZLW.d7K4KLNjDnZdU6W', 'Jane', 'Reviewer', 'reviewer@scholarships.com', '+63900000003', 'reviewer', 1, 1, NOW());
+
+-- Sample Scholarships
+INSERT IGNORE INTO scholarships (id, title, description, organization, amount, deadline, status, created_by, created_at) 
+VALUES 
+(1, 'Academic Excellence Award', 'For students maintaining GPA above 3.5', 'University Foundation', 50000.00, DATE_ADD(NOW(), INTERVAL 60 DAY), 'open', 1, NOW()),
+(2, 'STEM Innovation Grant', 'Supporting STEM research and innovation', 'Tech Academy', 75000.00, DATE_ADD(NOW(), INTERVAL 45 DAY), 'open', 1, NOW()),
+(3, 'Community Service Scholarship', 'For students with strong community involvement', 'Local Foundation', 30000.00, DATE_ADD(NOW(), INTERVAL 30 DAY), 'open', 1, NOW());
+
+-- Sample Eligibility Requirements
+INSERT IGNORE INTO eligibility_requirements (id, scholarship_id, requirement, requirement_type, value, created_at) 
+VALUES 
+(1, 1, 'GPA >= 3.5', 'gpa', '3.5', NOW()),
+(2, 1, 'Enrolled full-time', 'enrollment', 'full-time', NOW()),
+(3, 2, 'Studying STEM field', 'field', 'STEM', NOW()),
+(4, 2, 'GPA >= 3.0', 'gpa', '3.0', NOW()),
+(5, 3, 'Completed volunteer hours', 'documents', '100', NOW());
+
+-- Sample Announcement
+INSERT IGNORE INTO announcements (id, title, message, type, created_by, published) 
+VALUES 
+(1, 'Scholarship Portal Opened', 'Welcome to our Scholarship Management System! Applications are now open for the 2026 academic year.', 'success', 1, 1);
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
 
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
-
---
--- Database: `scholarshipmanagement`
---
-
--- --------------------------------------------------------
-
---
--- Table structure for table `activations`
---
-
-CREATE TABLE `activations` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `token` varchar(200) NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `applications`
---
-
-CREATE TABLE `applications` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `scholarship_id` int(11) DEFAULT NULL,
-  `title` varchar(255) NOT NULL,
-  `details` text DEFAULT NULL,
-  `status` enum('submitted','pending','approved','rejected') DEFAULT 'submitted',
-  `reviewer_id` int(11) DEFAULT NULL,
-  `document` varchar(255) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `awards`
---
-
-CREATE TABLE `awards` (
-  `id` int(11) NOT NULL,
-  `application_id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `scholarship_id` int(11) DEFAULT NULL,
-  `award_amount` decimal(10,2) DEFAULT NULL,
-  `award_date` date DEFAULT NULL,
-  `status` enum('pending','approved','disbursed','cancelled') DEFAULT 'pending',
-  `notes` text DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `disbursements`
---
-
-CREATE TABLE `disbursements` (
-  `id` int(11) NOT NULL,
-  `award_id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `amount` decimal(10,2) NOT NULL,
-  `disbursement_date` date DEFAULT NULL,
-  `payment_method` varchar(50) DEFAULT NULL,
-  `transaction_reference` varchar(255) DEFAULT NULL,
-  `status` enum('pending','processed','completed','failed') DEFAULT 'pending',
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `documents`
---
-
-CREATE TABLE `documents` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `application_id` int(11) DEFAULT NULL,
-  `document_type` varchar(100) DEFAULT NULL,
-  `file_name` varchar(255) DEFAULT NULL,
-  `file_path` varchar(500) DEFAULT NULL,
-  `file_size` int(11) DEFAULT NULL,
-  `mime_type` varchar(100) DEFAULT NULL,
-  `uploaded_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `eligibility_requirements`
---
-
-CREATE TABLE `eligibility_requirements` (
-  `id` int(11) NOT NULL,
-  `scholarship_id` int(11) NOT NULL,
-  `requirement` varchar(255) NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `eligibility_requirements`
---
-
-INSERT INTO `eligibility_requirements` (`id`, `scholarship_id`, `requirement`, `created_at`) VALUES
-(1, 1, 'GPA >= 3.5', '2026-02-02 14:48:59'),
-(2, 1, 'Enrolled full-time', '2026-02-02 14:48:59'),
-(3, 2, 'Pursuing degree in STEM', '2026-02-02 14:48:59');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `email_verification_codes`
---
-
-CREATE TABLE `email_verification_codes` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `email` varchar(150) NOT NULL,
-  `code` varchar(10) NOT NULL,
-  `type` enum('verification','login','password_reset') DEFAULT 'verification',
-  `expires_at` datetime NOT NULL,
-  `used` tinyint(1) DEFAULT 0,
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `email_verification_codes`
---
-
-INSERT INTO `email_verification_codes` (`id`, `user_id`, `email`, `code`, `type`, `expires_at`, `used`, `created_at`) VALUES
-(1, 3, 'johnlloydracaza88@gmail.com', '272366', 'verification', '2026-02-02 08:03:59', 0, '2026-02-02 14:48:59'),
-(2, 3, 'johnlloydracaza88@gmail.com', '506547', 'password_reset', '2026-02-02 08:07:23', 0, '2026-02-02 14:52:23'),
-(3, 3, 'johnlloydracaza88@gmail.com', '017500', 'password_reset', '2026-02-02 08:07:25', 0, '2026-02-02 14:52:25'),
-(4, 3, 'johnlloydracaza88@gmail.com', '401438', 'password_reset', '2026-02-02 08:16:34', 0, '2026-02-02 15:01:34'),
-(5, 3, 'johnlloydracaza88@gmail.com', '885537', 'password_reset', '2026-02-02 08:24:14', 0, '2026-02-02 15:09:14'),
-(6, 3, 'johnlloydracaza88@gmail.com', '485770', 'password_reset', '2026-02-02 08:24:52', 0, '2026-02-02 15:09:52'),
-(7, 3, 'johnlloydracaza88@gmail.com', '497583', 'password_reset', '2026-02-02 08:29:34', 0, '2026-02-02 15:14:34');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `notifications`
---
-
-CREATE TABLE `notifications` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `message` text DEFAULT NULL,
-  `type` enum('info','success','warning','error') DEFAULT 'info',
-  `seen` tinyint(1) DEFAULT 0,
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `password_resets`
---
-
-CREATE TABLE `password_resets` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
-  `token` varchar(200) NOT NULL,
-  `expires_at` datetime NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `reviews`
---
-
-CREATE TABLE `reviews` (
-  `id` int(11) NOT NULL,
-  `application_id` int(11) NOT NULL,
-  `reviewer_id` int(11) DEFAULT NULL,
-  `comments` text DEFAULT NULL,
-  `status` enum('pending','approved','rejected') DEFAULT 'pending',
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `scholarships`
---
-
-CREATE TABLE `scholarships` (
-  `id` int(11) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `organization` varchar(150) DEFAULT NULL,
-  `status` enum('open','closed') DEFAULT 'open',
-  `deadline` date DEFAULT NULL,
-  `amount` decimal(10,2) DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  UNIQUE KEY `unique_scholarship` (`title`,`organization`,`deadline`,`amount`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `scholarships`
---
-
-INSERT INTO `scholarships` (`id`, `title`, `description`, `organization`, `status`, `created_at`) VALUES
-(1, 'Academic Excellence Scholarship', 'For top performing students with GPA above 3.5', 'University Fund', 'open', '2026-02-02 14:48:59'),
-(2, 'STEM Innovators Grant', 'Supporting STEM research and innovation', 'Tech Foundation', 'open', '2026-02-02 14:48:59');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `students`
---
-
-CREATE TABLE `students` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `student_number` varchar(50) DEFAULT NULL,
-  `first_name` varchar(100) DEFAULT NULL,
-  `last_name` varchar(100) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
-  `phone` varchar(50) DEFAULT NULL,
-  `address` text DEFAULT NULL,
-  `gpa` decimal(3,2) DEFAULT NULL,
-  `enrollment_status` enum('full-time','part-time','graduated') DEFAULT 'full-time',
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `users`
---
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `username` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `first_name` varchar(100) DEFAULT NULL,
-  `last_name` varchar(100) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
-  `phone` varchar(50) DEFAULT NULL,
-  `address` text DEFAULT NULL,
-  `role` enum('admin','reviewer','student','staff') DEFAULT 'student',
-  `active` tinyint(1) DEFAULT 1,
-  `email_verified` tinyint(1) DEFAULT 0,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `secret_question` varchar(255) DEFAULT NULL,
-  `secret_answer_hash` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `email`, `phone`, `address`, `role`, `active`, `email_verified`, `created_at`, `secret_question`, `secret_answer_hash`) VALUES
-(1, 'admin', '123123', NULL, NULL, 'admin@example.com', NULL, NULL, 'admin', 1, 1, '2026-02-02 14:42:29', NULL, NULL),
-(3, 'johnlloyd1', '$2y$10$keJEPsZJ23NT.TSZV7744ODMvaOPCjO5K9rX6aLMJaDxT6Xr/xQku', 'John Lloyd', 'Racaza', 'johnlloydracaza88@gmail.com', '09951954551', 'Lower Tunghaan Minglanilla, Cebu', 'admin', 1, 0, '2026-02-02 14:48:59', NULL, NULL);
-
---
--- Indexes for dumped tables
---
-
---
--- Indexes for table `activations`
---
-ALTER TABLE `activations`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
-
---
--- Indexes for table `applications`
---
-ALTER TABLE `applications`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`),
-  ADD KEY `scholarship_id` (`scholarship_id`);
-
---
--- Indexes for table `awards`
---
-ALTER TABLE `awards`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `application_id` (`application_id`);
-
---
--- Indexes for table `disbursements`
---
-ALTER TABLE `disbursements`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `award_id` (`award_id`);
-
---
--- Indexes for table `documents`
---
-ALTER TABLE `documents`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`),
-  ADD KEY `application_id` (`application_id`);
-
---
--- Indexes for table `eligibility_requirements`
---
-ALTER TABLE `eligibility_requirements`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `scholarship_id` (`scholarship_id`);
-
---
--- Indexes for table `email_verification_codes`
---
-ALTER TABLE `email_verification_codes`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`),
-  ADD KEY `idx_code_email` (`code`,`email`),
-  ADD KEY `idx_expires` (`expires_at`);
-
---
--- Indexes for table `notifications`
---
-ALTER TABLE `notifications`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
-
---
--- Indexes for table `password_resets`
---
-ALTER TABLE `password_resets`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
-
---
--- Indexes for table `reviews`
---
-ALTER TABLE `reviews`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `application_id` (`application_id`),
-  ADD KEY `reviewer_id` (`reviewer_id`);
-
---
--- Indexes for table `scholarships`
---
-ALTER TABLE `scholarships`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_scholarship` (`title`,`organization`);
-
---
--- Indexes for table `students`
---
-ALTER TABLE `students`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `student_number` (`student_number`),
-  ADD UNIQUE KEY `email` (`email`),
-  ADD KEY `user_id` (`user_id`);
-
---
--- Indexes for table `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `email` (`email`);
-
---
--- AUTO_INCREMENT for dumped tables
---
-
---
--- AUTO_INCREMENT for table `activations`
---
-ALTER TABLE `activations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `applications`
---
-ALTER TABLE `applications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `awards`
---
-ALTER TABLE `awards`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `disbursements`
---
-ALTER TABLE `disbursements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `documents`
---
-ALTER TABLE `documents`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `eligibility_requirements`
---
-ALTER TABLE `eligibility_requirements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT for table `email_verification_codes`
---
-ALTER TABLE `email_verification_codes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
-
---
--- AUTO_INCREMENT for table `notifications`
---
-ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `password_resets`
---
-ALTER TABLE `password_resets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `reviews`
---
-ALTER TABLE `reviews`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `scholarships`
---
-ALTER TABLE `scholarships`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-
---
--- AUTO_INCREMENT for table `students`
---
-ALTER TABLE `students`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `users`
---
-ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- Constraints for dumped tables
---
-
---
--- Constraints for table `activations`
---
-ALTER TABLE `activations`
-  ADD CONSTRAINT `activations_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `applications`
---
-ALTER TABLE `applications`
-  ADD CONSTRAINT `applications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `applications_ibfk_2` FOREIGN KEY (`scholarship_id`) REFERENCES `scholarships` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `awards`
---
-ALTER TABLE `awards`
-  ADD CONSTRAINT `awards_ibfk_1` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `disbursements`
---
-ALTER TABLE `disbursements`
-  ADD CONSTRAINT `disbursements_ibfk_1` FOREIGN KEY (`award_id`) REFERENCES `awards` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `documents`
---
-ALTER TABLE `documents`
-  ADD CONSTRAINT `documents_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `documents_ibfk_2` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `eligibility_requirements`
---
-ALTER TABLE `eligibility_requirements`
-  ADD CONSTRAINT `eligibility_requirements_ibfk_1` FOREIGN KEY (`scholarship_id`) REFERENCES `scholarships` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `email_verification_codes`
---
-ALTER TABLE `email_verification_codes`
-  ADD CONSTRAINT `email_verification_codes_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `notifications`
---
-ALTER TABLE `notifications`
-  ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `password_resets`
---
-ALTER TABLE `password_resets`
-  ADD CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `reviews`
---
-ALTER TABLE `reviews`
-  ADD CONSTRAINT `reviews_ibfk_1` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `reviews_ibfk_2` FOREIGN KEY (`reviewer_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `students`
---
-ALTER TABLE `students`
-  ADD CONSTRAINT `students_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

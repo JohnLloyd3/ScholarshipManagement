@@ -49,55 +49,57 @@ function getPDO()
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(100) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
-            first_name VARCHAR(100),
-            last_name VARCHAR(100),
-            email VARCHAR(150) UNIQUE,
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            email VARCHAR(150) NOT NULL UNIQUE,
             phone VARCHAR(50),
             address TEXT,
             role ENUM('admin','reviewer','student','staff') DEFAULT 'student',
             active TINYINT(1) DEFAULT 1,
             email_verified TINYINT(1) DEFAULT 0,
-            secret_question VARCHAR(255) NULL,
-            secret_answer_hash VARCHAR(255) NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_email (email),
+            INDEX idx_role (role),
+            INDEX idx_active (active),
+            INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
         
-        // Add active and email_verified columns if they don't exist
+        // Add missing columns if they don't exist
         try {
-            $pdo->exec("ALTER TABLE users ADD COLUMN active TINYINT(1) DEFAULT 1");
+            $pdo->exec("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
         } catch (Exception $e) {}
         try {
-            $pdo->exec("ALTER TABLE users ADD COLUMN email_verified TINYINT(1) DEFAULT 0");
+            $pdo->exec("ALTER TABLE users MODIFY first_name VARCHAR(100) NOT NULL");
         } catch (Exception $e) {}
         try {
-            $pdo->exec("ALTER TABLE users ADD COLUMN secret_question VARCHAR(255) NULL");
+            $pdo->exec("ALTER TABLE users MODIFY last_name VARCHAR(100) NOT NULL");
         } catch (Exception $e) {}
         try {
-            $pdo->exec("ALTER TABLE users ADD COLUMN secret_answer_hash VARCHAR(255) NULL");
-        } catch (Exception $e) {}
-        try {
-            $pdo->exec("ALTER TABLE users MODIFY role ENUM('admin','reviewer','student','staff') DEFAULT 'student'");
+            $pdo->exec("ALTER TABLE users MODIFY email VARCHAR(150) NOT NULL UNIQUE");
         } catch (Exception $e) {}
 
         // Ensure applications table exists for admin flows
         $pdo->exec("CREATE TABLE IF NOT EXISTS applications (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NULL,
-            student_id INT NULL,
-            scholarship_id INT NULL,
-            title VARCHAR(255) NOT NULL,
-            details TEXT,
-            status ENUM('submitted','pending','approved','rejected') DEFAULT 'submitted',
-            reviewer_id INT NULL,
-            document VARCHAR(255) NULL,
-            email VARCHAR(150) NULL,
+            user_id INT NOT NULL,
+            scholarship_id INT NOT NULL,
+            motivational_letter TEXT NOT NULL,
+            gpa DECIMAL(3,2),
+            status ENUM('draft','submitted','pending','approved','rejected','withdrawn') DEFAULT 'draft',
+            submitted_at DATETIME,
+            reviewed_at DATETIME,
+            reviewer_id INT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE SET NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+            FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+            UNIQUE KEY unique_application (user_id, scholarship_id),
             INDEX idx_user_id (user_id),
             INDEX idx_scholarship_id (scholarship_id),
-            INDEX idx_email (email)
+            INDEX idx_status (status),
+            INDEX idx_submitted_at (submitted_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
         
         // Ensure reviews table exists
@@ -105,16 +107,13 @@ function getPDO()
             id INT AUTO_INCREMENT PRIMARY KEY,
             application_id INT NOT NULL,
             reviewer_id INT NULL,
-            student_id INT NULL,
             comments TEXT,
             status ENUM('pending','approved','rejected') DEFAULT 'pending',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
             FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
-            FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL,
             INDEX idx_application_id (application_id),
-            INDEX idx_reviewer_id (reviewer_id),
-            INDEX idx_student_id (student_id)
+            INDEX idx_reviewer_id (reviewer_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Ensure password_resets table exists
@@ -156,60 +155,69 @@ function getPDO()
         $pdo->exec("CREATE TABLE IF NOT EXISTS scholarships (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(255) NOT NULL,
-            description TEXT,
-            organization VARCHAR(150) NULL,
-            status ENUM('open','closed') DEFAULT 'open',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            description TEXT NOT NULL,
+            organization VARCHAR(150) NOT NULL,
+            requirements TEXT,
+            amount DECIMAL(12,2),
+            deadline DATE,
+            status ENUM('open','closed','cancelled') DEFAULT 'open',
+            created_by INT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_scholarship (title, organization, deadline),
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_status (status),
+            INDEX idx_deadline (deadline),
+            INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS eligibility_requirements (
             id INT AUTO_INCREMENT PRIMARY KEY,
             scholarship_id INT NOT NULL,
-            requirement VARCHAR(255) NOT NULL,
+            requirement VARCHAR(255),
+            requirement_type ENUM('gpa','enrollment','field','documents') DEFAULT 'documents',
+            value VARCHAR(100),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE
+            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+            INDEX idx_scholarship_id (scholarship_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Prevent duplicate scholarship titles per organization
-        try {
-            $pdo->exec("ALTER TABLE scholarships ADD UNIQUE KEY unique_scholarship (title, organization)");
-        } catch (Exception $e) {
-            // ignore if already exists
-        }
-
-        // Ensure students table exists (links to users)
-        $pdo->exec("CREATE TABLE IF NOT EXISTS students (
+        // Ensure student_profiles table exists (links to users)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS student_profiles (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NULL,
+            user_id INT NOT NULL UNIQUE,
             student_number VARCHAR(50) UNIQUE,
-            first_name VARCHAR(100),
-            last_name VARCHAR(100),
-            email VARCHAR(150) UNIQUE,
-            phone VARCHAR(50),
-            address TEXT,
             gpa DECIMAL(3,2),
+            university VARCHAR(150),
+            course VARCHAR(150),
             enrollment_status ENUM('full-time','part-time','graduated') DEFAULT 'full-time',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-            INDEX idx_user_id (user_id),
-            INDEX idx_email (email)
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_gpa (gpa),
+            INDEX idx_enrollment_status (enrollment_status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Ensure documents table exists
         $pdo->exec("CREATE TABLE IF NOT EXISTS documents (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NULL,
-            application_id INT NULL,
-            document_type VARCHAR(100),
-            file_name VARCHAR(255),
-            file_path VARCHAR(500),
-            file_size INT,
-            mime_type VARCHAR(100),
+            application_id INT NOT NULL,
+            user_id INT NOT NULL,
+            document_type VARCHAR(100) NOT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_size INT NOT NULL,
+            mime_type VARCHAR(100) NOT NULL,
+            verification_status ENUM('pending','verified','rejected','needs_resubmission') DEFAULT 'pending',
+            verified_by INT,
+            verified_at DATETIME,
+            notes TEXT,
             uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
             FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
-            INDEX idx_user_id (user_id),
-            INDEX idx_application_id (application_id)
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_application_id (application_id),
+            INDEX idx_verification_status (verification_status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Ensure notifications table exists
@@ -217,31 +225,37 @@ function getPDO()
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
             title VARCHAR(255) NOT NULL,
-            message TEXT,
-            type ENUM('info','success','warning','error') DEFAULT 'info',
+            message TEXT NOT NULL,
+            type ENUM('info','success','warning','error','application','deadline') DEFAULT 'info',
+            related_application_id INT,
+            related_scholarship_id INT,
             seen TINYINT(1) DEFAULT 0,
+            seen_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (related_application_id) REFERENCES applications(id) ON DELETE SET NULL,
+            FOREIGN KEY (related_scholarship_id) REFERENCES scholarships(id) ON DELETE SET NULL,
             INDEX idx_user_id (user_id),
-            INDEX idx_seen (seen)
+            INDEX idx_seen (seen),
+            INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Ensure awards table exists
         $pdo->exec("CREATE TABLE IF NOT EXISTS awards (
             id INT AUTO_INCREMENT PRIMARY KEY,
             application_id INT NOT NULL,
-            user_id INT NULL,
-            scholarship_id INT NULL,
-            award_amount DECIMAL(10,2),
-            award_date DATE,
-            status ENUM('pending','approved','disbursed','cancelled') DEFAULT 'pending',
+            user_id INT NOT NULL,
+            scholarship_id INT NOT NULL,
+            award_amount DECIMAL(12,2) NOT NULL,
+            award_date DATE NOT NULL,
+            status ENUM('pending','approved','disbursed','cancelled','rejected') DEFAULT 'pending',
             notes TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE SET NULL,
-            INDEX idx_user_id (user_id),
-            INDEX idx_application_id (application_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+            INDEX idx_scholarship_id (scholarship_id),
             INDEX idx_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
@@ -249,45 +263,81 @@ function getPDO()
         $pdo->exec("CREATE TABLE IF NOT EXISTS disbursements (
             id INT AUTO_INCREMENT PRIMARY KEY,
             award_id INT NOT NULL,
-            user_id INT NULL,
-            amount DECIMAL(10,2) NOT NULL,
-            disbursement_date DATE,
-            payment_method VARCHAR(50),
+            user_id INT NOT NULL,
+            amount DECIMAL(12,2) NOT NULL,
+            disbursement_date DATE NOT NULL,
+            payment_method VARCHAR(50) NOT NULL,
             transaction_reference VARCHAR(255),
             status ENUM('pending','processed','completed','failed') DEFAULT 'pending',
-            notes TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             INDEX idx_award_id (award_id),
-            INDEX idx_user_id (user_id),
             INDEX idx_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Seed demo scholarships and eligibility rules if none exist
-        $scount = $pdo->query('SELECT COUNT(*) FROM scholarships')->fetchColumn();
-        if (!$scount) {
-            $stmt = $pdo->prepare('INSERT INTO scholarships (title, description, organization, status) VALUES (:t, :d, :o, :s)');
-            $stmt->execute([':t' => 'Academic Excellence Scholarship', ':d' => 'For top performing students with GPA above 3.5', ':o' => 'University Fund', ':s' => 'open']);
-            $rid1 = $pdo->lastInsertId();
-            $stmt->execute([':t' => 'STEM Innovators Grant', ':d' => 'Supporting STEM research and innovation', ':o' => 'Tech Foundation', ':s' => 'open']);
-            $rid2 = $pdo->lastInsertId();
+        // Ensure announcements table exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS announcements (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            type ENUM('info','success','warning','urgent') DEFAULT 'info',
+            created_by INT NOT NULL,
+            published TINYINT(1) DEFAULT 1,
+            published_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_published (published),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-            $stmt2 = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)');
-            $stmt2->execute([':sid' => $rid1, ':req' => 'GPA >= 3.5']);
-            $stmt2->execute([':sid' => $rid1, ':req' => 'Enrolled full-time']);
-            $stmt2->execute([':sid' => $rid2, ':req' => 'Pursuing degree in STEM']);
-        }
+        // Ensure deadline_reminders table exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS deadline_reminders (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            scholarship_id INT NOT NULL,
+            reminder_type ENUM('7_days','1_day','deadline') DEFAULT '7_days',
+            sent TINYINT(1) DEFAULT 0,
+            sent_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+            INDEX idx_sent (sent),
+            INDEX idx_user_scholarship (user_id, scholarship_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Seed an admin and reviewer for testing if they do not exist
-        $check = $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('admin','reviewer')")->fetchColumn();
-        if (!$check) {
-            $pwAdmin = password_hash('admin123', PASSWORD_DEFAULT);
-            $pwReviewer = password_hash('reviewer123', PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, role, active, email_verified) VALUES (:u, :p, :f, :l, :e, :r, :a, 1)');
-            $stmt->execute([':u' => 'admin', ':p' => $pwAdmin, ':f' => 'Admin', ':l' => 'User', ':e' => 'admin@example.com', ':r' => 'admin', ':a' => 1]);
-            $stmt->execute([':u' => 'reviewer', ':p' => $pwReviewer, ':f' => 'Review', ':l' => 'User', ':e' => 'reviewer@example.com', ':r' => 'reviewer', ':a' => 1]);
-        }
+        // Ensure audit_logs table exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            action VARCHAR(255) NOT NULL,
+            entity_type VARCHAR(100) NOT NULL,
+            entity_id INT NOT NULL,
+            old_values JSON,
+            new_values JSON,
+            ip_address VARCHAR(45) NOT NULL,
+            user_agent VARCHAR(500),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_user_id (user_id),
+            INDEX idx_entity (entity_type, entity_id),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Ensure login_attempts table exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS login_attempts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(150) NOT NULL,
+            ip_address VARCHAR(45) NOT NULL,
+            success TINYINT(1) DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_email_created (email, created_at),
+            INDEX idx_ip_created (ip_address, created_at),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         return $pdo;
     } catch (PDOException $e) {
