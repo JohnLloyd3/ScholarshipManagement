@@ -133,39 +133,56 @@ if ($action === 'edit') {
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="../member/dashboard.css">
     <style>
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
+        body { background: #f8f9fa; color: #1a1a1a; }
+        h2, h3 { color: #1a1a1a; font-weight: 600; letter-spacing: -0.5px; }
+        h2 { font-size: 28px; }
+        h3 { font-size: 18px; }
+        
         .scholarships-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
         .form-group input, .form-group textarea, .form-group select {
-            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;
+            width: 100%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-family: inherit; font-size: 14px; transition: all 0.2s ease;
         }
-        .form-group textarea { resize: vertical; min-height: 100px; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none; border-color: #c41e3a; box-shadow: 0 0 0 3px rgba(196,30,58,0.1);
+        }
+        .form-group textarea { resize: vertical; min-height: 120px; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .panel { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+        
+        .panel { background: white; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; font-weight: 500; transition: all 0.3s ease; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(196,30,58,0.2); }
         .btn-primary { background-color: #c41e3a; color: white; }
-        .btn-success { background-color: #48bb78; color: white; }
-        .btn-danger { background-color: #f56565; color: white; }
-        .btn-secondary { background-color: #718096; color: white; }
-        .table { width: 100%; border-collapse: collapse; }
-        .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        .table th { background-color: #f5f5f5; font-weight: bold; }
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .status-open { background-color: #87CEEB; }
-        .status-closed { background-color: #FFB6C6; }
-        .message { padding: 15px; margin-bottom: 20px; border-radius: 4px; }
-        .message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .edit-form { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        /* Layout adjustments to match admin dashboard sidebar */
+        .btn-primary:hover { background-color: #9d1729; }
+        .btn-success { background-color: #2d5016; color: white; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-secondary { background-color: #4b5563; color: white; }
+        
+        .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .table th, .table td { padding: 14px; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        .table th { background-color: #f8f9fa; font-weight: 600; color: #1a1a1a; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        .table td { color: #34495e; }
+        .table tbody tr:hover { background: #f8f9fa; }
+        
+        .status-badge { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+        .status-open { background-color: #dbeafe; color: #1e40af; }
+        .status-closed { background-color: #fee2e2; color: #dc2626; }
+        
+        .message { padding: 16px; margin-bottom: 20px; border-radius: 8px; font-weight: 500; }
+        .message.success { background-color: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+        .message.error { background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+        
+        .edit-form { background: #f8f9fa; padding: 24px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #c41e3a; }
+        
         .dashboard-app { display: flex; min-height: 100vh; }
         .main { flex: 1; padding: 20px; }
-        /* Responsive form rows */
         @media (max-width: 900px) {
             .form-row { grid-template-columns: 1fr; }
         }
-        /* Table responsiveness */
         .panel .table { width: 100%; }
         .table-responsive { overflow-x: auto; }
     </style>

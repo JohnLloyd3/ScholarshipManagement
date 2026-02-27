@@ -88,33 +88,48 @@ $announcements = $pdo->query("
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="../member/dashboard.css">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; }
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
+        body { background-color: #f8f9fa; color: #1a1a1a; }
+        h2, h3 { color: #1a1a1a; font-weight: 600; letter-spacing: -0.5px; }
+        h2 { font-size: 28px; }
+        h3 { font-size: 18px; }
+        
         .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
         .navbar { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 15px; display: flex; justify-content: space-between; }
         .navbar a { color: white; margin-right: 20px; text-decoration: none; }
-        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        
+        .panel { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: #1a1a1a; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
         .form-group input, .form-group textarea, .form-group select {
-            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;
+            width: 100%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-family: inherit; font-size: 14px; transition: all 0.2s ease;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none; border-color: #c41e3a; box-shadow: 0 0 0 3px rgba(196,30,58,0.1);
         }
         .form-group textarea { resize: vertical; min-height: 150px; }
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; font-weight: 500; transition: all 0.3s ease; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(196,30,58,0.2); }
         .btn-primary { background-color: #c41e3a; color: white; }
-        .btn-danger { background-color: #f56565; color: white; }
-        .btn-secondary { background-color: #718096; color: white; }
-        .announcement-item { padding: 15px; border-left: 4px solid #c41e3a; margin-bottom: 15px; background: #f9f9f9; border-radius: 4px; }
-        .announcement-item.info { border-left-color: #4299e1; }
-        .announcement-item.success { border-left-color: #48bb78; }
-        .announcement-item.warning { border-left-color: #ff9800; }
-        .announcement-item.urgent { border-left-color: #f56565; }
-        .announcement-title { font-weight: bold; color: #333; margin-bottom: 8px; }
-        .announcement-meta { font-size: 12px; color: #999; margin-bottom: 8px; }
-        .announcement-message { color: #666; margin-bottom: 10px; }
-        .message { padding: 15px; margin-bottom: 20px; border-radius: 4px; }
-        .message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .btn-primary:hover { background-color: #9d1729; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-secondary { background-color: #4b5563; color: white; }
+        
+        .announcement-item { padding: 18px; border-left: 4px solid #c41e3a; margin-bottom: 15px; background: #f8f9fa; border-radius: 8px; }
+        .announcement-item.info { border-left-color: #1e40af; background: #eff6ff; }
+        .announcement-item.success { border-left-color: #16a34a; background: #f0fdf4; }
+        .announcement-item.warning { border-left-color: #ea580c; background: #fef3c7; }
+        .announcement-item.urgent { border-left-color: #dc2626; background: #fef2f2; }
+        
+        .announcement-title { font-weight: 600; color: #1a1a1a; margin-bottom: 8px; font-size: 16px; }
+        .announcement-meta { font-size: 12px; color: #7f8c8d; margin-bottom: 8px; }
+        .announcement-message { color: #34495e; margin-bottom: 10px; font-size: 14px; }
+        
+        .message { padding: 16px; margin-bottom: 20px; border-radius: 8px; font-weight: 500; }
+        .message.success { background-color: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+        
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        /* Dashboard layout compatibility */
         .dashboard-app { display: flex; min-height: 100vh; }
         .main { flex: 1; padding: 20px; }
         @media (max-width: 900px) { .container { padding: 12px; } .form-row { grid-template-columns: 1fr; } }
