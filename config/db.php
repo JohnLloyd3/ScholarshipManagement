@@ -157,7 +157,8 @@ function getPDO()
             title VARCHAR(255) NOT NULL,
             description TEXT NOT NULL,
             organization VARCHAR(150) NOT NULL,
-            requirements TEXT,
+            eligibility_requirements TEXT,
+            renewal_requirements TEXT,
             amount DECIMAL(12,2),
             deadline DATE,
             status ENUM('open','closed','cancelled') DEFAULT 'open',
@@ -170,6 +171,14 @@ function getPDO()
             INDEX idx_deadline (deadline),
             INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        
+        // Add missing columns to scholarships table if they don't exist
+        try {
+            $pdo->exec("ALTER TABLE scholarships ADD COLUMN eligibility_requirements TEXT");
+        } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE scholarships ADD COLUMN renewal_requirements TEXT");
+        } catch (Exception $e) {}
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS eligibility_requirements (
             id INT AUTO_INCREMENT PRIMARY KEY,

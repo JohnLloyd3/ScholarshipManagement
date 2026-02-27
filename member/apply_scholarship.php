@@ -124,69 +124,88 @@ if ($scholarship_id) {
           <form method="POST" action="../controllers/ApplicationController.php" enctype="multipart/form-data">
             <input type="hidden" name="action" value="create">
             <input type="hidden" name="scholarship_id" value="<?= $selected_scholarship['id'] ?>">
+
+            <!-- I. Personal Information -->
             <div class="form-section">
-              <h4>Personal Information</h4>
-              <div class="form-group"><label>Last Name *</label><input type="text" name="last_name" required></div>
-              <div class="form-group"><label>First Name *</label><input type="text" name="first_name" required></div>
-              <div class="form-group"><label>Middle Name</label><input type="text" name="middle_name"></div>
-              <div class="form-group"><label>Age *</label><input type="number" name="age" min="1" required></div>
-              <div class="form-group"><label>Sex *</label><select name="sex" required><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
-              <div class="form-group"><label>Status *</label><input type="text" name="status" required></div>
-              <div class="form-group"><label>Religion</label><input type="text" name="religion"></div>
-              <div class="form-group"><label>Citizenship *</label><input type="text" name="citizenship" required></div>
+              <h4>I. Personal Information</h4>
+              <div class="form-group"><label>Full Name *</label><input type="text" name="full_name" required></div>
+              <div class="form-group"><label>Sex *</label><select name="sex" required><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option><option value="Prefer not to say">Prefer not to say</option></select></div>
               <div class="form-group"><label>Date of Birth *</label><input type="date" name="dob" required></div>
-              <div class="form-group"><label>Place of Birth *</label><input type="text" name="birth_place" required></div>
-              <div class="form-group"><label>Complete Mailing Address *</label><input type="text" name="mailing_address" required></div>
-              <div class="form-group"><label>Home/Provincial Address</label><input type="text" name="provincial_address"></div>
-              <div class="form-group"><label>Tel./Mobile Number *</label><input type="text" name="contact_number" required></div>
+              <div class="form-group"><label>Age *</label><input type="number" name="age" min="0" required></div>
+              <div class="form-group"><label>Civil Status *</label><input type="text" name="civil_status" required placeholder="e.g. Single"></div>
+              <div class="form-group"><label>Nationality *</label><input type="text" name="nationality" value="Filipino" required></div>
+              <div class="form-group"><label>Mobile Number *</label><input type="text" name="mobile" required></div>
+              <div class="form-group"><label>Email Address *</label><input type="email" name="email" required></div>
+              <div class="form-group"><label>Complete Home Address *</label><textarea name="home_address" rows="2" required></textarea></div>
             </div>
+
+            <!-- II. Senior High School Information -->
             <div class="form-section">
-              <h4>Family Background</h4>
-              <div class="form-group"><label>Father's Name</label><input type="text" name="father_name"></div>
-              <div class="form-group"><label>Father's Status</label><select name="father_status"><option value="Living">Living</option><option value="Deceased">Deceased</option></select></div>
-              <div class="form-group"><label>Father's Occupation</label><input type="text" name="father_occupation"></div>
-              <div class="form-group"><label>Mother's Name</label><input type="text" name="mother_name"></div>
-              <div class="form-group"><label>Mother's Status</label><select name="mother_status"><option value="Living">Living</option><option value="Deceased">Deceased</option></select></div>
-              <div class="form-group"><label>Mother's Occupation</label><input type="text" name="mother_occupation"></div>
-              <div class="form-group"><label>Total Parents' Gross Income</label><input type="number" name="gross_income" min="0"></div>
-              <div class="form-group"><label>Brothers/Sisters Enjoying Scholarship</label><textarea name="siblings_scholarship" rows="2"></textarea></div>
-              <div class="form-group"><label>Number of children in the family</label><input type="number" name="children_count" min="1"></div>
+              <h4>II. Senior High School Information</h4>
+              <div class="form-group"><label>Name of Senior High School *</label><input type="text" name="shs_name" required></div>
+              <div class="form-group"><label>School Address *</label><input type="text" name="shs_address" required></div>
+              <div class="form-group"><label>Strand Taken *</label><input type="text" name="strand" required placeholder="STEM, ABM, HUMSS, TVL, GAS, etc."></div>
+              <div class="form-group"><label>General Weighted Average (GWA) *</label><input type="text" name="gwa" required></div>
+              <div class="form-group"><label>Year Graduated *</label><input type="text" name="year_graduated" required></div>
             </div>
+
+            <!-- III. College Enrollment Information -->
             <div class="form-section">
-              <h4>Academic Information</h4>
-              <div class="form-group"><label>School Name (High School) *</label><input type="text" name="school_name" required></div>
-              <div class="form-group"><label>School Address *</label><input type="text" name="school_address" required></div>
-              <div class="form-group"><label>School Type *</label><select name="school_type" required><option value="">Select</option><option value="Public">Public</option><option value="Private">Private</option><option value="Vocational">Vocational</option></select></div>
-              <div class="form-group"><label>Highest Grade/Year *</label><input type="text" name="highest_grade" required></div>
-              <div class="form-group"><label>Date of Graduation *</label><input type="date" name="graduation_date" required></div>
-              <div class="form-group"><label>Report Card Average *</label><input type="text" name="report_card_average" required></div>
-              <div class="form-group"><label>Rank in Graduating Class</label><input type="text" name="class_rank"></div>
-              <div class="form-group"><label>Academic Awards/Honors Received</label><textarea name="awards" rows="2"></textarea></div>
+              <h4>III. College Enrollment Information</h4>
+              <div class="form-group"><label>Intended College/University *</label><input type="text" name="intended_college" required></div>
+              <div class="form-group"><label>Course/Degree Program *</label><input type="text" name="course_program" required></div>
+              <div class="form-group"><label>Type of Institution *</label><select name="institution_type" required><option value="">Select</option><option value="Public">Public</option><option value="Private">Private</option></select></div>
+              <div class="form-group"><label>Admission Letter? *</label><select name="admission_letter" required><option value="">Select</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+              <div class="form-group"><label>Expected Enrollment Date *</label><input type="date" name="enrollment_date" required></div>
             </div>
+
+            <!-- IV. Family Background -->
             <div class="form-section">
-              <h4>Scholarship Choices</h4>
-              <div class="form-group"><label>First Choice Degree Program</label><input type="text" name="first_choice"></div>
-              <div class="form-group"><label>Second Choice Degree Program</label><input type="text" name="second_choice"></div>
-              <div class="form-group"><label>Third Choice Degree Program</label><input type="text" name="third_choice"></div>
-              <div class="form-group"><label>School Intended to Enroll In</label><input type="text" name="intended_school"></div>
-              <div class="form-group"><label>Factors that Motivated You</label><textarea name="motivation" rows="2"></textarea></div>
+              <h4>IV. Family Background</h4>
+              <div class="form-group"><label>Father’s Name</label><input type="text" name="father_name"></div>
+              <div class="form-group"><label>Occupation</label><input type="text" name="father_occupation"></div>
+              <div class="form-group"><label>Monthly Income</label><input type="text" name="father_income"></div>
+              <div class="form-group"><label>Mother’s Name</label><input type="text" name="mother_name"></div>
+              <div class="form-group"><label>Occupation</label><input type="text" name="mother_occupation"></div>
+              <div class="form-group"><label>Monthly Income</label><input type="text" name="mother_income"></div>
+              <div class="form-group"><label>Guardian (if applicable)</label><input type="text" name="guardian"></div>
+              <div class="form-group"><label>Total Monthly Family Income</label><input type="text" name="total_income"></div>
+              <div class="form-group"><label>Number of Family Members</label><input type="number" name="family_members" min="1"></div>
             </div>
+
+            <!-- V. Scholarship Details -->
             <div class="form-section">
-              <h4>Parent/Legal Guardian Declaration</h4>
+              <h4>V. Scholarship Details</h4>
+              <div class="form-group"><label>Scholarship Applying For</label><input type="text" name="scholarship_title" value="<?= htmlspecialchars($selected_scholarship['title']) ?>" readonly></div>
+              <div class="form-group"><label>Receiving another scholarship?</label><select name="receiving_other"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+              <div class="form-group"><label>If yes, specify</label><input type="text" name="other_scholarship_details"></div>
+            </div>
+
+            <!-- VI. Required Documents -->
+            <div class="form-section">
+              <h4>VI. Required Documents (please attach)</h4>
               <div class="form-group">
-                <textarea name="parent_declaration" rows="4" readonly>I/We hereby certify to the truthfulness and completeness of information provided. Any misinformation will automatically disqualify my/our child from the Scholarship Program. I/We are also willing to refund all financial benefits received plus the interest if such misinformation is discovered after my/our child accepted the reward. In connection with this application for financial aide, I/we hereby authorize the Scholarship Committee to conduct a background check on the family finances and to visit our family dwelling.</textarea>
+                <label><input type="checkbox" name="docs_checklist[]" value="Grade 12 Report Card"> Grade 12 Report Card (Form 138)</label><br>
+                <label><input type="checkbox" name="docs_checklist[]" value="Certificate of Graduation"> Certificate of Graduation</label><br>
+                <label><input type="checkbox" name="docs_checklist[]" value="Admission Letter"> Admission Letter / Certificate of Enrollment</label><br>
+                <label><input type="checkbox" name="docs_checklist[]" value="Proof of Income"> Proof of Income (ITR / Certificate of Indigency)</label><br>
+                <label><input type="checkbox" name="docs_checklist[]" value="Valid ID"> Valid ID</label><br>
+                <label><input type="checkbox" name="docs_checklist[]" value="2x2 ID Picture"> 2x2 ID Picture</label>
               </div>
-              <div class="form-group"><label>Parent/Guardian Name *</label><input type="text" name="guardian_name" required></div>
-              <div class="form-group"><label>Signature *</label><input type="text" name="guardian_signature" required></div>
-              <div class="form-group"><label>Date *</label><input type="date" name="guardian_date" required></div>
-            </div>
-            <div class="form-section">
-              <h4>Supporting Documents</h4>
               <div class="form-group">
-                <label>Upload Documents (transcripts, certificates, etc.)</label>
-                <input type="file" name="document" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                <label>Upload document files (you may select multiple)</label>
+                <input type="file" name="documents[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
               </div>
             </div>
+
+            <!-- VII. Applicant’s Declaration -->
+            <div class="form-section">
+              <h4>VII. Applicant’s Declaration</h4>
+              <p>I certify that the information provided is true and correct. I understand that providing false information may result in disqualification from the scholarship program.</p>
+              <div class="form-group"><label>Applicant’s Name & Signature *</label><input type="text" name="applicant_signature" required></div>
+              <div class="form-group"><label>Date *</label><input type="date" name="applicant_date" required></div>
+            </div>
+
             <button type="submit" class="submit-btn">Submit Application</button>
             <a href="apply_scholarship.php" style="margin-left:10px">Cancel</a>
           </form>

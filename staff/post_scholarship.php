@@ -10,8 +10,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $organization = trim($_POST['organization'] ?? '');
+    $eligibility_requirements = trim($_POST['eligibility_requirements'] ?? '');
+    $renewal_requirements = trim($_POST['renewal_requirements'] ?? '');
     $status = $_POST['status'] ?? 'open';
-    $requirements = $_POST['requirements'] ?? [];
     $deadline = trim($_POST['deadline'] ?? '');
     $amount = trim($_POST['amount'] ?? '');
 
@@ -34,28 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errors) {
-        $stmt = $pdo->prepare('INSERT INTO scholarships (title, description, organization, status, deadline, amount) VALUES (:title, :description, :organization, :status, :deadline, :amount)');
+        $stmt = $pdo->prepare('INSERT INTO scholarships (title, description, organization, eligibility_requirements, renewal_requirements, status, deadline, amount) VALUES (:title, :description, :organization, :eligibility_requirements, :renewal_requirements, :status, :deadline, :amount)');
         $stmt->execute([
             'title' => $title,
             'description' => $description,
             'organization' => $organization,
+            'eligibility_requirements' => $eligibility_requirements,
+            'renewal_requirements' => $renewal_requirements,
             'status' => $status,
             'deadline' => $deadline,
             'amount' => $amount
         ]);
         $scholarship_id = $pdo->lastInsertId();
-        $unique_reqs = [];
-        foreach ($requirements as $req) {
-            $req = trim($req);
-            if ($req && !in_array($req, $unique_reqs)) {
-                $unique_reqs[] = $req;
-                $stmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:scholarship_id, :requirement)');
-                $stmt->execute([
-                    'scholarship_id' => $scholarship_id,
-                    'requirement' => $req
-                ]);
-            }
-        }
         header('Location: ../staff/scholarships.php?posted=1');
         exit;
     }
@@ -115,20 +106,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" name="title" required value="<?= htmlspecialchars($_POST['title'] ?? '') ?>">
             </div>
             <div class="form-group">
-                <label>Description</label>
-                <textarea name="description" rows="3"><?= htmlspecialchars($_POST['description'] ?? '') ?></textarea>
-            </div>
-            <div class="form-group">
                 <label>Organization *</label>
                 <input type="text" name="organization" required value="<?= htmlspecialchars($_POST['organization'] ?? '') ?>">
             </div>
             <div class="form-group">
-                <label>Application Deadline *</label>
-                <input type="date" name="deadline" required value="<?= htmlspecialchars($_POST['deadline'] ?? '') ?>">
+                <label>Description</label>
+                <textarea name="description" rows="3"><?= htmlspecialchars($_POST['description'] ?? '') ?></textarea>
+            </div>
+            <div class="form-group">
+                <label>Eligibility Requirements</label>
+                <textarea name="eligibility_requirements" rows="4"><?= htmlspecialchars($_POST['eligibility_requirements'] ?? '') ?></textarea>
+            </div>
+            <div class="form-group">
+                <label>Renewal Requirements</label>
+                <textarea name="renewal_requirements" rows="4"><?= htmlspecialchars($_POST['renewal_requirements'] ?? '') ?></textarea>
             </div>
             <div class="form-group">
                 <label>Scholarship Amount *</label>
                 <input type="number" name="amount" step="0.01" min="0" required value="<?= htmlspecialchars($_POST['amount'] ?? '') ?>">
+            </div>
+            <div class="form-group">
+                <label>Application Deadline *</label>
+                <input type="date" name="deadline" required value="<?= htmlspecialchars($_POST['deadline'] ?? '') ?>">
             </div>
             <div class="form-group">
                 <label>Status</label>
@@ -137,37 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <option value="closed" <?= ($_POST['status'] ?? '') == 'closed' ? 'selected' : '' ?>>Closed</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label>Eligibility Requirements</label>
-                <div id="requirements-container">
-                    <?php if (!empty($_POST['requirements'])): ?>
-                        <?php foreach ($_POST['requirements'] as $req): ?>
-                            <div class="requirement-item">
-                                <input type="text" name="requirements[]" value="<?= htmlspecialchars($req) ?>" placeholder="e.g., GPA >= 3.5">
-                                <button type="button" onclick="this.parentElement.remove()">Remove</button>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div class="requirement-item">
-                            <input type="text" name="requirements[]" placeholder="e.g., GPA >= 3.5">
-                            <button type="button" onclick="this.parentElement.remove()">Remove</button>
-                        </div>
-                    <?php endif; ?>
-                </div>
-                <button type="button" onclick="addRequirement()">Add Requirement</button>
-            </div>
             <button type="submit" class="btn">Post Scholarship</button>
         </form>
     </div>
-    <script>
-        function addRequirement() {
-            const container = document.getElementById('requirements-container');
-            const div = document.createElement('div');
-            div.className = 'requirement-item';
-            div.innerHTML = '<input type="text" name="requirements[]" placeholder="e.g., GPA >= 3.5">' +
-                '<button type="button" onclick="this.parentElement.remove()">Remove</button>';
-            container.appendChild(div);
-        }
-    </script>
 </body>
 </html>

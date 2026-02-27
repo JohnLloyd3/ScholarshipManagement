@@ -177,6 +177,46 @@ function sanitizeEmail($email) {
 }
 
 /**
+ * Sanitize integer input and return as int (or 0 if invalid)
+ * @param mixed $value Value to sanitize
+ * @return int
+ */
+function sanitizeInt($value) {
+    if (is_numeric($value)) {
+        return (int) $value;
+    }
+    $filtered = filter_var($value, FILTER_VALIDATE_INT);
+    return $filtered !== false ? (int) $filtered : 0;
+}
+
+/**
+ * Sanitize float input and return as float (or 0.0 if invalid)
+ * @param mixed $value Value to sanitize
+ * @return float
+ */
+function sanitizeFloat($value) {
+    if (is_numeric($value)) {
+        return (float) $value;
+    }
+    $filtered = filter_var($value, FILTER_VALIDATE_FLOAT);
+    return $filtered !== false ? (float) $filtered : 0.0;
+}
+
+/**
+ * Generate a safe filename suitable for storing on disk.
+ * Strips dangerous characters and adds a unique prefix.
+ * @param string $filename Original filename
+ * @return string Safe filename
+ */
+function generateSafeFileName($filename) {
+    // remove path information
+    $base = basename($filename);
+    // replace any character that is not alphanumeric, dot, underscore or hyphen
+    $safe = preg_replace('/[^a-zA-Z0-9._\-]/', '_', $base);
+    return uniqid('', true) . '_' . $safe;
+}
+
+/**
  * Get client IP address
  * @return string Client IP
  */

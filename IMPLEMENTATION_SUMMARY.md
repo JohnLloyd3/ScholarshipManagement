@@ -41,7 +41,7 @@ All features from the detailed specification have been successfully implemented 
   - Session timeout protection
 
 ### 1.4 Role Management (RBAC) ✅
-- **Files:** `helpers/SecurityHelper.php`, `admin/users_new.php`
+- **Files:** `helpers/SecurityHelper.php`, `admin/users.php`
 - **Features:**
   - 4 roles: Admin, Staff, Reviewer, Student
   - Role-based access control via middleware
@@ -63,7 +63,7 @@ All features from the detailed specification have been successfully implemented 
   - Prevents password reuse
 
 ### 1.6 Account Activation / Deactivation ✅
-- **Files:** `admin/users_new.php`
+- **Files:** `admin/users.php`
 - **Features:**
   - Admin can deactivate users
   - Inactive users cannot login
@@ -172,7 +172,7 @@ All features from the detailed specification have been successfully implemented 
 - **Error Messages:** Clear validation feedback
 
 ### 3.4 Review Applicant List ✅
-- **File:** `admin/applications_new.php`
+- **File:** `admin/applications.php`
 - **Features:**
   - Dashboard shows all applications
   - Filter by status (pending, approved, rejected, submitted)
@@ -387,9 +387,9 @@ All tables created in `database/enhanced_schema.sql`:
 ### Admin Pages
 - **admin/dashboard.php** - Admin dashboard
 - **admin/scholarships_new.php** - Scholarship CRUD
-- **admin/applications_new.php** - Application review
+- **admin/applications.php** - Application review
 - **admin/announcements.php** - Create announcements
-- **admin/users_new.php** - User management
+- **admin/users.php** - User management
 
 ---
 

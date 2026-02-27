@@ -14,25 +14,36 @@ unset($_SESSION['message']);
 
 // Handle POST requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF protection
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['message'] = 'Invalid request (CSRF token missing or incorrect).';
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
+
     $post_action = $_POST['action'] ?? '';
     
     if ($post_action === 'create') {
         $title = sanitizeString($_POST['title'] ?? '');
         $description = sanitizeString($_POST['description'] ?? '');
         $organization = sanitizeString($_POST['organization'] ?? '');
+        $eligibility_requirements = sanitizeString($_POST['eligibility_requirements'] ?? '');
+        $renewal_requirements = sanitizeString($_POST['renewal_requirements'] ?? '');
         $amount = sanitizeFloat($_POST['amount'] ?? 0);
         $deadline = $_POST['deadline'] ?? '';
         
         if ($title && $description && $deadline) {
             try {
                 $stmt = $pdo->prepare("
-                    INSERT INTO scholarships (title, description, organization, amount, deadline, status, created_by)
-                    VALUES (:title, :description, :organization, :amount, :deadline, 'open', :created_by)
+                    INSERT INTO scholarships (title, description, organization, eligibility_requirements, renewal_requirements, amount, deadline, status, created_by)
+                    VALUES (:title, :description, :organization, :eligibility_requirements, :renewal_requirements, :amount, :deadline, 'open', :created_by)
                 ");
                 $stmt->execute([
                     ':title' => $title,
                     ':description' => $description,
                     ':organization' => $organization,
+                    ':eligibility_requirements' => $eligibility_requirements,
+                    ':renewal_requirements' => $renewal_requirements,
                     ':amount' => $amount,
                     ':deadline' => $deadline,
                     ':created_by' => $_SESSION['user_id']
@@ -47,6 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = sanitizeString($_POST['title'] ?? '');
         $description = sanitizeString($_POST['description'] ?? '');
         $organization = sanitizeString($_POST['organization'] ?? '');
+        $eligibility_requirements = sanitizeString($_POST['eligibility_requirements'] ?? '');
+        $renewal_requirements = sanitizeString($_POST['renewal_requirements'] ?? '');
         $amount = sanitizeFloat($_POST['amount'] ?? 0);
         $deadline = $_POST['deadline'] ?? '';
         $status = $_POST['status'] ?? 'open';
@@ -56,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("
                     UPDATE scholarships
                     SET title = :title, description = :description, organization = :organization,
+                        eligibility_requirements = :eligibility_requirements, renewal_requirements = :renewal_requirements,
                         amount = :amount, deadline = :deadline, status = :status
                     WHERE id = :id
                 ");
@@ -64,6 +78,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':title' => $title,
                     ':description' => $description,
                     ':organization' => $organization,
+                    ':eligibility_requirements' => $eligibility_requirements,
+                    ':renewal_requirements' => $renewal_requirements,
                     ':amount' => $amount,
                     ':deadline' => $deadline,
                     ':status' => $status
@@ -115,6 +131,7 @@ if ($action === 'edit') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Scholarships - Admin</title>
     <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../member/dashboard.css">
     <style>
         .scholarships-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
@@ -127,7 +144,7 @@ if ($action === 'edit') {
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .panel { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-        .btn-primary { background-color: #667eea; color: white; }
+        .btn-primary { background-color: #c41e3a; color: white; }
         .btn-success { background-color: #48bb78; color: white; }
         .btn-danger { background-color: #f56565; color: white; }
         .btn-secondary { background-color: #718096; color: white; }
@@ -141,18 +158,40 @@ if ($action === 'edit') {
         .message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .edit-form { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        /* Layout adjustments to match admin dashboard sidebar */
+        .dashboard-app { display: flex; min-height: 100vh; }
+        .main { flex: 1; padding: 20px; }
+        /* Responsive form rows */
+        @media (max-width: 900px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+        /* Table responsiveness */
+        .panel .table { width: 100%; }
+        .table-responsive { overflow-x: auto; }
     </style>
 </head>
 <body>
-    <nav style="background-color: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
-        <h2>🎓 Scholarship Management</h2>
-        <div>
-            <a href="dashboard.php" style="color: white; margin-right: 20px; text-decoration: none;">Dashboard</a>
-            <a href="../auth/logout.php" style="color: white; text-decoration: none;">Logout</a>
-        </div>
-    </nav>
+    <div class="dashboard-app">
+        <aside class="sidebar">
+            <div class="profile">
+                <div class="avatar">A</div>
+                <div>
+                    <div class="welcome">Admin</div>
+                    <div class="username"><?php echo htmlspecialchars($_SESSION['user']['username']); ?></div>
+                </div>
+            </div>
+            <nav>
+                <a href="dashboard.php">Dashboard</a>
+                <a href="applications.php">Applications</a>
+                <a href="scholarships.php">Scholarships</a>
+                <a href="users.php">Users</a>
+                <a href="analytics.php">Analytics</a>
+                <a href="../auth/logout.php">Logout</a>
+            </nav>
+        </aside>
 
-    <div class="scholarships-container">
+        <main class="main">
+            <div class="scholarships-container">
         <?php if ($message): ?>
             <div class="message <?= strpos($message, 'Error') !== false ? 'error' : 'success' ?>">
                 <?= sanitizeString($message) ?>
@@ -163,6 +202,7 @@ if ($action === 'edit') {
             <div class="edit-form">
                 <h2>Edit Scholarship</h2>
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="id" value="<?= $editing['id'] ?>">
                     
@@ -180,6 +220,16 @@ if ($action === 'edit') {
                     <div class="form-group">
                         <label>Description</label>
                         <textarea name="description" required><?= sanitizeString($editing['description'] ?? '') ?></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Eligibility Requirements</label>
+                        <textarea name="eligibility_requirements"><?= sanitizeString($editing['eligibility_requirements'] ?? '') ?></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Renewal Requirements</label>
+                        <textarea name="renewal_requirements"><?= sanitizeString($editing['renewal_requirements'] ?? '') ?></textarea>
                     </div>
 
                     <div class="form-row">
@@ -215,6 +265,7 @@ if ($action === 'edit') {
             <div id="newForm" class="panel" style="display: none;">
                 <h3>Create New Scholarship</h3>
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                     <input type="hidden" name="action" value="create">
                     
                     <div class="form-row">
@@ -231,6 +282,16 @@ if ($action === 'edit') {
                     <div class="form-group">
                         <label>Description *</label>
                         <textarea name="description" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Eligibility Requirements</label>
+                        <textarea name="eligibility_requirements"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Renewal Requirements</label>
+                        <textarea name="renewal_requirements"></textarea>
                     </div>
 
                     <div class="form-row">
@@ -252,6 +313,7 @@ if ($action === 'edit') {
             <div class="panel">
                 <h3>All Scholarships</h3>
                 <?php if (!empty($scholarships)): ?>
+                    <div class="table-responsive">
                     <table class="table">
                         <thead>
                             <tr>
@@ -276,6 +338,7 @@ if ($action === 'edit') {
                                     <td>
                                         <a href="?action=edit&id=<?= $sch['id'] ?>" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;">Edit</a>
                                         <form style="display: inline;" method="POST" onsubmit="return confirm('Delete this scholarship?');">
+                                            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="id" value="<?= $sch['id'] ?>">
                                             <button type="submit" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">Delete</button>
@@ -285,11 +348,14 @@ if ($action === 'edit') {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    </div>
                 <?php else: ?>
                     <p>No scholarships created yet.</p>
                 <?php endif; ?>
             </div>
         <?php endif; ?>
+            </div>
+        </main>
     </div>
 </body>
 </html>

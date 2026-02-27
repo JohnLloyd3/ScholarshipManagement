@@ -336,13 +336,6 @@ function getPasswordResetEmailTemplate($code) {
 }
 
 /**
- * Generate a random 6-digit code
- */
-function generateVerificationCode() {
-    return str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-}
-
-/**
  * Send application decision notification email to applicant (3.6 Notify Applicants)
  */
 function sendApplicationDecisionEmail($to, $applicantName, $scholarshipTitle, $status, $comments = '') {

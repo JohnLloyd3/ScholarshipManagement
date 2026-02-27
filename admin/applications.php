@@ -15,6 +15,13 @@ unset($_SESSION['message']);
 
 // Handle POST requests (approve/reject/update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF protection
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['message'] = 'Invalid request (CSRF token missing or incorrect).';
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
+
     $post_action = $_POST['action'] ??  '';
     $app_id = sanitizeInt($_POST['app_id'] ?? 0);
     
@@ -160,12 +167,13 @@ if ($action === 'view') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Applications - Admin</title>
     <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../member/dashboard.css">
     <style>
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .btn { padding: 8px 16px; border:none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; font-size: 14px; }
-        .btn-primary { background-color: #667eea; color: white; }
+        .btn-primary { background-color: #c41e3a; color: white; }
         .btn-success { background-color: #48bb78; color: white; }
         .btn-danger { background-color: #f56565; color: white; }
         .btn-info { background-color: #4299e1; color: white; }
@@ -184,20 +192,37 @@ if ($action === 'view') {
         .detail-row { margin-bottom: 15px; }
         .detail-row label { font-weight: bold; color: #333; }
         .detail-row value { color: #666; }
-        .nav { background-color: #333; color: white; padding: 15px; display: flex; justify-content: space-between; }
+        .nav { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 15px; display: flex; justify-content: space-between; }
         .nav a { color: white; margin-right: 20px; text-decoration: none; }
+        /* Dashboard layout compatibility */
+        .dashboard-app { display: flex; min-height: 100vh; }
+        .main { flex: 1; padding: 20px; }
+        @media (max-width: 900px) { .container { padding: 12px; } .table th, .table td { padding: 8px; } }
+        .table-responsive { overflow-x: auto; }
     </style>
 </head>
 <body>
-    <div class="nav">
-        <h2>📋 Applications Review</h2>
-        <div>
-            <a href="dashboard.php">Dashboard</a>
-            <a href="../auth/logout.php">Logout</a>
-        </div>
-    </div>
+    <div class="dashboard-app">
+        <aside class="sidebar">
+            <div class="profile">
+                <div class="avatar">A</div>
+                <div>
+                    <div class="welcome">Admin</div>
+                    <div class="username"><?php echo htmlspecialchars($_SESSION['user']['username']); ?></div>
+                </div>
+            </div>
+            <nav>
+                <a href="dashboard.php">Dashboard</a>
+                <a href="applications.php">Applications</a>
+                <a href="scholarships.php">Scholarships</a>
+                <a href="users.php">Users</a>
+                <a href="analytics.php">Analytics</a>
+                <a href="../auth/logout.php">Logout</a>
+            </nav>
+        </aside>
 
-    <div class="container">
+        <main class="main">
+            <div class="container">
         <?php if ($message): ?>
             <div class="message success"><?= sanitizeString($message) ?></div>
         <?php endif; ?>
@@ -242,6 +267,7 @@ if ($action === 'view') {
                 <?php if (!empty($viewing['documents'])): ?>
                     <div class="detail-row">
                         <label>Uploaded Documents:</label>
+                        <div class="table-responsive">
                         <table class="table">
                             <thead>
                                 <tr>
@@ -264,6 +290,7 @@ if ($action === 'view') {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 <?php endif; ?>
                 
@@ -271,12 +298,14 @@ if ($action === 'view') {
                     <hr>
                     <h3>Decision</h3>
                     <form method="POST" style="margin-top: 20px;">
+                        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                         <input type="hidden" name="action" value="approve">
                         <input type="hidden" name="app_id" value="<?= $viewing['id'] ?>">
                         <button type="submit" class="btn btn-success">✓ Approve</button>
                     </form>
                     
                     <form method="POST" style="margin-top: 10px;">
+                        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                         <input type="hidden" name="action" value="reject">
                         <input type="hidden" name="app_id" value="<?= $viewing['id'] ?>">
                         <button type="submit" class="btn btn-danger">✗ Reject</button>
@@ -287,6 +316,7 @@ if ($action === 'view') {
             <h1>Applications Management</h1>
             
             <div class="panel">
+                <div class="table-responsive">
                 <table class="table">
                     <thead>
                         <tr>
@@ -317,8 +347,11 @@ if ($action === 'view') {
                         <?php endif; ?>
                     </tbody>
                 </table>
+                </div>
             </div>
         <?php endif; ?>
+            </div>
+        </main>
     </div>
 </body>
 </html>

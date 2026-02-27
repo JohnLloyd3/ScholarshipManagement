@@ -17,26 +17,41 @@ $user_id = $_SESSION['user_id'];
 
 if ($action === 'create') {
     $scholarship_id = (int)($_POST['scholarship_id'] ?? 0);
-    $title = trim($_POST['title'] ?? '');
-    $details = trim($_POST['details'] ?? '');
-    $gpa = trim($_POST['gpa'] ?? '');
-    $full_time = isset($_POST['full_time']) ? 1 : 0;
-    $other_info = trim($_POST['other_info'] ?? '');
-    $course = strtolower(trim($_POST['course'] ?? ''));
-    $academic_year = date('Y'); // Or get from form if available
+    $academic_year = date('Y'); // or override if provided later
 
-    // 3.3 Validate application entries
+    // collect posted fields for details
+    $posted = $_POST;
+    // ensure we don't include action or scholarship id
+    unset($posted['action'], $posted['scholarship_id']);
+
+    // simple required validations following spec
     $validation_errors = [];
     if (!$scholarship_id) {
         $validation_errors[] = 'Please select a scholarship.';
     }
-    if ($title === '') {
-        $validation_errors[] = 'Application title is required.';
+    if (empty($posted['full_name'])) {
+        $validation_errors[] = 'Full name is required.';
     }
-    if ($gpa === '') {
-        $validation_errors[] = 'GPA is required.';
-    } elseif (!is_numeric($gpa) || (floatval($gpa) < 0 || floatval($gpa) > 4.0)) {
-        $validation_errors[] = 'GPA must be a number between 0 and 4.0.';
+    if (empty($posted['sex'])) {
+        $validation_errors[] = 'Sex is required.';
+    }
+    if (empty($posted['dob'])) {
+        $validation_errors[] = 'Date of birth is required.';
+    }
+    if (empty($posted['age'])) {
+        $validation_errors[] = 'Age is required.';
+    }
+    if (empty($posted['civil_status'])) {
+        $validation_errors[] = 'Civil status is required.';
+    }
+    if (empty($posted['mobile'])) {
+        $validation_errors[] = 'Mobile number is required.';
+    }
+    if (empty($posted['email'])) {
+        $validation_errors[] = 'Email address is required.';
+    }
+    if (empty($posted['home_address'])) {
+        $validation_errors[] = 'Home address is required.';
     }
     if (!empty($validation_errors)) {
         $_SESSION['flash'] = implode(' ', $validation_errors);
@@ -64,46 +79,16 @@ if ($action === 'create') {
         exit;
     }
 
-    // Validate requirements
+    // Validate eligibility requirements generically (not enforcing GPA anymore)
     $stmt = $pdo->prepare('SELECT requirement FROM eligibility_requirements WHERE scholarship_id = :id');
     $stmt->execute([':id' => $scholarship_id]);
     $requirements = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    
-    $validation_errors = [];
+    // we will not enforce them in controller beyond file presence
     foreach ($requirements as $req) {
-        $req_lower = strtolower($req);
-        if (strpos($req_lower, 'gpa') !== false) {
-            // Extract GPA requirement (e.g., "GPA >= 3.5")
-            if (preg_match('/([0-9.]+)/', $req, $matches)) {
-                $required_gpa = (float)$matches[1];
-                $user_gpa = (float)$gpa;
-                // Accept GPA >= required_gpa (including exactly 3.5)
-                if (strpos($req_lower, '>=') !== false && $user_gpa < $required_gpa) {
-                    $validation_errors[] = "GPA requirement not met: $req (Your GPA: $gpa)";
-                } elseif (strpos($req_lower, '>') !== false && $user_gpa <= $required_gpa) {
-                    $validation_errors[] = "GPA requirement not met: $req (Your GPA: $gpa)";
-                } elseif ($user_gpa > 5.0) {
-                    $validation_errors[] = "GPA must not exceed 5.0.";
-                }
-            }
-        }
-        if (strpos($req_lower, 'course') !== false || strpos($req_lower, 'field of study') !== false) {
-            // Example: "Course: Computer Science" or "Field of Study: STEM"
-            if (preg_match('/(course|field of study)\s*:?\s*([a-zA-Z0-9 ]+)/', $req_lower, $matches)) {
-                $required_course = trim($matches[2]);
-                if (stripos($course, $required_course) === false) {
-                    $validation_errors[] = "Course/Field requirement not met: $req (Your course: $course)";
-                }
-            }
-        }
-        if (strpos($req_lower, 'full-time') !== false || strpos($req_lower, 'full time') !== false) {
-            if (!$full_time) {
-                $validation_errors[] = "Must be enrolled full-time";
-            }
-        }
-        if (strpos($req_lower, 'document') !== false || strpos($req_lower, 'upload') !== false) {
-            if (empty($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
-                $validation_errors[] = "Required document not uploaded.";
+        if (stripos($req, 'document') !== false || stripos($req, 'upload') !== false) {
+            // ensure at least one file uploaded when requirement mentions document
+            if (empty($_FILES['documents']) || empty($_FILES['documents']['name'][0])) {
+                $validation_errors[] = "Please upload required document(s): $req";
             }
         }
     }
@@ -123,61 +108,69 @@ if ($action === 'create') {
     }
 
     $documentPath = null;
-    if (!empty($_FILES['document']) && $_FILES['document']['error'] === UPLOAD_ERR_OK) {
-        // Validate file upload
-        $file_validation = validateFileUpload($_FILES['document']);
-        if (!$file_validation['valid']) {
-            $_SESSION['flash'] = 'File validation failed: ' . $file_validation['error'];
-            header('Location: ../member/apply_scholarship.php?scholarship_id=' . $scholarship_id);
-            exit;
-        }
-        
+    $uploadedPaths = [];
+    if (!empty($_FILES['documents']) && !empty($_FILES['documents']['name'][0])) {
         $up = __DIR__ . '/../uploads';
         if (!is_dir($up)) mkdir($up, 0777, true);
-        $name = sanitizeFilename(basename($_FILES['document']['name']));
-        $safe = time() . '_' . preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $name);
-        $target = $up . '/' . $safe;
-        $file_size = $_FILES['document']['size'];
-        $file_hash = hash_file('sha256', $_FILES['document']['tmp_name']);
-        // Duplicate document check (same user, same hash, same filename, same size)
-        $stmt = $pdo->prepare('SELECT id FROM documents WHERE user_id = :uid AND file_name = :fname AND file_size = :fsize AND file_hash = :fhash');
-        $stmt->execute([
-            ':uid' => $user_id,
-            ':fname' => $name,
-            ':fsize' => $file_size,
-            ':fhash' => $file_hash
-        ]);
-        if ($stmt->fetch()) {
-            $_SESSION['flash'] = 'Duplicate document detected. Please upload a different file.';
-            header('Location: ../member/apply_scholarship.php?scholarship_id=' . $scholarship_id);
-            exit;
+        // normalize multiple file array
+        $files = [];
+        foreach ($_FILES['documents']['name'] as $i => $name) {
+            $files[] = [
+                'name' => $name,
+                'type' => $_FILES['documents']['type'][$i] ?? '',
+                'tmp_name' => $_FILES['documents']['tmp_name'][$i],
+                'error' => $_FILES['documents']['error'][$i],
+                'size' => $_FILES['documents']['size'][$i],
+            ];
         }
-        if (move_uploaded_file($_FILES['document']['tmp_name'], $target)) {
-            $documentPath = 'uploads/' . $safe;
-            // Save document record
-            $docStmt = $pdo->prepare('INSERT INTO documents (user_id, file_name, file_path, file_size, file_hash, uploaded_at) VALUES (:uid, :fname, :fpath, :fsize, :fhash, NOW())');
-            $docStmt->execute([
+        foreach ($files as $file) {
+            if ($file['error'] !== UPLOAD_ERR_OK) continue;
+            $file_validation = validateFileUpload($file);
+            if (!$file_validation['valid']) {
+                $_SESSION['flash'] = 'File validation failed: ' . $file_validation['error'];
+                header('Location: ../member/apply_scholarship.php?scholarship_id=' . $scholarship_id);
+                exit;
+            }
+            $name = sanitizeFilename(basename($file['name']));
+            $safe = time() . '_' . preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $name);
+            $target = $up . '/' . $safe;
+            $file_size = $file['size'];
+            $file_hash = hash_file('sha256', $file['tmp_name']);
+            // duplicate check
+            $stmt = $pdo->prepare('SELECT id FROM documents WHERE user_id = :uid AND file_name = :fname AND file_size = :fsize AND file_hash = :fhash');
+            $stmt->execute([
                 ':uid' => $user_id,
                 ':fname' => $name,
-                ':fpath' => $documentPath,
                 ':fsize' => $file_size,
                 ':fhash' => $file_hash
             ]);
+            if ($stmt->fetch()) {
+                continue; // skip duplicates silently
+            }
+            if (move_uploaded_file($file['tmp_name'], $target)) {
+                $pathRel = 'uploads/' . $safe;
+                $uploadedPaths[] = $pathRel;
+                // save document record (application_id will be linked later)
+                $docStmt = $pdo->prepare('INSERT INTO documents (user_id, file_name, file_path, file_size, file_hash, uploaded_at) VALUES (:uid, :fname, :fpath, :fsize, :fhash, NOW())');
+                $docStmt->execute([
+                    ':uid' => $user_id,
+                    ':fname' => $name,
+                    ':fpath' => $pathRel,
+                    ':fsize' => $file_size,
+                    ':fhash' => $file_hash
+                ]);
+            }
+        }
+        if (!empty($uploadedPaths)) {
+            $documentPath = $uploadedPaths[0];
         }
     }
 
-    // Use scholarship title if no custom title provided
-    if (empty($title)) {
-        $title = $scholarship['title'] . ' Application';
-    }
+    // generate title from applicant name if available
+    $title = $posted['full_name'] ?? ($scholarship['title'] . ' Application');
 
-    $details_full = "GPA: $gpa\nFull-time: " . ($full_time ? 'Yes' : 'No');
-    if ($other_info) {
-        $details_full .= "\nAdditional Info: $other_info";
-    }
-    if ($details) {
-        $details_full .= "\n\n$details";
-    }
+    // details as JSON for record
+    $details_full = json_encode($posted, JSON_UNESCAPED_UNICODE);
 
     // Capture applicant email for easier reporting/filters
     $email = $_SESSION['user']['email'] ?? null;
@@ -196,10 +189,12 @@ if ($action === 'create') {
     
     $application_id = $pdo->lastInsertId();
     
-    // Link document to application if uploaded
-    if ($documentPath) {
+    // Link any uploaded documents to application
+    if (!empty($uploadedPaths)) {
         $linkStmt = $pdo->prepare('UPDATE documents SET application_id = :appid WHERE file_path = :path');
-        $linkStmt->execute([':appid' => $application_id, ':path' => $documentPath]);
+        foreach ($uploadedPaths as $path) {
+            $linkStmt->execute([':appid' => $application_id, ':path' => $path]);
+        }
     }
     
     // Perform intelligent application screening
