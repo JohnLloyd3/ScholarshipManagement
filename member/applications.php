@@ -8,6 +8,44 @@ if (!isset($_SESSION['user_id'])) {
 require_once __DIR__ . '/../config/db.php';
 $pdo = getPDO();
 $user_id = $_SESSION['user_id'];
+
+// Handle deletion by owner
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_application') {
+  $delId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+  if ($delId > 0) {
+    try {
+      $stmt = $pdo->prepare('SELECT id, user_id FROM applications WHERE id = :id LIMIT 1');
+      $stmt->execute([':id' => $delId]);
+      $row = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$row) {
+        $_SESSION['flash'] = 'Application not found.';
+      } elseif ((int)$row['user_id'] !== (int)$user_id) {
+        $_SESSION['flash'] = 'You are not authorized to delete this application.';
+      } else {
+        $pdo->prepare('DELETE FROM applications WHERE id = :id')->execute([':id' => $delId]);
+        $_SESSION['success'] = 'Application deleted successfully.';
+      }
+    } catch (Exception $e) {
+      $_SESSION['flash'] = 'Failed to delete application.';
+    }
+  } else {
+    $_SESSION['flash'] = 'Invalid application ID.';
+  }
+  header('Location: applications.php');
+  exit;
+}
+
+// Check if viewing details
+$viewId = isset($_GET['view']) ? (int)$_GET['view'] : null;
+$viewingApp = null;
+if ($viewId) {
+    $stmt = $pdo->prepare('SELECT a.*, s.title as scholarship_title, s.description as scholarship_desc, s.organization 
+                           FROM applications a 
+                           LEFT JOIN scholarships s ON a.scholarship_id = s.id 
+                           WHERE a.id = :aid AND a.user_id = :uid');
+    $stmt->execute([':aid' => $viewId, ':uid' => $user_id]);
+    $viewingApp = $stmt->fetch();
+}
 $stmt = $pdo->prepare('SELECT a.*, s.title as scholarship_title, s.organization, s.status as scholarship_status 
                        FROM applications a 
                        LEFT JOIN scholarships s ON a.scholarship_id = s.id 
@@ -56,7 +94,48 @@ $apps = $stmt->fetchAll();
 
       <section class="panel">
         <h3>My Applications</h3>
-        <?php if (empty($apps)): ?>
+        
+        <?php if ($viewingApp): ?>
+          <a href=\"applications.php\" style=\"color:#2196F3;text-decoration:none;margin-bottom:15px;display:inline-block\">← Back to Applications</a>
+          <div style=\"margin-top:20px;background:#f9f9f9;padding:20px;border-radius:8px\">
+            <h2><?= htmlspecialchars($viewingApp['scholarship_title']) ?></h2>
+            <p style=\"color:#666;margin-bottom:20px\"><?= htmlspecialchars($viewingApp['scholarship_desc'] ?? '') ?></p>
+            
+            <div style=\"margin-bottom:20px\">
+              <strong>Status:</strong> 
+              <?php
+                $status = $viewingApp['status'];
+                $s = strtolower($status);
+                $status_color = ['draft'=>'#999','submitted'=>'#2196F3','pending'=>'#FF9800','under_review'=>'#2196F3','approved'=>'#4CAF50','rejected'=>'#f44336','waitlisted'=>'#FFC107'];
+                $color = $status_color[$s] ?? '#999';
+              ?>
+              <span style=\"color:<?= $color ?>;font-weight:bold\"><?= ucfirst(str_replace('_', ' ', htmlspecialchars($status))) ?></span>
+            </div>
+            
+            <div style=\"margin-bottom:20px\">
+              <strong>Submitted:</strong> <?= htmlspecialchars($viewingApp['created_at']) ?>
+            </div>
+            
+            <hr style=\"margin:20px 0\">
+            <h4>Application Details</h4>
+            <?php if ($viewingApp['motivational_letter']): ?>
+              <?php $formData = json_decode($viewingApp['motivational_letter'], true); ?>
+              <?php if ($formData): ?>
+                <table style=\"width:100%;border-collapse:collapse\">
+                  <?php foreach ($formData as $key => $value): ?>
+                    <?php if (is_string($value) || is_numeric($value)): ?>
+                      <tr style=\"border-bottom:1px solid #eee\">
+                        <td style=\"padding:10px;font-weight:bold;width:30%\"><?= htmlspecialchars(str_replace('_', ' ', ucfirst($key))) ?></td>
+                        <td style=\"padding:10px\"><?= htmlspecialchars($value) ?></td>
+                      </tr>
+                    <?php endif; ?>
+                  <?php endforeach; ?>
+                </table>
+              <?php endif; ?>
+            <?php endif; ?>
+          </div>
+        <?php else: ?>
+          <?php if (empty($apps)): ?>
           <p class="muted">You have not submitted any applications yet.</p>
           <p><a href="apply_scholarship.php" class="btn">Apply for a Scholarship</a></p>
         <?php else: ?>
@@ -69,6 +148,7 @@ $apps = $stmt->fetchAll();
                 <th>Status</th>
                 <th>Document</th>
                 <th>Submitted</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -83,10 +163,22 @@ $apps = $stmt->fetchAll();
                       <em>General Application</em>
                     <?php endif; ?>
                   </td>
-                  <td><?= htmlspecialchars($a['title']) ?></td>
+                  <td>
+                    <?php
+                      $appTitle = 'Application';
+                      if ($a['motivational_letter']) {
+                        $formData = json_decode($a['motivational_letter'], true);
+                        if ($formData && isset($formData['full_name'])) {
+                          $appTitle = htmlspecialchars($formData['full_name']);
+                        }
+                      }
+                      echo $appTitle;
+                    ?>
+                  </td>
                   <td>
                     <?php
                       $status = $a['status'];
+                      $s = strtolower($status);
                       $status_color = [
                         'draft' => '#999',
                         'submitted' => '#2196F3',
@@ -96,7 +188,7 @@ $apps = $stmt->fetchAll();
                         'rejected' => '#f44336',
                         'waitlisted' => '#FFC107'
                       ];
-                      $color = $status_color[$status] ?? '#999';
+                      $color = $status_color[$s] ?? '#999';
                     ?>
                     <span style="color:<?= $color ?>">
                       <?= ucfirst(str_replace('_', ' ', htmlspecialchars($status))) ?>
@@ -104,10 +196,19 @@ $apps = $stmt->fetchAll();
                   </td>
                   <td><?php if (!empty($a['document'])): ?><a href="../<?= htmlspecialchars($a['document']) ?>" target="_blank">View</a><?php else: ?>—<?php endif; ?></td>
                   <td><small><?= htmlspecialchars($a['created_at']) ?></small></td>
+                  <td>
+                    <a href="applications.php?view=<?= $a['id'] ?>" style="color:#2196F3;text-decoration:none;margin-right:8px">View</a>
+                    <form method="POST" style="display:inline" onsubmit="return confirm('Delete this application? This action cannot be undone.');">
+                      <input type="hidden" name="action" value="delete_application">
+                      <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                      <button type="submit" style="background:transparent;border:none;color:#b91c1c;cursor:pointer;padding:0">Delete</button>
+                    </form>
+                  </td>
                 </tr>
               <?php endforeach; ?>
             </tbody>
           </table>
+        <?php endif; ?>
         <?php endif; ?>
       </section>
 

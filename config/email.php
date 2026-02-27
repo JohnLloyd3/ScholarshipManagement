@@ -345,6 +345,32 @@ function sendApplicationDecisionEmail($to, $applicantName, $scholarshipTitle, $s
 }
 
 /**
+ * Queue an email to be sent by the background processor.
+ * Falls back to immediate send if queueing fails.
+ */
+function queueEmail($to, $subject, $message, $user_id = null) {
+    try {
+        if (!function_exists('getPDO')) {
+            // if DB helper not available, send immediately
+            return sendEmail($to, $subject, $message, true);
+        }
+        $pdo = getPDO();
+        $stmt = $pdo->prepare('INSERT INTO email_logs (user_id, email, subject, body, status, attempts, created_at) VALUES (:uid, :email, :subject, :body, "queued", 0, NOW())');
+        $stmt->execute([
+            ':uid' => $user_id,
+            ':email' => $to,
+            ':subject' => $subject,
+            ':body' => $message
+        ]);
+        return true;
+    } catch (Exception $e) {
+        error_log('[queueEmail] failed to queue: ' . $e->getMessage());
+        // fallback to immediate send
+        return sendEmail($to, $subject, $message, true);
+    }
+}
+
+/**
  * Email template for application approved/rejected notification
  */
 function getApplicationDecisionEmailTemplate($applicantName, $scholarshipTitle, $status, $comments = '') {

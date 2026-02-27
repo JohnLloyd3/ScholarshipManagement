@@ -78,6 +78,13 @@ function getPDO()
         try {
             $pdo->exec("ALTER TABLE users MODIFY email VARCHAR(150) NOT NULL UNIQUE");
         } catch (Exception $e) {}
+        // Add secret question/answer columns used by auth flows
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN secret_question VARCHAR(255) DEFAULT NULL");
+        } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN secret_answer_hash VARCHAR(255) DEFAULT NULL");
+        } catch (Exception $e) {}
 
         // Ensure applications table exists for admin flows
         $pdo->exec("CREATE TABLE IF NOT EXISTS applications (
@@ -86,7 +93,7 @@ function getPDO()
             scholarship_id INT NOT NULL,
             motivational_letter TEXT NOT NULL,
             gpa DECIMAL(3,2),
-            status ENUM('draft','submitted','pending','approved','rejected','withdrawn') DEFAULT 'draft',
+            status ENUM('draft','submitted','under_review','pending','approved','rejected','withdrawn') DEFAULT 'submitted',
             submitted_at DATETIME,
             reviewed_at DATETIME,
             reviewer_id INT,
@@ -227,6 +234,32 @@ function getPDO()
             FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
             INDEX idx_application_id (application_id),
             INDEX idx_verification_status (verification_status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Ensure scholarship_documents table exists (required-documents per scholarship)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS scholarship_documents (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            scholarship_id INT NOT NULL,
+            document_name VARCHAR(255) NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+            INDEX idx_scholarship_id (scholarship_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Ensure email_logs table exists (queued emails for processing)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS email_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NULL,
+            email VARCHAR(255) NOT NULL,
+            subject VARCHAR(255) NOT NULL,
+            body TEXT NOT NULL,
+            status ENUM('queued','sent','failed') DEFAULT 'queued',
+            attempts INT DEFAULT 0,
+            last_attempt_at DATETIME DEFAULT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_status (status),
+            INDEX idx_user_id (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Ensure notifications table exists

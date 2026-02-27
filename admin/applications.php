@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config/email.php';
 
 // Authentication
 requireLogin();
-requireAnyRole(['admin', 'reviewer', 'staff'], 'Access Denied');
+requireAnyRole(['admin', 'staff'], 'Access Denied');
 
 $pdo = getPDO();
 $action = $_GET['action'] ?? '';
@@ -185,7 +185,7 @@ if ($action === 'view') {
         .status-pending { background-color: #ffd700; color: #333; }
         .status-approved { background-color: #90EE90; color: #000; }
         .status-rejected { background-color: #FFB6C6; color: #000; }
-        .status-submitted { background-color: #87CEEB; color: #000; }
+        .status-submitted, .status-under_review { background-color: #87CEEB; color: #000; }
         .message { padding: 15px; margin-bottom: 20px; border-radius: 4px; }
         .message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .application-detail { background: #f9f9f9; padding: 20px; border-radius: 8px; }
@@ -294,7 +294,7 @@ if ($action === 'view') {
                     </div>
                 <?php endif; ?>
                 
-                <?php if ($viewing['status'] === 'pending' || $viewing['status'] === 'submitted'): ?>
+                <?php if ($viewing['status'] === 'under_review' || $viewing['status'] === 'submitted'): ?>
                     <hr>
                     <h3>Decision</h3>
                     <form method="POST" style="margin-top: 20px;">

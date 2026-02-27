@@ -1,3 +1,6 @@
+CREATE DATABASE IF NOT EXISTS `scholarshipmanagement` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `scholarshipmanagement`;
+
 -- Enhanced Scholarship Management System Database Schema
 -- Complete implementation with all features
 -- 
@@ -93,7 +96,15 @@ CREATE TABLE IF NOT EXISTS applications (
   scholarship_id INT NOT NULL,
   motivational_letter TEXT NOT NULL,
   gpa DECIMAL(3,2) CHECK (gpa >= 0 AND gpa <= 4.0),
-  status ENUM('draft','submitted','pending','approved','rejected','withdrawn') DEFAULT 'draft',
+  status ENUM(
+  'draft',
+  'submitted',
+  'under_review',
+  'pending',
+  'approved',
+  'rejected',
+  'withdrawn'
+) DEFAULT 'submitted',
   submitted_at DATETIME,
   reviewed_at DATETIME,
   reviewer_id INT,
@@ -131,6 +142,18 @@ CREATE TABLE IF NOT EXISTS documents (
   FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_application_id (application_id),
   INDEX idx_verification_status (verification_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==========================================
+-- 6b. SCHOLARSHIP DOCUMENTS (Required documents per scholarship)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS scholarship_documents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  scholarship_id INT NOT NULL,
+  document_name VARCHAR(255) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+  INDEX idx_scholarship_id (scholarship_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ==========================================

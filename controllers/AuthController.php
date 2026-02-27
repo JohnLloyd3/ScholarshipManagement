@@ -61,9 +61,6 @@ function _redirect_dashboard_for_role($role)
         case 'admin':
             header("Location: ../admin/dashboard.php");
             break;
-        case 'reviewer':
-            header("Location: ../reviewer/dashboard.php");
-            break;
         case 'staff':
             header("Location: ../staff/dashboard.php");
             break;
@@ -286,9 +283,11 @@ if ($action === 'register') {
 
     if ($pdo) {
         try {
-            $stmt = $pdo->prepare('SELECT id, email, secret_question FROM users WHERE email = :id1 OR username = :id2 LIMIT 1');
+            // Match identifier against username or email in a case-insensitive, trimmed manner
+            // Use two distinct placeholders to avoid PDO "invalid parameter number" when emulated prepares are disabled
+            $stmt = $pdo->prepare('SELECT id, email, secret_question FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(:id1)) OR LOWER(TRIM(username)) = LOWER(TRIM(:id2)) LIMIT 1');
             $stmt->execute([':id1' => $identifier, ':id2' => $identifier]);
-            $user = $stmt->fetch();
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$user) {
                 $_SESSION['flash'] = 'Account not found.';

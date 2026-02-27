@@ -34,6 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = $_POST['password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
         $role = $_POST['role'] ?? 'student';
+        $phone = trim($_POST['phone'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        $secret_question = trim($_POST['secret_question'] ?? '');
+        $secret_answer = trim($_POST['secret_answer'] ?? '');
         
         $errors = [];
         
@@ -98,32 +102,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Validate role
-        $valid_roles = ['admin', 'staff', 'reviewer', 'student'];
+        $valid_roles = ['admin', 'staff', 'student'];
         if (!in_array($role, $valid_roles)) {
             $errors['role'] = 'Invalid role selected';
+        }
+
+        // Validate secret question/answer (required)
+        if (empty($secret_question)) {
+            $errors['secret_question'] = 'Secret question is required';
+        }
+        if (empty($secret_answer)) {
+            $errors['secret_answer'] = 'Secret answer is required';
         }
         
         if (empty($errors)) {
             try {
-                $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email OR username = :username");
-                $stmt->execute([':email' => $email, ':username' => $username]);
-                if ($stmt->fetch()) {
-                    $_SESSION['message'] = 'Error: Email or username already exists';
-                    $_SESSION['message_type'] = 'error';
-                } else {
-                    $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-                    $stmt = $pdo->prepare("
-                        INSERT INTO users (first_name, last_name, email, username, password, role, active)
-                        VALUES (:first_name, :last_name, :email, :username, :password, :role, 1)
-                    ");
-                    $stmt->execute([
-                        ':first_name' => $first_name,
-                        ':last_name' => $last_name,
-                        ':email' => $email,
-                        ':username' => $username,
-                        ':password' => $hashedPassword,
-                        ':role' => $role
-                    ]);
+                        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email OR username = :username");
+                        $stmt->execute([':email' => $email, ':username' => $username]);
+                        if ($stmt->fetch()) {
+                            $_SESSION['message'] = 'Error: Email or username already exists';
+                            $_SESSION['message_type'] = 'error';
+                        } else {
+                            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+                            $secretHash = password_hash($secret_answer, PASSWORD_BCRYPT);
+                            $stmt = $pdo->prepare("
+                                INSERT INTO users (first_name, last_name, email, username, password, role, phone, address, secret_question, secret_answer_hash, active)
+                                VALUES (:first_name, :last_name, :email, :username, :password, :role, :phone, :address, :secret_question, :secret_answer_hash, 1)
+                            ");
+                            $stmt->execute([
+                                ':first_name' => $first_name,
+                                ':last_name' => $last_name,
+                                ':email' => $email,
+                                ':username' => $username,
+                                ':password' => $hashedPassword,
+                                ':role' => $role,
+                                ':phone' => $phone,
+                                ':address' => $address,
+                                ':secret_question' => $secret_question,
+                                ':secret_answer_hash' => $secretHash
+                            ]);
                     $_SESSION['message'] = 'User created successfully!';
                     $_SESSION['message_type'] = 'success';
                 }
@@ -278,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'update_role') {
         $id = sanitizeInt($_POST['id'] ?? 0);
         $role = $_POST['role'] ?? 'student';
-        $valid_roles = ['admin', 'staff', 'reviewer', 'student'];
+        $valid_roles = ['admin', 'staff', 'student'];
         
         if (!$id || $id <= 0) {
             $_SESSION['message'] = 'Error: Invalid user ID';
@@ -319,7 +336,7 @@ $query = "
     FROM users
 ";
 $params = [];
-if ($filter && in_array($filter, ['admin', 'staff', 'reviewer', 'student'])) {
+if ($filter && in_array($filter, ['admin', 'staff', 'student'])) {
     $query .= " WHERE role = :filter";
     $params[':filter'] = $filter;
 }
@@ -332,7 +349,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // Count by role
 $roleCounts = [];
-foreach (['admin', 'staff', 'reviewer', 'student'] as $role) {
+foreach (['admin', 'staff', 'student'] as $role) {
     $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = '$role'");
     $roleCounts[$role] = $stmt->fetchColumn() ?: 0;
 }
@@ -383,7 +400,7 @@ function getFieldError($fieldName) {
         .role-badge { padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .role-admin { background-color: #f56565; color: white; }
         .role-staff { background-color: #4299e1; color: white; }
-        .role-reviewer { background-color: #48bb78; color: white; }
+        /* reviewer role removed */
         .role-student { background-color: #ed8936; color: white; }
         .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); overflow-y: auto; padding-top: 60px; box-sizing: border-box; }
         .modal-content { background-color: white; margin: 0 auto; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); max-height: calc(100vh - 120px); overflow-y: auto; }
@@ -447,8 +464,7 @@ function getFieldError($fieldName) {
                 <div class="label">Staff</div>
             </div>
             <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                <div class="number"><?= $roleCounts['reviewer'] ?></div>
-                <div class="label">Reviewers</div>
+                <!-- reviewer role removed -->
             </div>
             <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
                 <div class="number"><?= $roleCounts['student'] ?></div>
@@ -466,7 +482,7 @@ function getFieldError($fieldName) {
                 <a href="users.php" class="role-tab <?= empty($filter) ? 'active' : '' ?>">All</a>
                 <a href="?role=admin" class="role-tab <?= $filter === 'admin' ? 'active' : '' ?>">Admins</a>
                 <a href="?role=staff" class="role-tab <?= $filter === 'staff' ? 'active' : '' ?>">Staff</a>
-                <a href="?role=reviewer" class="role-tab <?= $filter === 'reviewer' ? 'active' : '' ?>">Reviewers</a>
+                <!-- reviewer role removed -->
                 <a href="?role=student" class="role-tab <?= $filter === 'student' ? 'active' : '' ?>">Students</a>
             </div>
 
@@ -499,7 +515,7 @@ function getFieldError($fieldName) {
                                         <select name="role" onchange="this.form.submit()" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
                                             <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
                                             <option value="staff" <?= $user['role'] === 'staff' ? 'selected' : '' ?>>Staff</option>
-                                            <option value="reviewer" <?= $user['role'] === 'reviewer' ? 'selected' : '' ?>>Reviewer</option>
+                                            <!-- reviewer option removed -->
                                             <option value="student" <?= $user['role'] === 'student' ? 'selected' : '' ?>>Student</option>
                                         </select>
                                     </form>
@@ -579,6 +595,22 @@ function getFieldError($fieldName) {
                     <?php endif; ?>
                 </div>
                 
+                <div class="form-group <?= getFieldErrorClass('phone') ?>">
+                    <label>Phone Number</label>
+                    <input type="tel" name="phone" placeholder="+63 912 345 6789">
+                    <?php if ($error = getFieldError('phone')): ?>
+                        <div class="field-error-message"><?= sanitizeString($error) ?></div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="form-group <?= getFieldErrorClass('address') ?>">
+                    <label>Address</label>
+                    <textarea name="address" placeholder="Your address"></textarea>
+                    <?php if ($error = getFieldError('address')): ?>
+                        <div class="field-error-message"><?= sanitizeString($error) ?></div>
+                    <?php endif; ?>
+                </div>
+                
                 <div class="form-group <?= getFieldErrorClass('password') ?>">
                     <label>Password * <small>(minimum 8 characters)</small></label>
                     <input type="password" name="password" id="createPassword" required minlength="8" placeholder="••••••••" oninput="validatePassword()">
@@ -608,12 +640,36 @@ function getFieldError($fieldName) {
                         <option value="">Select a role</option>
                         <option value="student">Student</option>
                         <option value="staff">Staff</option>
-                        <option value="reviewer">Reviewer</option>
+                        <!-- reviewer option removed -->
                         <option value="admin">Admin</option>
                     </select>
                     <?php if ($error = getFieldError('role')): ?>
                         <div class="field-error-message"><?= sanitizeString($error) ?></div>
                     <?php endif; ?>
+                </div>
+                
+                <div class="form-group <?= getFieldErrorClass('secret_question') ?>">
+                    <label>Secret Question</label>
+                    <select name="secret_question" required>
+                        <option value="">Select a question</option>
+                        <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                        <option value="What is the name of your first pet?">What is the name of your first pet?</option>
+                        <option value="What city were you born in?">What city were you born in?</option>
+                        <option value="What is your favorite teacher's name?">What is your favorite teacher's name?</option>
+                        <option value="What is your favorite food?">What is your favorite food?</option>
+                    </select>
+                    <?php if ($error = getFieldError('secret_question')): ?>
+                        <div class="field-error-message"><?= sanitizeString($error) ?></div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="form-group <?= getFieldErrorClass('secret_answer') ?>">
+                    <label>Secret Answer</label>
+                    <input type="text" name="secret_answer" required placeholder="Enter your answer">
+                    <?php if ($error = getFieldError('secret_answer')): ?>
+                        <div class="field-error-message"><?= sanitizeString($error) ?></div>
+                    <?php endif; ?>
+                    <small>Keep it memorable. Do not share it with anyone.</small>
                 </div>
                 
                 <button type="submit" class="btn btn-success">Create User</button>

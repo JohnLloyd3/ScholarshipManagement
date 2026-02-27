@@ -26,10 +26,10 @@ if ($scholarship_id) {
     $scholarship = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($scholarship) {
-        $stmt = $pdo->prepare("
-            SELECT * FROM eligibility_requirements 
-            WHERE scholarship_id = :id
-        ");
+                $stmt = $pdo->prepare(""
+                    INSERT INTO applications (user_id, scholarship_id, title, details, gpa, motivational_letter, status, submitted_at)
+                    VALUES (:user_id, :sch_id, :title, :details, :gpa, :motivational_letter, 'submitted', NOW())
+                ""
         $stmt->execute([':id' => $scholarship_id]);
         $scholarship['requirements'] = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Insert application
                 $stmt = $pdo->prepare("
                     INSERT INTO applications (user_id, scholarship_id, title, details, gpa, motivational_letter, status, submitted_at)
-                    VALUES (:user_id, :sch_id, :title, :details, :gpa, :motivational_letter, 'submitted', NOW())
+                    VALUES (:user_id, :sch_id, :title, :details, :gpa, :motivational_letter, 'under_review', NOW())
                 ");
                 $stmt->execute([
                     ':user_id' => $user_id,

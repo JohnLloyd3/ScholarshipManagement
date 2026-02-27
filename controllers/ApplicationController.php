@@ -17,7 +17,6 @@ $user_id = $_SESSION['user_id'];
 
 if ($action === 'create') {
     $scholarship_id = (int)($_POST['scholarship_id'] ?? 0);
-    $academic_year = date('Y'); // or override if provided later
 
     // collect posted fields for details
     $posted = $_POST;
@@ -70,11 +69,11 @@ if ($action === 'create') {
         exit;
     }
 
-    // Duplicate application check (user, scholarship, academic year)
-    $stmt = $pdo->prepare('SELECT id FROM applications WHERE user_id = :uid AND scholarship_id = :sid AND academic_year = :ay');
-    $stmt->execute([':uid' => $user_id, ':sid' => $scholarship_id, ':ay' => $academic_year]);
+    // Duplicate application check (user, scholarship)
+    $stmt = $pdo->prepare('SELECT id FROM applications WHERE user_id = :uid AND scholarship_id = :sid');
+    $stmt->execute([':uid' => $user_id, ':sid' => $scholarship_id]);
     if ($stmt->fetch()) {
-        $_SESSION['flash'] = 'Duplicate application detected: You have already applied for this scholarship in the current academic year.';
+        $_SESSION['flash'] = 'Duplicate application detected: You have already applied for this scholarship.';
         header('Location: ../member/apply_scholarship.php');
         exit;
     }
@@ -109,6 +108,7 @@ if ($action === 'create') {
 
     $documentPath = null;
     $uploadedPaths = [];
+    $collectedUploads = [];
     if (!empty($_FILES['documents']) && !empty($_FILES['documents']['name'][0])) {
         $up = __DIR__ . '/../uploads';
         if (!is_dir($up)) mkdir($up, 0777, true);
@@ -123,6 +123,7 @@ if ($action === 'create') {
                 'size' => $_FILES['documents']['size'][$i],
             ];
         }
+        $collectedUploads = [];
         foreach ($files as $file) {
             if ($file['error'] !== UPLOAD_ERR_OK) continue;
             $file_validation = validateFileUpload($file);
@@ -135,30 +136,27 @@ if ($action === 'create') {
             $safe = time() . '_' . preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $name);
             $target = $up . '/' . $safe;
             $file_size = $file['size'];
-            $file_hash = hash_file('sha256', $file['tmp_name']);
-            // duplicate check
-            $stmt = $pdo->prepare('SELECT id FROM documents WHERE user_id = :uid AND file_name = :fname AND file_size = :fsize AND file_hash = :fhash');
-            $stmt->execute([
+
+            // duplicate check (without file hash)
+            $dupStmt = $pdo->prepare('SELECT id FROM documents WHERE user_id = :uid AND file_name = :fname AND file_size = :fsize');
+            $dupStmt->execute([
                 ':uid' => $user_id,
                 ':fname' => $name,
-                ':fsize' => $file_size,
-                ':fhash' => $file_hash
+                ':fsize' => $file_size
             ]);
-            if ($stmt->fetch()) {
+            if ($dupStmt->fetch()) {
                 continue; // skip duplicates silently
             }
+
             if (move_uploaded_file($file['tmp_name'], $target)) {
                 $pathRel = 'uploads/' . $safe;
                 $uploadedPaths[] = $pathRel;
-                // save document record (application_id will be linked later)
-                $docStmt = $pdo->prepare('INSERT INTO documents (user_id, file_name, file_path, file_size, file_hash, uploaded_at) VALUES (:uid, :fname, :fpath, :fsize, :fhash, NOW())');
-                $docStmt->execute([
-                    ':uid' => $user_id,
-                    ':fname' => $name,
-                    ':fpath' => $pathRel,
-                    ':fsize' => $file_size,
-                    ':fhash' => $file_hash
-                ]);
+                $collectedUploads[] = [
+                    'name' => $name,
+                    'path' => $pathRel,
+                    'size' => $file_size,
+                    'mime' => $file['type'] ?? ''
+                ];
             }
         }
         if (!empty($uploadedPaths)) {
@@ -166,64 +164,84 @@ if ($action === 'create') {
         }
     }
 
-    // generate title from applicant name if available
-    $title = $posted['full_name'] ?? ($scholarship['title'] . ' Application');
+    // Extract GWA for gpa field, store all form data as motivational_letter (JSON)
+    $gwa = floatval($posted['gwa'] ?? 0);
+    $motivational_letter = json_encode($posted, JSON_UNESCAPED_UNICODE);
 
-    // details as JSON for record
-    $details_full = json_encode($posted, JSON_UNESCAPED_UNICODE);
+    // Use transaction to ensure application and document inserts are atomic
+    try {
+        $pdo->beginTransaction();
 
-    // Capture applicant email for easier reporting/filters
-    $email = $_SESSION['user']['email'] ?? null;
+        $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, gpa, motivational_letter, status, submitted_at) VALUES (:uid, :sid, :gpa, :motiv, :status, NOW())');
+        $stmt->execute([
+            ':uid' => $user_id,
+            ':sid' => $scholarship_id,
+            ':gpa' => $gwa,
+            ':motiv' => $motivational_letter,
+            ':status' => 'submitted'
+        ]);
 
-    $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, academic_year, title, details, document, status, email) VALUES (:uid, :sid, :ay, :title, :details, :doc, :status, :email)');
-    $stmt->execute([
-        ':uid' => $user_id,
-        ':sid' => $scholarship_id,
-        ':ay' => $academic_year,
-        ':title' => $title,
-        ':details' => $details_full,
-        ':doc' => $documentPath,
-        ':status' => 'draft',
-        ':email' => $email
-    ]);
-    
-    $application_id = $pdo->lastInsertId();
-    
-    // Link any uploaded documents to application
-    if (!empty($uploadedPaths)) {
-        $linkStmt = $pdo->prepare('UPDATE documents SET application_id = :appid WHERE file_path = :path');
-        foreach ($uploadedPaths as $path) {
-            $linkStmt->execute([':appid' => $application_id, ':path' => $path]);
+        $application_id = $pdo->lastInsertId();
+
+        // Insert any uploaded documents and link to application
+        if (!empty($collectedUploads)) {
+            $ins = $pdo->prepare('INSERT INTO documents (application_id, user_id, document_type, file_name, file_path, file_size, mime_type, verification_status, uploaded_at) VALUES (:appid, :uid, :doctype, :fname, :fpath, :fsize, :mime, :vstatus, NOW())');
+            foreach ($collectedUploads as $u) {
+                $ins->execute([
+                    ':appid' => $application_id,
+                    ':uid' => $user_id,
+                    ':doctype' => 'supporting',
+                    ':fname' => $u['name'],
+                    ':fpath' => $u['path'],
+                    ':fsize' => $u['size'],
+                    ':mime' => $u['mime'],
+                    ':vstatus' => 'pending'
+                ]);
+            }
         }
-    }
-    
-    // Perform intelligent application screening
-    $screening_result = screenApplication($application_id, $user_id, $scholarship_id, $pdo);
-    
-    // Update application status based on screening
-    $final_status = $screening_result['status'] ?? 'submitted';
-    $updateStmt = $pdo->prepare('UPDATE applications SET status = :status WHERE id = :id');
-    $updateStmt->execute([':status' => $final_status, ':id' => $application_id]);
-    
-    // Log audit trail
-    logAuditTrail($pdo, $user_id, 'APPLICATION_SUBMITTED', 'applications', $application_id, 'Initial status: ' . $final_status);
-    
-    // Queue notification email
-    $subject = 'Application Submitted - ' . $scholarship['title'];
-    $body = "<p>Dear Applicant,</p><p>Your application for '<b>{$scholarship['title']}</b>' has been submitted successfully.</p>";
-    if (isset($screening_result['issues'])) {
-        $body .= "<p><b>Note:</b> Your application requires the following attention:</p><ul>";
-        foreach ($screening_result['issues'] as $issue) {
-            $body .= "<li>" . htmlspecialchars($issue) . "</li>";
-        }
-        $body .= "</ul>";
-    }
-    $body .= "<p>You will be notified once a reviewer begins evaluating your application.</p>";
-    queueEmail($email, $subject, $body, $user_id);
 
-    $_SESSION['success'] = 'Application submitted successfully! Status: ' . ucfirst(str_replace('_', ' ', $final_status));
-    header('Location: ../member/applications.php');
-    exit;
+        // Perform intelligent application screening (may adjust status)
+        $screening_result = screenApplication($application_id, $user_id, $scholarship_id, $pdo);
+        $final_status = $screening_result['status'] ?? 'submitted';
+
+        $updateStmt = $pdo->prepare('UPDATE applications SET status = :status WHERE id = :id');
+        $updateStmt->execute([':status' => $final_status, ':id' => $application_id]);
+
+        // Commit after successful inserts and screening
+        $pdo->commit();
+
+        // Log audit trail
+        logAuditTrail($pdo, $user_id, 'APPLICATION_SUBMITTED', 'applications', $application_id, 'Initial status: ' . $final_status);
+
+        // Queue notification email
+        $applicant_email = $posted['email'] ?? '';
+        $subject = 'Application Submitted - ' . $scholarship['title'];
+        $body = "<p>Dear Applicant,</p><p>Your application for '<b>{$scholarship['title']}</b>' has been submitted successfully.</p>";
+        if (isset($screening_result['issues'])) {
+            $body .= "<p><b>Note:</b> Your application requires the following attention:</p><ul>";
+            foreach ($screening_result['issues'] as $issue) {
+                $body .= "<li>" . htmlspecialchars($issue) . "</li>";
+            }
+            $body .= "</ul>";
+        }
+        $body .= "<p>You will be notified once evaluation begins.</p>";
+        queueEmail($applicant_email, $subject, $body, $user_id);
+
+        $_SESSION['success'] = 'Application submitted successfully! Status: ' . ucfirst(str_replace('_', ' ', $final_status));
+        header('Location: ../member/applications.php');
+        exit;
+    } catch (Exception $e) {
+        // Rollback and cleanup uploaded files on failure
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        foreach ($uploadedPaths as $p) {
+            $full = __DIR__ . '/../' . $p;
+            if (is_file($full)) @unlink($full);
+        }
+        error_log('Application submission failed: ' . $e->getMessage());
+        $_SESSION['flash'] = 'Failed to submit application. Please try again.';
+        header('Location: ../member/apply_scholarship.php?scholarship_id=' . $scholarship_id);
+        exit;
+    }
 }
 
 // Update application status

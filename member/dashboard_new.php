@@ -55,7 +55,7 @@ $open_scholarships = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // Count by status
 $stats = [];
-foreach (['pending', 'approved', 'rejected', 'submitted'] as $status) {
+foreach (['pending', 'approved', 'rejected', 'under_review', 'submitted'] as $status) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM applications WHERE user_id = :user_id AND status = :status");
     $stmt->execute([':user_id' => $user_id, ':status' => $status]);
     $stats[$status] = $stmt->fetchColumn() ?: 0;
@@ -97,7 +97,7 @@ foreach (['pending', 'approved', 'rejected', 'submitted'] as $status) {
         .status-pending { background-color: #ffd700; color: #333; }
         .status-approved { background-color: #90EE90; color: #000; }
         .status-rejected { background-color: #FFB6C6; color: #000; }
-        .status-submitted { background-color: #87CEEB; color: #000; }
+        .status-submitted, .status-under_review { background-color: #87CEEB; color: #000; }
         .notification-item { background: #f9f9f9; padding: 12px; margin-bottom: 10px; border-left: 4px solid #667eea; border-radius: 4px; }
         .notification-item.unread { background: #e3f2fd; border-left-color: #2196F3; }
     </style>

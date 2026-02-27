@@ -6,8 +6,8 @@ if ($action === 'create_user') {
     $email = trim($_POST['email'] ?? '');
     $role = trim($_POST['role'] ?? '');
 
-    // Only allow staff or reviewer
-    if (!in_array($role, ['staff', 'reviewer'])) {
+    // Only allow staff
+    if (!in_array($role, ['staff'])) {
         $_SESSION['flash'] = 'Invalid role for user creation.';
         header('Location: ../admin/users.php');
         exit;
@@ -240,7 +240,7 @@ if ($action === 'update_role') {
     $user_id = (int)($_POST['user_id'] ?? 0);
     $role = trim($_POST['role'] ?? '');
     
-    if ($user_id && in_array($role, ['admin', 'reviewer', 'student', 'staff']) && $user_id != $_SESSION['user_id']) {
+    if ($user_id && in_array($role, ['admin', 'student', 'staff']) && $user_id != $_SESSION['user_id']) {
         $stmt = $pdo->prepare('UPDATE users SET role = :r WHERE id = :id');
         $stmt->execute([':r' => $role, ':id' => $user_id]);
         $_SESSION['success'] = 'User role updated.';
@@ -311,6 +311,16 @@ if ($action === 'create_scholarship') {
                     }
                 }
             }
+            // Also store document requirements in eligibility_requirements for backward compatibility
+            if (is_array($documents)) {
+                $reqDocStmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement, requirement_type, value) VALUES (:sid, :req, :rtype, :val)');
+                foreach ($documents as $doc) {
+                    $doc = trim($doc);
+                    if ($doc) {
+                        $reqDocStmt->execute([':sid' => $scholarship_id, ':req' => $doc, ':rtype' => 'documents', ':val' => '']);
+                    }
+                }
+            }
             $_SESSION['success'] = 'Scholarship created successfully.';
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'unique_scholarship') !== false) {
@@ -338,16 +348,26 @@ if ($action === 'update_scholarship') {
     $max_scholars = $_POST['max_scholars'] ?? null;
     $deadline = $_POST['deadline'] ?? null;
     $auto_close = $_POST['auto_close'] ?? 0;
-    $requirements = $_POST['requirements'] ?? [];
-    
+
     if ($id && $title) {
         try {
-            $stmt = $pdo->prepare('UPDATE scholarships SET title = :t, description = :d, organization = :o, status = :s WHERE id = :id');
-            $stmt->execute([':t' => $title, ':d' => $description, ':o' => $organization, ':s' => $status, ':id' => $id]);
-            
-            // Delete old requirements and add new ones
+            $stmt = $pdo->prepare('UPDATE scholarships SET title = :t, description = :d, organization = :o, category = :c, status = :s, gpa_requirement = :gpa, income_requirement = :inc, max_scholars = :max, deadline = :dl, auto_close = :ac WHERE id = :id');
+            $stmt->execute([
+                ':t' => $title,
+                ':d' => $description,
+                ':o' => $organization,
+                ':c' => $category,
+                ':s' => $status,
+                ':gpa' => $gpa,
+                ':inc' => $income,
+                ':max' => $max_scholars,
+                ':dl' => $deadline,
+                ':ac' => $auto_close,
+                ':id' => $id
+            ]);
+
+            // Remove old requirements and add new ones
             $pdo->prepare('DELETE FROM eligibility_requirements WHERE scholarship_id = :id')->execute([':id' => $id]);
-            
             if (is_array($requirements)) {
                 $reqStmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)');
                 foreach ($requirements as $req) {
@@ -357,55 +377,44 @@ if ($action === 'update_scholarship') {
                     }
                 }
             }
-            
-            $_SESSION['success'] = 'Scholarship updated successfully.';
+
+            // Remove old documents and add new ones
+            $pdo->prepare('DELETE FROM scholarship_documents WHERE scholarship_id = :id')->execute([':id' => $id]);
+            if (is_array($documents)) {
+                $docStmt = $pdo->prepare('INSERT INTO scholarship_documents (scholarship_id, document_name) VALUES (:sid, :doc)');
+                foreach ($documents as $doc) {
+                    $doc = trim($doc);
+                    if ($doc) {
+                        $docStmt->execute([':sid' => $id, ':doc' => $doc]);
+                    }
+                }
+            }
+
+            // Also add document requirements into eligibility_requirements
+            if (is_array($documents)) {
+                $reqDocStmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement, requirement_type, value) VALUES (:sid, :req, :rtype, :val)');
+                foreach ($documents as $doc) {
+                    $doc = trim($doc);
+                    if ($doc) {
+                        $reqDocStmt->execute([':sid' => $id, ':req' => $doc, ':rtype' => 'documents', ':val' => '']);
+                    }
+                }
+            }
+
+            $_SESSION['success'] = 'Scholarship updated.';
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'unique_scholarship') !== false) {
                 $_SESSION['flash'] = 'A scholarship with this title and organization already exists.';
-            try {
-                $stmt = $pdo->prepare('UPDATE scholarships SET title = :t, description = :d, organization = :o, category = :c, status = :s, gpa_requirement = :gpa, income_requirement = :inc, max_scholars = :max, deadline = :dl, auto_close = :ac WHERE id = :id');
-                $stmt->execute([
-                    ':t' => $title,
-                    ':d' => $description,
-                    ':o' => $organization,
-                    ':c' => $category,
-                    ':s' => $status,
-                    ':gpa' => $gpa,
-                    ':inc' => $income,
-                    ':max' => $max_scholars,
-                    ':dl' => $deadline,
-                    ':ac' => $auto_close,
-                    ':id' => $id
-                ]);
-                // Remove old requirements
-                $pdo->prepare('DELETE FROM eligibility_requirements WHERE scholarship_id = :id')->execute([':id' => $id]);
-                // Add new requirements
-                if (is_array($requirements)) {
-                    $reqStmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)');
-                    foreach ($requirements as $req) {
-                        $req = trim($req);
-                        if ($req) {
-                            $reqStmt->execute([':sid' => $id, ':req' => $req]);
-                        }
-                    }
-                }
-                // Remove old documents
-                $pdo->prepare('DELETE FROM scholarship_documents WHERE scholarship_id = :id')->execute([':id' => $id]);
-                // Add new required documents
-                if (is_array($documents)) {
-                    $docStmt = $pdo->prepare('INSERT INTO scholarship_documents (scholarship_id, document_name) VALUES (:sid, :doc)');
-                    foreach ($documents as $doc) {
-                        $doc = trim($doc);
-                        if ($doc) {
-                            $docStmt->execute([':sid' => $id, ':doc' => $doc]);
-                        }
-                    }
-                }
-                $_SESSION['success'] = 'Scholarship updated.';
-            } catch (PDOException $e) {
+            } else {
                 $_SESSION['flash'] = 'Failed to update scholarship.';
             }
         }
+    } else {
+        $_SESSION['flash'] = 'Invalid scholarship update.';
+    }
+    header('Location: ../admin/scholarships.php');
+    exit;
+}
 // Unknown action
 $_SESSION['flash'] = 'Unknown action.';
 header('Location: ../admin/dashboard.php');

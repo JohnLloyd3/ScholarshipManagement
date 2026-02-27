@@ -102,31 +102,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <title>Applicant Registration</title>
         <link rel="stylesheet" href="../assets/style.css">
         <style>
-            body { background: #f7f7fa; }
-            .main { max-width: 750px; margin: 40px auto; background: #fff; padding: 32px; border-radius: 10px; box-shadow: 0 2px 16px #e0e0e0; }
-            h2 { text-align: center; margin-bottom: 30px; font-size: 2.2rem; }
-            fieldset { margin-bottom: 28px; padding: 22px 18px 12px 18px; border: 1.5px solid #e3e3e3; border-radius: 8px; background: #fafbfc; }
-            legend { font-weight: bold; font-size: 1.1rem; color: #333; padding: 0 8px; }
-            .form-group { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
-            .form-group label { flex: 0 0 210px; margin-bottom: 0; font-weight: 500; color: #222; font-size: 1rem; }
-            .form-group input, .form-group select, .form-group textarea {
-                flex: 1 1 320px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem;
-                background: #fff; margin-left: 10px; min-width: 0;
-            }
-            .form-group textarea { resize: vertical; min-height: 38px; }
-            .btn { display: block; width: 100%; background: #4CAF50; color: #fff; border: none; padding: 13px 0; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 18px; transition: background 0.2s; }
-            .btn:hover { background: #388e3c; }
+            body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; }
+            .container { max-width: 900px; margin: 40px auto; padding: 20px; }
+            .panel { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+            h2 { text-align: center; margin-bottom: 20px; font-size: 1.8rem; }
+            .form-group { margin-bottom: 16px; }
+            .form-group label { display:block; font-weight:600; margin-bottom:6px; }
+            .form-group input, .form-group select, .form-group textarea { width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px; }
+            .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+            .btn-primary { background-color: #667eea; color: #fff; padding: 12px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
             .flash.error-flash { background: #ffeaea; color: #b71c1c; border: 1px solid #ffcdd2; padding: 10px 18px; border-radius: 6px; margin-bottom: 18px; }
-            @media (max-width: 700px) {
-                .main { padding: 10px; }
-                .form-group { flex-direction: column; align-items: stretch; }
-                .form-group label { margin-bottom: 6px; }
-                .form-group input, .form-group select, .form-group textarea { margin-left: 0; }
-            }
+            @media (max-width: 700px) { .form-row { grid-template-columns: 1fr; } }
         </style>
 </head>
 <body>
-    <div class="main">
+    <div class="container">
+        <div class="panel">
         <h2>Applicant Registration</h2>
         <?php if (!empty($errors)): ?>
             <div class="flash error-flash">
@@ -190,8 +181,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group"><label>Signature *</label><input type="text" name="guardian_signature" required value="<?= htmlspecialchars($_POST['guardian_signature'] ?? '') ?>"></div>
                 <div class="form-group"><label>Date *</label><input type="date" name="guardian_date" required value="<?= htmlspecialchars($_POST['guardian_date'] ?? '') ?>"></div>
             </fieldset>
-            <button type="submit" class="btn">Register</button>
+            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:18px">
+              <a href="../" class="btn-secondary" style="padding:10px 14px;text-decoration:none;border-radius:6px">Cancel</a>
+              <button type="submit" class="btn-primary">Register</button>
+            </div>
         </form>
+        </div>
     </div>
 </body>
 </html>

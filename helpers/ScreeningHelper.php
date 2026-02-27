@@ -20,34 +20,51 @@ function screenApplication($application_id, $user_id, $scholarship_id, $pdo) {
     
     $issues = [];
     
-    // Check GPA requirement
-    if ($sch['gpa_requirement']) {
-        preg_match('/\d+\.?\d*/', $app['details'], $matches);
-        $user_gpa = $matches[0] ?? 0;
+    // Check GPA requirement (use empty() to avoid undefined key warnings)
+    if (!empty($sch['gpa_requirement'])) {
+        preg_match('/\d+\.?\d*/', $app['details'] ?? '', $matches);
+        $user_gpa = $matches[0] ?? ($app['gpa'] ?? 0);
         if ((float)$user_gpa < (float)$sch['gpa_requirement']) {
             $issues[] = "GPA requirement not met (Required: {$sch['gpa_requirement']}, Yours: $user_gpa)";
         }
     }
     
-    // Check income requirement
-    if ($sch['income_requirement']) {
+    // Check income requirement (guard against missing key)
+    if (!empty($sch['income_requirement'])) {
         // This would require income info in the application
         // For now, we mark it as requiring review
-        if (!preg_match('/income|financial/i', $app['details'])) {
+        if (!preg_match('/income|financial/i', $app['details'] ?? '')) {
             $issues[] = "Income information not provided";
         }
     }
     
     // Check required documents
-    $docStmt = $pdo->prepare('SELECT COUNT(*) as count FROM scholarship_documents WHERE scholarship_id = :id');
-    $docStmt->execute([':id' => $scholarship_id]);
-    $requiredDocs = $docStmt->fetchColumn();
-    
+    // Check required documents. If the supplementary table is missing, fall back gracefully.
+    $requiredDocs = 0;
+    try {
+        $docStmt = $pdo->prepare('SELECT COUNT(*) as count FROM scholarship_documents WHERE scholarship_id = :id');
+        $docStmt->execute([':id' => $scholarship_id]);
+        $requiredDocs = (int)$docStmt->fetchColumn();
+    } catch (PDOException $e) {
+        // Table might not exist in some installations; try to infer from eligibility_requirements
+        try {
+            $altStmt = $pdo->prepare("SELECT COUNT(*) FROM eligibility_requirements WHERE scholarship_id = :id AND requirement_type = 'documents'");
+            $altStmt->execute([':id' => $scholarship_id]);
+            $requiredDocs = (int)$altStmt->fetchColumn();
+        } catch (Exception $ex) {
+            $requiredDocs = 0;
+        }
+    }
+
     if ($requiredDocs > 0) {
-        $uploadedStmt = $pdo->prepare('SELECT COUNT(*) as count FROM documents WHERE application_id = :aid');
-        $uploadedStmt->execute([':aid' => $application_id]);
-        $uploadedDocs = $uploadedStmt->fetchColumn();
-        
+        try {
+            $uploadedStmt = $pdo->prepare('SELECT COUNT(*) as count FROM documents WHERE application_id = :aid');
+            $uploadedStmt->execute([':aid' => $application_id]);
+            $uploadedDocs = (int)$uploadedStmt->fetchColumn();
+        } catch (Exception $e) {
+            $uploadedDocs = 0;
+        }
+
         if ($uploadedDocs < $requiredDocs) {
             $issues[] = "Not all required documents uploaded ($uploadedDocs/$requiredDocs)";
         }
@@ -55,7 +72,8 @@ function screenApplication($application_id, $user_id, $scholarship_id, $pdo) {
     
     // Determine status based on issues
     if (empty($issues)) {
-        return ['valid' => true, 'status' => 'under_review', 'message' => 'Application passed initial screening'];
+        // Keep initial status as 'submitted' and allow staff to review later
+        return ['valid' => true, 'status' => 'submitted', 'message' => 'Application passed initial screening'];
     } else {
         return ['valid' => false, 'status' => 'pending', 'message' => 'Application pending requirements: ' . implode('; ', $issues), 'issues' => $issues];
     }
@@ -66,13 +84,21 @@ function screenApplication($application_id, $user_id, $scholarship_id, $pdo) {
  */
 function logAuditTrail($pdo, $user_id, $action, $target_table, $target_id, $description = null) {
     try {
-        $stmt = $pdo->prepare('INSERT INTO audit_logs (user_id, action, target_table, target_id, description, created_at) VALUES (:uid, :action, :table, :tid, :desc, NOW())');
+        $new_values = null;
+        if ($description !== null) {
+            $new_values = json_encode(['note' => $description], JSON_UNESCAPED_UNICODE);
+        }
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $stmt = $pdo->prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_values, ip_address, user_agent, created_at) VALUES (:uid, :action, :etype, :eid, :nvals, :ip, :ua, NOW())');
         $stmt->execute([
             ':uid' => $user_id,
             ':action' => $action,
-            ':table' => $target_table,
-            ':tid' => $target_id,
-            ':desc' => $description
+            ':etype' => $target_table,
+            ':eid' => $target_id,
+            ':nvals' => $new_values,
+            ':ip' => $ip,
+            ':ua' => $ua
         ]);
     } catch (Exception $e) {
         // Silent fail for audit logs
