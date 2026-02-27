@@ -17,14 +17,28 @@ $stats = getDashboardStats($pdo);
   <link rel="stylesheet" href="../assets/style.css">
   <link rel="stylesheet" href="../member/dashboard.css">
   <style>
+    * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
+    body { background: #f8f9fa; color: #2c3e50; }
+    
+    h2 { font-size: 28px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; letter-spacing: -0.5px; }
+    h3 { font-size: 18px; font-weight: 600; color: #2c3e50; margin: 24px 0 16px; letter-spacing: -0.3px; }
+    p { line-height: 1.6; font-size: 14px; color: #7f8c8d; }
+    
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
-    .stat-card { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .stat-value { font-size: 32px; font-weight: bold; color: #c41e3a; }
-    .stat-label { color: #666; margin-top: 5px; }
-    .chart-container { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #f5f5f5; font-weight: bold; }
+    .stat-card { background: white; padding: 24px; border-radius: 12px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-left: 4px solid #c41e3a; transition: all 0.3s ease; }
+    .stat-card:hover { box-shadow: 0 8px 20px rgba(196,30,58,0.15); transform: translateY(-4px); }
+    .stat-value { font-size: 42px; font-weight: 700; color: #c41e3a; line-height: 1; letter-spacing: -1px; }
+    .stat-label { color: #7f8c8d; margin-top: 12px; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .chart-container { background: white; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    
+    .panel { background: white; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 14px; text-align: left; border-bottom: 1px solid #ecf0f1; }
+    th { background: #f8f9fa; font-weight: 600; color: #2c3e50; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+    td { color: #34495e; font-weight: 400; }
+    tbody tr:hover { background: #f8f9fa; }
   </style>
 </head>
 <body>
