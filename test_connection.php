@@ -113,7 +113,7 @@ header('Content-Type: text/html; charset=utf-8');
                 'applications',
                 'scholarships',
                 'eligibility_requirements',
-                'reviews',
+                // reviews removed
                 'students',
                 'documents',
                 'notifications',
@@ -210,7 +210,7 @@ header('Content-Type: text/html; charset=utf-8');
                 'SELECT COUNT(*) FROM users' => 'Users count',
                 'SELECT COUNT(*) FROM applications' => 'Applications count',
                 'SELECT COUNT(*) FROM scholarships' => 'Scholarships count',
-                'SELECT COUNT(*) FROM reviews' => 'Reviews count',
+                // reviews removed from test queries
                 'SELECT COUNT(*) FROM notifications' => 'Notifications count'
             ];
             

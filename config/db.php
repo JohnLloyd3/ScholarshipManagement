@@ -54,7 +54,7 @@ function getPDO()
             email VARCHAR(150) NOT NULL UNIQUE,
             phone VARCHAR(50),
             address TEXT,
-            role ENUM('admin','reviewer','student','staff') DEFAULT 'student',
+            role ENUM('admin','student','staff') DEFAULT 'student',
             active TINYINT(1) DEFAULT 1,
             email_verified TINYINT(1) DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -96,12 +96,10 @@ function getPDO()
             status ENUM('draft','submitted','under_review','pending','approved','rejected','withdrawn') DEFAULT 'submitted',
             submitted_at DATETIME,
             reviewed_at DATETIME,
-            reviewer_id INT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
-            FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
             UNIQUE KEY unique_application (user_id, scholarship_id),
             INDEX idx_user_id (user_id),
             INDEX idx_scholarship_id (scholarship_id),
@@ -109,19 +107,7 @@ function getPDO()
             INDEX idx_submitted_at (submitted_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
         
-        // Ensure reviews table exists
-        $pdo->exec("CREATE TABLE IF NOT EXISTS reviews (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            application_id INT NOT NULL,
-            reviewer_id INT NULL,
-            comments TEXT,
-            status ENUM('pending','approved','rejected') DEFAULT 'pending',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
-            FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
-            INDEX idx_application_id (application_id),
-            INDEX idx_reviewer_id (reviewer_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        // Review workflow removed; no reviews table created.
 
         // Ensure password_resets table exists
         $pdo->exec("CREATE TABLE IF NOT EXISTS password_resets (

@@ -15,7 +15,7 @@ try {
     // Stats
     $totalApplications = $pdo->query('SELECT COUNT(*) FROM applications')->fetchColumn() ?: 0;
     $pendingApplications = $pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'pending'")->fetchColumn() ?: 0;
-    $pendingReviews = $pdo->query("SELECT COUNT(*) FROM reviews WHERE status = 'pending'")->fetchColumn() ?: 0;
+    $pendingReviews = 0;
     $totalUsers = $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() ?: 0;
     $totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn() ?: 0;
 
@@ -75,7 +75,7 @@ try {
 
       <div class="stats-grid">
         <div class="stat-card"><div class="value"><?= htmlspecialchars($totalApplications) ?></div><div class="label">Total Applications</div></div>
-        <div class="stat-card"><div class="value"><?= htmlspecialchars($pendingReviews) ?></div><div class="label">Pending Reviews</div></div>
+        <div class="stat-card"><div class="value">—</div><div class="label">Pending Reviews</div></div>
         <div class="stat-card"><div class="value"><?= htmlspecialchars($totalUsers) ?></div><div class="label">Total Users</div></div>
         <div class="stat-card"><div class="value">—</div><div class="label">System</div></div>
       </div>
@@ -102,11 +102,7 @@ try {
                 <td><?= htmlspecialchars($r['title']) ?></td>
                 <td><?= htmlspecialchars($r['status']) ?></td>
                 <td>
-                  <form style="display:inline" method="POST" action="../controllers/AdminController.php">
-                    <input type="hidden" name="action" value="assign">
-                    <input type="hidden" name="id" value="<?= $r['id'] ?>">
-                    <button type="submit">Assign</button>
-                  </form>
+                  <!-- Reviewer assignment removed -->
                   <form style="display:inline" method="POST" action="../controllers/AdminController.php">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="<?= $r['id'] ?>">

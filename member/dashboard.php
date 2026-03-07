@@ -84,11 +84,8 @@ if ($pdo) {
         ['sql' => 'SELECT COUNT(*) FROM scholarships WHERE status = "open"', 'params' => []]
     ]);
 
-    // Pending reviews for this user
-    $pendingReviews = try_count($pdo, [
-        ['sql' => 'SELECT COUNT(*) FROM reviews WHERE student_id = :id AND status = "pending"', 'params' => [':id' => $studentId ?? 0]],
-        ['sql' => 'SELECT COUNT(*) FROM reviews WHERE status = "pending"', 'params' => []]
-    ]);
+    // Review workflow removed; no pending reviews to show
+    $pendingReviews = 0;
 
     // Messages / notifications
     $messagesCount = try_count($pdo, [
@@ -162,7 +159,7 @@ if ($pdo) {
           <div class="label">Active Scholarships</div>
         </div>
         <div class="stat-card">
-          <div class="value"><?= ($pendingReviews > 0) ? htmlspecialchars($pendingReviews) : 'No pending' ?></div>
+          <div class="value">—</div>
           <div class="label">Pending Reviews</div>
         </div>
         <div class="stat-card">

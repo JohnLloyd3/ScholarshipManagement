@@ -53,22 +53,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['user']['role'] ?? '') !== 'admin
 $action = $_POST['action'] ?? '';
 $pdo = getPDO();
 
-if ($action === 'assign') {
-    $id = (int)($_POST['id'] ?? 0);
-    $reviewer = (int)($_POST['reviewer_id'] ?? 0);
-    if ($id && $reviewer) {
-        $stmt = $pdo->prepare('UPDATE applications SET reviewer_id = :r, status = "pending" WHERE id = :id');
-        $stmt->execute([':r' => $reviewer, ':id' => $id]);
-
-        // Create a review row for the assigned reviewer
-        $rstmt = $pdo->prepare('INSERT INTO reviews (application_id, reviewer_id, status) VALUES (:app, :rev, :st)');
-        $rstmt->execute([':app' => $id, ':rev' => $reviewer, ':st' => 'pending']);
-
-        $_SESSION['success'] = 'Reviewer assigned.';
-    }
-    header('Location: ../admin/applications.php');
-    exit;
-}
+// Reviewer assignment removed: review workflow is no longer supported.
 
 if ($action === 'delete') {
     $id = (int)($_POST['id'] ?? 0);
@@ -93,13 +78,7 @@ if ($action === 'set_application_status') {
         $stmt = $pdo->prepare('UPDATE applications SET status = :s WHERE id = :id');
         $stmt->execute([':s' => $status, ':id' => $id]);
 
-        // If there is a review record for this application, keep latest one in sync
-        $rst = $pdo->prepare('SELECT id FROM reviews WHERE application_id = :aid ORDER BY created_at DESC LIMIT 1');
-        $rst->execute([':aid' => $id]);
-        $r = $rst->fetch();
-        if ($r) {
-            $pdo->prepare('UPDATE reviews SET status = :s WHERE id = :id')->execute([':s' => $status, ':id' => $r['id']]);
-        }
+        // Review table removed; no review synchronization required.
 
         // 3.6 Notify applicant when approved or rejected
         if ($appRow && in_array($status, ['approved', 'rejected'], true)) {
@@ -141,9 +120,7 @@ if ($action === 'update_application') {
     $title = trim($_POST['title'] ?? '');
     $details = trim($_POST['details'] ?? '');
     $status = trim($_POST['status'] ?? '');
-    $reviewer = trim($_POST['reviewer_id'] ?? '');
     $reviewComments = trim($_POST['review_comments'] ?? '');
-    $reviewerId = ($reviewer !== '' && ctype_digit($reviewer)) ? (int)$reviewer : null;
 
     if ($id && $title !== '' && in_array($status, ['draft','submitted','pending','under_review','approved','rejected','waitlisted'], true)) {
         // Fetch current application for notification (before update)
@@ -152,32 +129,13 @@ if ($action === 'update_application') {
         $oldApp = $oldStmt->fetch();
         $scholarshipTitle = $oldApp['scholarship_title'] ?? null;
 
-        $stmt = $pdo->prepare('UPDATE applications SET title = :t, details = :d, status = :s, reviewer_id = :rid WHERE id = :id');
+        $stmt = $pdo->prepare('UPDATE applications SET title = :t, details = :d, status = :s WHERE id = :id');
         $stmt->execute([
             ':t' => $title,
             ':d' => $details,
             ':s' => $status,
-            ':rid' => $reviewerId,
             ':id' => $id
         ]);
-
-        // Ensure a review row exists when reviewer is assigned
-        if ($reviewerId) {
-            $rst = $pdo->prepare('SELECT id FROM reviews WHERE application_id = :aid AND reviewer_id = :rid ORDER BY created_at DESC LIMIT 1');
-            $rst->execute([':aid' => $id, ':rid' => $reviewerId]);
-            if (!$rst->fetch()) {
-                $pdo->prepare('INSERT INTO reviews (application_id, reviewer_id, status) VALUES (:app, :rev, :st)')
-                    ->execute([':app' => $id, ':rev' => $reviewerId, ':st' => ($status === 'submitted' ? 'pending' : $status)]);
-            }
-        }
-
-        // Keep latest review status in sync if exists
-        $rst = $pdo->prepare('SELECT id FROM reviews WHERE application_id = :aid ORDER BY created_at DESC LIMIT 1');
-        $rst->execute([':aid' => $id]);
-        $r = $rst->fetch();
-        if ($r) {
-            $pdo->prepare('UPDATE reviews SET status = :s WHERE id = :id')->execute([':s' => $status, ':id' => $r['id']]);
-        }
 
         // 3.6 Notify applicant when status changed to approved or rejected
         if ($oldApp && in_array($status, ['approved', 'rejected'], true)) {

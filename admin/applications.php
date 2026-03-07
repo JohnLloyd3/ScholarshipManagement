@@ -27,12 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($post_action === 'approve') {
         try {
-            $stmt = $pdo->prepare("
+            $stmt = $pdo->prepare(" 
                 UPDATE applications 
-                SET status = 'approved', reviewed_at = NOW(), reviewer_id = :reviewer_id
+                SET status = 'approved', reviewed_at = NOW()
                 WHERE id = :id
             ");
-            $stmt->execute([':id' => $app_id, ':reviewer_id' => $_SESSION['user_id']]);
+            $stmt->execute([':id' => $app_id]);
             
             // Get application details for notification
             $appStmt = $pdo->prepare("
@@ -72,12 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($post_action === 'reject') {
         try {
-            $stmt = $pdo->prepare("
+            $stmt = $pdo->prepare(" 
                 UPDATE applications 
-                SET status = 'rejected', reviewed_at = NOW(), reviewer_id = :reviewer_id
+                SET status = 'rejected', reviewed_at = NOW()
                 WHERE id = :id
             ");
-            $stmt->execute([':id' => $app_id, ':reviewer_id' => $_SESSION['user_id']]);
+            $stmt->execute([':id' => $app_id]);
             
             // Get application details
             $appStmt = $pdo->prepare("

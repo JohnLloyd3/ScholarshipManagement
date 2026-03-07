@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(150) NOT NULL UNIQUE,
   phone VARCHAR(50),
   address TEXT,
-  role ENUM('admin','reviewer','student','staff') DEFAULT 'student',
+  role ENUM('admin','student','staff') DEFAULT 'student',
   active TINYINT(1) DEFAULT 1,
   email_verified TINYINT(1) DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -107,12 +107,10 @@ CREATE TABLE IF NOT EXISTS applications (
 ) DEFAULT 'submitted',
   submitted_at DATETIME,
   reviewed_at DATETIME,
-  reviewer_id INT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
-  FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
   UNIQUE KEY unique_application (user_id, scholarship_id),
   INDEX idx_user_id (user_id),
   INDEX idx_scholarship_id (scholarship_id),
@@ -156,25 +154,7 @@ CREATE TABLE IF NOT EXISTS scholarship_documents (
   INDEX idx_scholarship_id (scholarship_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ==========================================
--- 7. REVIEWS TABLE
--- ==========================================
-CREATE TABLE IF NOT EXISTS reviews (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  application_id INT NOT NULL,
-  reviewer_id INT NOT NULL,
-  rating INT DEFAULT 0 CHECK (rating >= 0 AND rating <= 5),
-  comments TEXT,
-  documents_verified TINYINT(1) DEFAULT 0,
-  status ENUM('pending','approved','rejected') DEFAULT 'pending',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
-  FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_application_id (application_id),
-  INDEX idx_reviewer_id (reviewer_id),
-  INDEX idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Reviews were removed as part of simplifying roles; review workflow is no longer supported.
 
 -- ==========================================
 -- 8. AWARDS TABLE
@@ -365,9 +345,7 @@ VALUES (1, 'admin', '$2y$10$Ue5kqmNfp1NTkIo5LZfx9exVfBo/7r5K3dZLW.d7K4KLNjDnZdU6
 INSERT IGNORE INTO users (id, username, password, first_name, last_name, email, phone, role, active, email_verified, created_at) 
 VALUES (2, 'staff1', '$2y$10$Ue5kqmNfp1NTkIo5LZfx9exVfBo/7r5K3dZLW.d7K4KLNjDnZdU6W', 'John', 'Staff', 'staff@scholarships.com', '+63900000002', 'staff', 1, 1, NOW());
 
--- Sample Reviewer User (username: reviewer1, password: 123123)
-INSERT IGNORE INTO users (id, username, password, first_name, last_name, email, phone, role, active, email_verified, created_at) 
-VALUES (3, 'reviewer1', '$2y$10$Ue5kqmNfp1NTkIo5LZfx9exVfBo/7r5K3dZLW.d7K4KLNjDnZdU6W', 'Jane', 'Reviewer', 'reviewer@scholarships.com', '+63900000003', 'reviewer', 1, 1, NOW());
+-- Reviewer role removed; no reviewer sample user provided.
 
 -- Sample Student User (username: student1, password: 123123)
 INSERT IGNORE INTO users (id, username, password, first_name, last_name, email, phone, role, active, email_verified, created_at) 

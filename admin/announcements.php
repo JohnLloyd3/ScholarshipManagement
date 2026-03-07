@@ -13,6 +13,12 @@ unset($_SESSION['message']);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Extra server-side guard: ensure only admin can perform announcement actions
+    if (empty($_SESSION['user']['role']) || $_SESSION['user']['role'] !== 'admin') {
+        $_SESSION['message'] = 'Permission denied. Admins only.';
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
     // CSRF protection
     if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
         $_SESSION['message'] = 'Invalid request (CSRF token missing or incorrect).';
