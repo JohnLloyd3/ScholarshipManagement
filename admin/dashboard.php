@@ -44,6 +44,34 @@ try {
   <title>Admin Dashboard</title>
   <link rel="stylesheet" href="../assets/style.css">
   <link rel="stylesheet" href="../member/dashboard.css">
+  <style>
+    * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
+    body { background: #f8f9fa; color: #1a1a1a; }
+    h2 { font-size: 28px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.5px; }
+    h3 { font-size: 18px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.5px; }
+    p { line-height: 1.6; }
+    
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: white; padding: 24px; border-radius: 12px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-left: 4px solid #c41e3a; transition: all 0.3s ease; }
+    .stat-card:hover { box-shadow: 0 8px 20px rgba(196,30,58,0.15); transform: translateY(-4px); }
+    .stat-card .value { font-size: 42px; font-weight: 700; color: #c41e3a; line-height: 1; letter-spacing: -1px; }
+    .stat-card .label { color: #7f8c8d; margin-top: 12px; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .panel { background: white; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-top: 3px solid #c41e3a; }
+    .panel h3 { margin-top: 0; margin-bottom: 16px; }
+    
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; font-weight: 500; background-color: #c41e3a; color: white; transition: all 0.3s ease; }
+    .btn:hover { background-color: #9d1729; transform: translateY(-2px); }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table th, table td { padding: 14px; text-align: left; border-bottom: 1px solid #ecf0f1; }
+    table th { background-color: #f8f9fa; font-weight: 600; color: #1a1a1a; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+    table td { color: #34495e; }
+    table tbody tr:hover { background: #f8f9fa; }
+    
+    button { padding: 8px 16px; border: 1px solid #c41e3a; background: white; color: #c41e3a; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.3s ease; margin-right: 8px; }
+    button:hover { background: #c41e3a; color: white; }
+  </style>
 </head>
 <body>
   <div class="dashboard-app">

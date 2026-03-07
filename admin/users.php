@@ -375,54 +375,71 @@ function getFieldError($fieldName) {
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="../member/dashboard.css">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; }
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
+        body { background-color: #f8f9fa; color: #1a1a1a; }
+        h2 { font-size: 28px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.5px; }
+        
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .navbar { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 15px; display: flex; justify-content: space-between; }
         .navbar a { color: white; margin-right: 20px; text-decoration: none; }
-        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .role-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .role-tab { padding: 10px 20px; cursor: pointer; text-decoration: none; color: #c41e3a; border: none; background: none; font-size: 14px; }
-        .role-tab.active { border-bottom: 3px solid #c41e3a; }
-        .role-tab:hover { opacity: 0.8; }
-        .stat-card { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 20px; border-radius: 8px; display: inline-block; margin-right: 15px; margin-bottom: 15px; text-align: center; }
-        .stat-card .number { font-size: 28px; font-weight: bold; }
-        .stat-card .label { font-size: 12px; opacity: 0.9; }
-        .table { width: 100%; border-collapse: collapse; }
-        .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        .table th { background-color: #f5f5f5; font-weight: bold; }
-        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block; }
+        
+        .panel { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .role-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 0; }
+        .role-tab { padding: 12px 24px; cursor: pointer; text-decoration: none; color: #7f8c8d; border: none; background: none; font-size: 14px; font-weight: 500; border-bottom: 3px solid transparent; transition: all 0.3s ease; }
+        .role-tab.active { color: #c41e3a; border-bottom-color: #c41e3a; }
+        .role-tab:hover { color: #c41e3a; }
+        
+        .stat-card { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 24px; border-radius: 12px; display: inline-block; margin-right: 15px; margin-bottom: 15px; text-align: center; min-width: 140px; box-shadow: 0 4px 12px rgba(196,30,58,0.2); }
+        .stat-card .number { font-size: 32px; font-weight: 700; line-height: 1; }
+        .stat-card .label { font-size: 12px; opacity: 0.95; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+        
+        .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .table th, .table td { padding: 14px; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        .table th { background-color: #f8f9fa; font-weight: 600; color: #1a1a1a; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        .table td { color: #34495e; }
+        .table tbody tr:hover { background: #f8f9fa; }
+        
+        .btn { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block; font-weight: 500; transition: all 0.3s ease; }
+        .btn:hover { transform: translateY(-2px); }
         .btn-primary { background-color: #c41e3a; color: white; }
-        .btn-success { background-color: #48bb78; color: white; }
-        .btn-danger { background-color: #f56565; color: white; }
-        .status-active { background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-        .status-inactive { background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-        .message { padding: 15px; margin-bottom: 20px; border-radius: 4px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .role-badge { padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .role-admin { background-color: #f56565; color: white; }
-        .role-staff { background-color: #4299e1; color: white; }
-        /* reviewer role removed */
-        .role-student { background-color: #ed8936; color: white; }
-        .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); overflow-y: auto; padding-top: 60px; box-sizing: border-box; }
-        .modal-content { background-color: white; margin: 0 auto; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); max-height: calc(100vh - 120px); overflow-y: auto; }
-        .modal-header { font-size: 20px; font-weight: bold; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: #c41e3a; box-shadow: 0 0 5px rgba(196, 30, 58, 0.3); }
-        .field-error input, .field-error select { border-color: #f56565; }
-        .field-error-message { color: #f56565; font-size: 12px; margin-top: 5px; }
-        .password-requirements { font-size: 12px; color: #718096; margin-top: 8px; padding: 10px; background: #f7f7f7; border-radius: 4px; }
-        .requirement-item { display: flex; align-items: center; margin: 4px 0; }
-        .requirement-item.met { color: #48bb78; }
-        .requirement-item.unmet { color: #f56565; }
-        .requirement-item::before { content: '○ '; margin-right: 6px; }
-        .requirement-item.met::before { content: '✓ '; }
-        .btn-new-user { margin-bottom: 20px; }
-        .message { padding: 15px; margin-bottom: 20px; border-radius: 4px; display: none; }
+        .btn-primary:hover { background-color: #9d1729; }
+        .btn-success { background-color: #2d5016; color: white; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        
+        .status-active { background-color: #dcfce7; color: #16a34a; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+        .status-inactive { background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+        
+        .message { padding: 16px; margin-bottom: 20px; border-radius: 8px; display: none; font-weight: 500; }
         .message.show { display: block; }
-        .message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .message.success { background-color: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+        .message.error { background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
         .message strong { display: block; margin-bottom: 5px; }
+        
+        .role-badge { padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .role-admin { background-color: #fee2e2; color: #dc2626; }
+        .role-staff { background-color: #dbeafe; color: #1e40af; }
+        .role-student { background-color: #fed7aa; color: #9a3412; }
+        
+        .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow-y: auto; padding-top: 60px; box-sizing: border-box; }
+        .modal-content { background-color: white; margin: 0 auto; padding: 30px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 20px 25px rgba(0,0,0,0.15); max-height: calc(100vh - 120px); overflow-y: auto; }
+        .modal-header { font-size: 24px; font-weight: 600; margin-bottom: 20px; color: #1a1a1a; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; box-sizing: border-box; font-size: 14px; transition: all 0.2s ease; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #c41e3a; box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1); }
+        
+        .field-error input, .field-error select { border-color: #dc2626; }
+        .field-error-message { color: #dc2626; font-size: 12px; margin-top: 5px; font-weight: 500; }
+        
+        .password-requirements { font-size: 12px; color: #7f8c8d; margin-top: 8px; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 2px solid #c41e3a; }
+        .requirement-item { display: flex; align-items: center; margin: 6px 0; }
+        .requirement-item.met { color: #16a34a; }
+        .requirement-item.unmet { color: #dc2626; }
+        .requirement-item::before { content: '○ '; margin-right: 6px; font-weight: 600; }
+        .requirement-item.met::before { content: '✓ '; }
+        
+        .btn-new-user { margin-bottom: 20px; }
     </style>
 </head>
 <body>

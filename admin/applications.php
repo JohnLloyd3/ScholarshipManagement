@@ -169,32 +169,46 @@ if ($action === 'view') {
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="../member/dashboard.css">
     <style>
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
+        body { background: #f8f9fa; color: #1a1a1a; }
+        h2, h3 { color: #1a1a1a; font-weight: 600; letter-spacing: -0.5px; }
+        h2 { font-size: 28px; }
+        h3 { font-size: 18px; }
+        
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .btn { padding: 8px 16px; border:none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; font-size: 14px; }
+        .panel { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .btn { padding: 10px 20px; border:none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; font-size: 14px; font-weight: 500; transition: all 0.3s ease; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(196,30,58,0.2); }
         .btn-primary { background-color: #c41e3a; color: white; }
-        .btn-success { background-color: #48bb78; color: white; }
-        .btn-danger { background-color: #f56565; color: white; }
-        .btn-info { background-color: #4299e1; color: white; }
-        .btn-secondary { background-color: #718096; color: white; }
-        .table { width: 100%; border-collapse: collapse; }
-        .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        .table th { background-color: #f5f5f5; font-weight: bold; }
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .status-pending { background-color: #ffd700; color: #333; }
-        .status-approved { background-color: #90EE90; color: #000; }
-        .status-rejected { background-color: #FFB6C6; color: #000; }
-        .status-submitted, .status-under_review { background-color: #87CEEB; color: #000; }
-        .message { padding: 15px; margin-bottom: 20px; border-radius: 4px; }
-        .message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .application-detail { background: #f9f9f9; padding: 20px; border-radius: 8px; }
-        .detail-row { margin-bottom: 15px; }
-        .detail-row label { font-weight: bold; color: #333; }
-        .detail-row value { color: #666; }
+        .btn-primary:hover { background-color: #9d1729; }
+        .btn-success { background-color: #2d5016; color: white; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-info { background-color: #1e40af; color: white; }
+        .btn-secondary { background-color: #4b5563; color: white; }
+        
+        .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .table th, .table td { padding: 14px; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        .table th { background-color: #f8f9fa; font-weight: 600; color: #1a1a1a; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        .table td { color: #34495e; }
+        .table tbody tr:hover { background: #f8f9fa; }
+        
+        .status-badge { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+        .status-pending { background-color: #fef3c7; color: #92400e; }
+        .status-approved { background-color: #dcfce7; color: #16a34a; }
+        .status-rejected { background-color: #fee2e2; color: #dc2626; }
+        .status-submitted, .status-under_review { background-color: #dbeafe; color: #1e40af; }
+        
+        .message { padding: 16px; margin-bottom: 20px; border-radius: 8px; font-weight: 500; }
+        .message.success { background-color: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+        
+        .application-detail { background: #f8f9fa; padding: 24px; border-radius: 12px; border-left: 4px solid #c41e3a; }
+        .detail-row { margin-bottom: 16px; }
+        .detail-row label { font-weight: 600; color: #1a1a1a; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .detail-row { color: #34495e; }
+        
         .nav { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 15px; display: flex; justify-content: space-between; }
         .nav a { color: white; margin-right: 20px; text-decoration: none; }
-        /* Dashboard layout compatibility */
         .dashboard-app { display: flex; min-height: 100vh; }
         .main { flex: 1; padding: 20px; }
         @media (max-width: 900px) { .container { padding: 12px; } .table th, .table td { padding: 8px; } }
