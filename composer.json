@@ -1,0 +1,8 @@
+{
+  "name": "scholarship/management",
+  "description": "Scholarship Management System - dependencies for optional features",
+  "require": {
+    "dompdf/dompdf": "^3.1",
+    "phpoffice/phpspreadsheet": "^5.5"
+  }
+}

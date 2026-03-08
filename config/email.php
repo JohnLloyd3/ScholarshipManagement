@@ -5,14 +5,22 @@
  */
 
 // Email configuration - update these for your SMTP server
-define('EMAIL_FROM', 'noreply@scholarshipmanagement.com');
+// NOTE: `EMAIL_FROM` will be set to the authenticated SMTP user when SMTP is enabled
 define('EMAIL_FROM_NAME', 'Scholarship Management System');
 define('SMTP_ENABLED', true); // Set to true if using SMTP
 define('SMTP_HOST', 'smtp.gmail.com');
 define('SMTP_PORT', 587);
-// Tip: for production, prefer environment variables over hard-coding secrets in git.
-define('SMTP_USER', getenv('SMTP_USER') ?: 'johnlloydracaza09399561410@gmail.com');
-define('SMTP_PASS', getenv('SMTP_PASS') ?: 'euqzqfuztprtrlhb');
+// IMPORTANT: Use the exact Gmail account that owns the app password.
+// For simplicity we read the values directly here instead of mixing with environment variables.
+define('SMTP_USER', 'johnlloydracaza09399561410@gmail.com'); // Gmail account used to SEND emails
+define('SMTP_PASS', 'uxsntfsjxnavlreb');                     // 16-character app password for that account
+
+// Use SMTP authenticated user as envelope From when SMTP is enabled to improve deliverability
+if (defined('SMTP_ENABLED') && SMTP_ENABLED && !empty(SMTP_USER)) {
+    define('EMAIL_FROM', SMTP_USER);
+} else {
+    define('EMAIL_FROM', 'noreply@scholarshipmanagement.com');
+}
 
 /**
  * Send email using PHP mail() or SMTP
@@ -157,7 +165,9 @@ function sendEmailSMTP($to, $subject, $message, $html = true) {
         return false;
     }
 
-    $from = EMAIL_FROM;
+    // Use the authenticated SMTP user as the MAIL FROM/envelope sender to
+    // avoid spoofing issues and improve deliverability with Gmail.
+    $from = $user ?: EMAIL_FROM;
     $fromName = EMAIL_FROM_NAME;
 
     $write('MAIL FROM:<' . $from . '>');
@@ -346,15 +356,20 @@ function sendApplicationDecisionEmail($to, $applicantName, $scholarshipTitle, $s
 
 /**
  * Queue an email to be sent by the background processor.
- * Falls back to immediate send if queueing fails.
+ * Also attempts to send immediately so critical flows
+ * (like password reset) work even if cron is not running.
+ * Falls back to direct send if queueing fails.
  */
 function queueEmail($to, $subject, $message, $user_id = null) {
+    // If DB helper is not available for some reason, just send directly.
     try {
         if (!function_exists('getPDO')) {
-            // if DB helper not available, send immediately
             return sendEmail($to, $subject, $message, true);
         }
+
         $pdo = getPDO();
+
+        // First, record the email in the log as queued.
         $stmt = $pdo->prepare('INSERT INTO email_logs (user_id, email, subject, body, status, attempts, created_at) VALUES (:uid, :email, :subject, :body, "queued", 0, NOW())');
         $stmt->execute([
             ':uid' => $user_id,
@@ -362,10 +377,28 @@ function queueEmail($to, $subject, $message, $user_id = null) {
             ':subject' => $subject,
             ':body' => $message
         ]);
-        return true;
+
+        $emailId = (int)$pdo->lastInsertId();
+
+        // Attempt to send immediately so the user receives the email
+        // even if the cron-based queue processor is not running.
+        $sent = sendEmail($to, $subject, $message, true);
+
+        // Best-effort update of log status; do not throw if this fails.
+        try {
+            $update = $pdo->prepare('UPDATE email_logs SET status = :status, attempts = attempts + 1, last_attempt_at = NOW() WHERE id = :id');
+            $update->execute([
+                ':status' => $sent ? 'sent' : 'failed',
+                ':id' => $emailId
+            ]);
+        } catch (Exception $inner) {
+            error_log('[queueEmail] failed to update email_logs status: ' . $inner->getMessage());
+        }
+
+        return $sent;
     } catch (Exception $e) {
         error_log('[queueEmail] failed to queue: ' . $e->getMessage());
-        // fallback to immediate send
+        // Fallback to immediate send if logging/DB fails.
         return sendEmail($to, $subject, $message, true);
     }
 }

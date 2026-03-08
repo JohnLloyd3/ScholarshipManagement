@@ -106,7 +106,7 @@ try {
                     <p>Dear " . htmlspecialchars($user['first_name']) . ",</p>
                     <p>There are only <strong>7 days left</strong> to apply for the <strong>" . htmlspecialchars($scholarship['title']) . "</strong> scholarship.</p>
                     <p>Deadline: " . $scholarship['deadline'] . "</p>
-                    <p><a href='" . (isset($_SERVER['HTTP_HOST']) ? 'http://' . $_SERVER['HTTP_HOST'] . '/member/apply_scholarship_new.php?id=' . $scholarship['id'] : '#') . "'>Apply Now</a></p>
+                    <p><a href='" . (isset($_SERVER['HTTP_HOST']) ? 'http://' . $_SERVER['HTTP_HOST'] . '/member/apply_scholarship.php?scholarship_id=' . $scholarship['id'] : '#') . "'>Apply Now</a></p>
                 ";
                 sendEmail($user['email'], 'Scholarship Deadline Reminder - ' . $scholarship['title'], $emailBody, true);
             }
@@ -160,7 +160,7 @@ try {
                     <p>Dear " . htmlspecialchars($user['first_name']) . ",</p>
                     <p>This is your FINAL REMINDER! Only <strong>1 day left</strong> to apply for the <strong>" . htmlspecialchars($scholarship['title']) . "</strong> scholarship.</p>
                     <p>Deadline: " . $scholarship['deadline'] . "</p>
-                    <p><a href='" . (isset($_SERVER['HTTP_HOST']) ? 'http://' . $_SERVER['HTTP_HOST'] . '/member/apply_scholarship_new.php?id=' . $scholarship['id'] : '#') . "'>Apply Immediately</a></p>
+                    <p><a href='" . (isset($_SERVER['HTTP_HOST']) ? 'http://' . $_SERVER['HTTP_HOST'] . '/member/apply_scholarship.php?scholarship_id=' . $scholarship['id'] : '#') . "'>Apply Immediately</a></p>
                 ";
                 sendEmail($user['email'], 'URGENT: Last Chance - ' . $scholarship['title'], $emailBody, true);
             }

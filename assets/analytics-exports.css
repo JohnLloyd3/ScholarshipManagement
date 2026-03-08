@@ -1,0 +1,5 @@
+.export-btn { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+.export-btn .spinner { display: none; font-size: 0.95rem; opacity: 0.9; }
+.export-btn.loading { pointer-events: none; opacity: 0.7; }
+.export-btn.loading .label { display: none; }
+.export-btn.loading .spinner { display: inline-block; }

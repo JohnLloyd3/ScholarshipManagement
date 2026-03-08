@@ -6,22 +6,35 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 $pdo = getPDO();
 $user_id = $_SESSION['user_id'];
 
 // Handle deletion by owner
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_application') {
+  // CSRF protection
+  if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    $_SESSION['flash'] = 'Invalid request (CSRF token missing or incorrect).';
+    header('Location: applications.php');
+    exit;
+  }
   $delId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
   if ($delId > 0) {
     try {
+      // Prevent students from deleting via crafted POST requests.
+      $role = $_SESSION['user']['role'] ?? 'student';
+      if ($role === 'student') {
+        $_SESSION['flash'] = 'You are not authorized to perform this action.';
+        header('Location: applications.php');
+        exit;
+      }
       $stmt = $pdo->prepare('SELECT id, user_id FROM applications WHERE id = :id LIMIT 1');
       $stmt->execute([':id' => $delId]);
       $row = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$row) {
         $_SESSION['flash'] = 'Application not found.';
-      } elseif ((int)$row['user_id'] !== (int)$user_id) {
-        $_SESSION['flash'] = 'You are not authorized to delete this application.';
       } else {
+        // Allow delete (admins/staff) — perform delete
         $pdo->prepare('DELETE FROM applications WHERE id = :id')->execute([':id' => $delId]);
         $_SESSION['success'] = 'Application deleted successfully.';
       }
@@ -45,6 +58,61 @@ if ($viewId) {
                            WHERE a.id = :aid AND a.user_id = :uid');
     $stmt->execute([':aid' => $viewId, ':uid' => $user_id]);
     $viewingApp = $stmt->fetch();
+    if ($viewingApp) {
+      // build timeline based on available timestamps and documents
+      try {
+        // Submitted timestamp
+        $submittedAt = $viewingApp['created_at'] ?? $viewingApp['submitted_at'] ?? null;
+
+        // Documents: required vs verified
+        $reqCount = 0;
+        $reqStmt = $pdo->prepare('SELECT COUNT(*) FROM scholarship_documents WHERE scholarship_id = :sid');
+        $reqStmt->execute([':sid' => $viewingApp['scholarship_id']]);
+        $reqCount = (int) $reqStmt->fetchColumn();
+
+        $verifiedCount = 0;
+        $verStmt = $pdo->prepare('SELECT COUNT(*) FROM documents WHERE application_id = :aid AND verification_status = "verified"');
+        $verStmt->execute([':aid' => $viewingApp['id']]);
+        $verifiedCount = (int) $verStmt->fetchColumn();
+
+        // When documents were last verified
+        $vAt = null;
+        $vAtStmt = $pdo->prepare('SELECT MAX(verified_at) as v FROM documents WHERE application_id = :aid AND verification_status = "verified"');
+        $vAtStmt->execute([':aid' => $viewingApp['id']]);
+        $vAt = $vAtStmt->fetchColumn();
+
+        // Application reviewed timestamp
+        $reviewedAt = $viewingApp['reviewed_at'] ?? null;
+
+        // Decision released (when status became approved/rejected) -> use updated_at
+        $decisionAt = null;
+        if (in_array(strtolower($viewingApp['status']), ['approved','rejected'])) {
+          $decisionAt = $viewingApp['updated_at'] ?? $viewingApp['reviewed_at'] ?? null;
+        }
+
+        $timeline = [];
+        if ($submittedAt) $timeline[] = ['label' => 'Application Submitted', 'ts' => $submittedAt];
+        // documents uploaded (any uploaded)
+        $uploadedStmt = $pdo->prepare('SELECT COUNT(*) FROM documents WHERE application_id = :aid');
+        $uploadedStmt->execute([':aid' => $viewingApp['id']]);
+        $uploadedCount = (int) $uploadedStmt->fetchColumn();
+        if ($uploadedCount > 0) $timeline[] = ['label' => 'Documents Uploaded', 'ts' => null, 'note' => "$uploadedCount file(s)"];
+        if ($reqCount > 0) {
+          if ($verifiedCount >= $reqCount && $vAt) {
+            $timeline[] = ['label' => 'Documents Verified', 'ts' => $vAt];
+          } elseif ($verifiedCount > 0) {
+            $timeline[] = ['label' => 'Documents Partially Verified', 'ts' => null, 'note' => "$verifiedCount of $reqCount verified"];
+          }
+        } else {
+          if ($verifiedCount > 0 && $vAt) $timeline[] = ['label' => 'Documents Verified', 'ts' => $vAt];
+        }
+        if ($reviewedAt) $timeline[] = ['label' => 'Application Reviewed', 'ts' => $reviewedAt];
+        if ($decisionAt) $timeline[] = ['label' => 'Decision Released', 'ts' => $decisionAt, 'note' => ucfirst($viewingApp['status'])];
+
+      } catch (Exception $e) {
+        $timeline = [];
+      }
+    }
 }
 $stmt = $pdo->prepare('SELECT a.*, s.title as scholarship_title, s.organization, s.status as scholarship_status 
                        FROM applications a 
@@ -133,7 +201,62 @@ $apps = $stmt->fetchAll();
                 </table>
               <?php endif; ?>
             <?php endif; ?>
-          </div>
+            
+                <?php if (!empty($timeline)): ?>
+                  <div style="margin-top:20px" class="panel">
+                    <h4>Application Timeline</h4>
+                    <ul style="list-style:none;padding:0;margin:0">
+                      <?php foreach ($timeline as $t): ?>
+                        <li style="padding:10px 0;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+                          <div style="display:flex;flex-direction:column">
+                            <strong><?= htmlspecialchars($t['label']) ?></strong>
+                            <?php if (!empty($t['note'])): ?><small style="color:#666;margin-top:4px"><?= htmlspecialchars($t['note']) ?></small><?php endif; ?>
+                          </div>
+                          <div style="color:#666;min-width:180px;text-align:right">
+                            <?php if (!empty($t['ts'])): ?>
+                              <?= htmlspecialchars(date('M d, Y H:i', strtotime($t['ts']))) ?>
+                            <?php else: ?>
+                              <small class="muted">—</small>
+                            <?php endif; ?>
+                          </div>
+                        </li>
+                      <?php endforeach; ?>
+                    </ul>
+                  </div>
+                <?php endif; ?>
+
+                <?php
+                  // Fetch documents for this application for student view
+                  $studentDocs = [];
+                  try {
+                    $dstmt = $pdo->prepare('SELECT id, document_type, file_name, file_path, verification_status, verified_at, notes, uploaded_at FROM documents WHERE application_id = :aid');
+                    $dstmt->execute([':aid' => $viewingApp['id']]);
+                    $studentDocs = $dstmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                  } catch (Exception $e) { $studentDocs = []; }
+                ?>
+
+                <div style="margin-top:20px">
+                  <h4>Submitted Documents</h4>
+                  <?php if (empty($studentDocs)): ?>
+                    <p class="muted">No documents uploaded for this application.</p>
+                  <?php else: ?>
+                    <table style="width:100%;border-collapse:collapse">
+                      <thead><tr><th>File</th><th>Type</th><th>Status</th><th>Verified At</th><th>Notes</th></tr></thead>
+                      <tbody>
+                        <?php foreach ($studentDocs as $doc): ?>
+                          <tr style="border-bottom:1px solid #eee">
+                            <td style="padding:10px"><a href="../<?= htmlspecialchars($doc['file_path']) ?>" target="_blank"><?= htmlspecialchars($doc['file_name']) ?></a></td>
+                            <td style="padding:10px"><?= htmlspecialchars($doc['document_type']) ?></td>
+                            <td style="padding:10px;text-transform:capitalize"><?= htmlspecialchars($doc['verification_status']) ?></td>
+                            <td style="padding:10px"><?= !empty($doc['verified_at']) ? htmlspecialchars($doc['verified_at']) : '—' ?></td>
+                            <td style="padding:10px"><?= !empty($doc['notes']) ? htmlspecialchars($doc['notes']) : '—' ?></td>
+                          </tr>
+                        <?php endforeach; ?>
+                      </tbody>
+                    </table>
+                  <?php endif; ?>
+                </div>
+              </div>
         <?php else: ?>
           <?php if (empty($apps)): ?>
           <p class="muted">You have not submitted any applications yet.</p>
@@ -198,11 +321,6 @@ $apps = $stmt->fetchAll();
                   <td><small><?= htmlspecialchars($a['created_at']) ?></small></td>
                   <td>
                     <a href="applications.php?view=<?= $a['id'] ?>" style="color:#2196F3;text-decoration:none;margin-right:8px">View</a>
-                    <form method="POST" style="display:inline" onsubmit="return confirm('Delete this application? This action cannot be undone.');">
-                      <input type="hidden" name="action" value="delete_application">
-                      <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                      <button type="submit" style="background:transparent;border:none;color:#b91c1c;cursor:pointer;padding:0">Delete</button>
-                    </form>
                   </td>
                 </tr>
               <?php endforeach; ?>

@@ -1,12 +1,13 @@
 <?php
 require_once __DIR__ . '/../auth/helpers.php';
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/ScreeningHelper.php';
 
 require_role(['staff', 'admin']);
 
 $pdo = getPDO();
 
-// Handle deletion requests from staff/admin/reviewer
+// Handle deletion requests from staff/admin
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_application') {
   $delId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
   if ($delId > 0) {
@@ -15,8 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
       $stmt->execute([':id' => $delId]);
       $exists = $stmt->fetch();
       if ($exists) {
-        $pdo->prepare('DELETE FROM applications WHERE id = :id')->execute([':id' => $delId]);
-        $_SESSION['success'] = 'Application deleted successfully.';
+      $pdo->prepare('DELETE FROM applications WHERE id = :id')->execute([':id' => $delId]);
+      if (function_exists('logAuditTrail')) logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'APPLICATION_DELETED', 'applications', $delId, 'Deleted by user');
+      $_SESSION['success'] = 'Application deleted successfully.';
       } else {
         $_SESSION['flash'] = 'Application not found.';
       }
@@ -30,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
   exit;
 }
 
-// Handle status change (approve/reject) by staff/admin/reviewer
+// Handle status change (approve/reject) by staff/admin
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'change_status') {
   $chgId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
   $newStatus = trim($_POST['new_status'] ?? '');
@@ -40,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'chang
       $stmt = $pdo->prepare('SELECT id, user_id, scholarship_id, status FROM applications WHERE id = :id');
       $stmt->execute([':id' => $chgId]);
       $row = $stmt->fetch(PDO::FETCH_ASSOC);
-      if ($row) {
+          if ($row) {
         // only allow approve/reject when application is under_review
         if (strtolower($row['status']) !== 'under_review' && in_array($newStatus, ['Approved','Rejected'])) {
           $_SESSION['flash'] = 'Can only approve or reject applications that are currently under review.';
@@ -92,8 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'chang
         } catch (Exception $ee) {
           // ignore email failures
         }
-
-        $_SESSION['success'] = 'Application status updated to ' . $newStatus . '.';
+          
+  if (function_exists('logAuditTrail')) logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'APPLICATION_STATUS_CHANGED', 'applications', $chgId, 'Status: '.$newStatus.($comments?'; Comments: '.$comments:''));
+  $_SESSION['success'] = 'Application status updated to ' . $newStatus . '.';
         }
       } else {
         $_SESSION['flash'] = 'Application not found.';
@@ -109,6 +112,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'chang
   if (!empty($_POST['return_to_view']) && $chgId>0) $redirect = 'applications.php?view=' . $chgId;
   header('Location: ' . $redirect);
   exit;
+}
+
+// Handle document verification by staff/admin
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'verify_document') {
+  $docId = isset($_POST['document_id']) ? (int)$_POST['document_id'] : 0;
+  $newStatus = trim($_POST['new_status'] ?? ''); // expected: verified, rejected, needs_resubmission
+  $notes = trim($_POST['notes'] ?? '');
+  if ($docId > 0 && in_array($newStatus, ['verified','rejected','needs_resubmission'])) {
+    try {
+      $dstmt = $pdo->prepare('SELECT d.*, a.user_id, a.scholarship_id FROM documents d LEFT JOIN applications a ON d.application_id = a.id WHERE d.id = :id');
+      $dstmt->execute([':id' => $docId]);
+      $doc = $dstmt->fetch(PDO::FETCH_ASSOC);
+      if ($doc) {
+        $upd = $pdo->prepare('UPDATE documents SET verification_status = :vs, verified_by = :vb, verified_at = :vat, notes = :notes WHERE id = :id');
+        $vat = $newStatus === 'verified' ? date('Y-m-d H:i:s') : null;
+        $upd->execute([':vs' => $newStatus, ':vb' => $_SESSION['user_id'], ':vat' => $vat, ':notes' => $notes, ':id' => $docId]);
+
+        // Log audit
+        if (function_exists('logAuditTrail')) {
+          logAuditTrail($pdo, $_SESSION['user_id'], 'DOCUMENT_VERIFIED', 'documents', $docId, 'Status: '.$newStatus.($notes?'; Notes: '.$notes:''));
+        }
+
+        // Notify user
+        try {
+          $title = 'Document ' . ucfirst($newStatus);
+          $msg = 'Your uploaded document "' . ($doc['file_name'] ?? '') . '" has been marked as ' . $newStatus . '.';
+          if ($notes) $msg .= ' Notes: ' . $notes;
+          $notif = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, related_scholarship_id) VALUES (:user_id, :title, :message, :type, :app_id, :sch_id)');
+          $notif->execute([':user_id' => $doc['user_id'], ':title' => $title, ':message' => $msg, ':type' => 'application', ':app_id' => $doc['application_id'], ':sch_id' => $doc['scholarship_id']]);
+
+          // queue email if possible
+          $userStmt = $pdo->prepare('SELECT email, first_name FROM users WHERE id = :id');
+          $userStmt->execute([':id' => $doc['user_id']]);
+          $u = $userStmt->fetch(PDO::FETCH_ASSOC);
+          if ($u && filter_var($u['email'] ?? '', FILTER_VALIDATE_EMAIL)) {
+            $body = '<p>Dear ' . htmlspecialchars($u['first_name'] ?? '') . ',</p><p>' . htmlspecialchars($msg) . '</p>';
+            if (function_exists('queueEmail')) queueEmail($u['email'], $title, $body, $doc['user_id']);
+          }
+        } catch (Exception $e) {
+          // ignore notification errors
+        }
+
+        $_SESSION['success'] = 'Document status updated.';
+      } else {
+        $_SESSION['flash'] = 'Document not found.';
+      }
+    } catch (Exception $e) {
+      $_SESSION['flash'] = 'Failed to update document status.';
+    }
+  } else {
+    $_SESSION['flash'] = 'Invalid request.';
+  }
+  $redir = 'applications.php';
+  if (!empty($_POST['return_to_view']) && !empty($_POST['application_id'])) $redir = 'applications.php?view=' . (int)$_POST['application_id'];
+  header('Location: ' . $redir);
+  exit;
+}
+
+// Handle bulk document verification
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'verify_documents_bulk') {
+  $docIds = $_POST['document_ids'] ?? [];
+  $newStatus = trim($_POST['new_status'] ?? '');
+  $notes = trim($_POST['notes'] ?? '');
+  if (!is_array($docIds) || empty($docIds) || !in_array($newStatus, ['verified','rejected','needs_resubmission'])) {
+    $_SESSION['flash'] = 'Invalid bulk request.';
+    header('Location: documents.php'); exit;
+  }
+  try {
+    $pdo->beginTransaction();
+    $upd = $pdo->prepare('UPDATE documents SET verification_status = :vs, verified_by = :vb, verified_at = :vat, notes = :notes WHERE id = :id');
+    $notif = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, related_scholarship_id) VALUES (:user_id, :title, :message, :type, :app_id, :sch_id)');
+    $userStmt = $pdo->prepare('SELECT user_id, application_id, file_name FROM documents WHERE id = :id');
+    foreach ($docIds as $d) {
+      $id = (int)$d;
+      $userStmt->execute([':id' => $id]);
+      $row = $userStmt->fetch(PDO::FETCH_ASSOC);
+      if (!$row) continue;
+      $vat = $newStatus === 'verified' ? date('Y-m-d H:i:s') : null;
+      $upd->execute([':vs' => $newStatus, ':vb' => $_SESSION['user_id'], ':vat' => $vat, ':notes' => $notes, ':id' => $id]);
+
+      // Audit
+      if (function_exists('logAuditTrail')) logAuditTrail($pdo, $_SESSION['user_id'], 'DOCUMENT_BULK_VERIFICATION', 'documents', $id, 'Status: '.$newStatus.'; Notes: '.$notes);
+
+      // Notification
+      $title = 'Document ' . ucfirst($newStatus);
+      $msg = 'Your document "' . ($row['file_name'] ?? '') . '" has been marked as ' . $newStatus . '.';
+      if ($notes) $msg .= ' Notes: ' . $notes;
+      $notif->execute([':user_id' => $row['user_id'], ':title' => $title, ':message' => $msg, ':type' => 'application', ':app_id' => $row['application_id'], ':sch_id' => null]);
+    }
+    $pdo->commit();
+    $_SESSION['success'] = 'Bulk document update completed.';
+  } catch (Exception $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    $_SESSION['flash'] = 'Bulk update failed.';
+  }
+  header('Location: documents.php'); exit;
+}
+
+// Handle bulk application status change
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_change_status') {
+  $appIds = $_POST['application_ids'] ?? [];
+  $newStatus = trim($_POST['new_status'] ?? '');
+  $notes = trim($_POST['notes'] ?? '');
+  if (!is_array($appIds) || empty($appIds) || !in_array($newStatus, ['under_review','approved','rejected','pending','submitted','withdrawn'])) {
+    $_SESSION['flash'] = 'Invalid bulk status request.';
+    header('Location: pending_applications.php'); exit;
+  }
+  try {
+    $pdo->beginTransaction();
+    $upd = $pdo->prepare('UPDATE applications SET status = :status, updated_at = NOW() WHERE id = :id');
+    $notif = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, related_scholarship_id) VALUES (:user_id, :title, :message, :type, :app_id, :sch_id)');
+    $sel = $pdo->prepare('SELECT user_id, scholarship_id FROM applications WHERE id = :id');
+    foreach ($appIds as $aid) {
+      $id = (int)$aid;
+      $sel->execute([':id' => $id]);
+      $row = $sel->fetch(PDO::FETCH_ASSOC);
+      if (!$row) continue;
+      $upd->execute([':status' => $newStatus, ':id' => $id]);
+      if (function_exists('logAuditTrail')) logAuditTrail($pdo, $_SESSION['user_id'], 'APPLICATION_BULK_STATUS', 'applications', $id, 'Status: '.$newStatus.'; Notes: '.$notes);
+      $title = 'Application Status Updated';
+      $msg = 'Your application (ID ' . $id . ') status has been updated to ' . $newStatus . '.';
+      if ($notes) $msg .= ' Comments: ' . $notes;
+      $notif->execute([':user_id' => $row['user_id'], ':title' => $title, ':message' => $msg, ':type' => 'application', ':app_id' => $id, ':sch_id' => $row['scholarship_id']]);
+    }
+    $pdo->commit();
+    $_SESSION['success'] = 'Bulk status update completed.';
+  } catch (Exception $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    $_SESSION['flash'] = 'Bulk update failed.';
+  }
+  header('Location: pending_applications.php'); exit;
 }
 
 // Check if viewing details
@@ -283,6 +417,33 @@ if (!$viewId) {
                 </form>
               </div>
             <?php endif; ?>
+
+            <!-- Application Timeline -->
+            <div style="margin-top:20px;padding:16px;background:#fff;border-radius:8px;">
+              <h4>Application Timeline</h4>
+              <?php
+                try {
+                    $tstmt = $pdo->prepare('SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.new_values, al.ip_address, al.user_agent, al.created_at, u.username FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id WHERE (al.entity_type = :etype OR al.target_table = :tt) AND al.entity_id = :aid ORDER BY al.created_at ASC');
+                    $tstmt->execute([':etype' => 'applications', ':tt' => 'applications', ':aid' => $viewingApp['id']]);
+                    $events = $tstmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (Exception $e) {
+                    $events = [];
+                }
+              ?>
+              <?php if (empty($events)): ?>
+                <p class="muted">No timeline events recorded for this application.</p>
+              <?php else: ?>
+                <ul style="list-style:none;padding-left:0;margin:0">
+                  <?php foreach ($events as $ev): ?>
+                    <li style="padding:8px 0;border-bottom:1px solid #f0f0f0">
+                      <div style="font-size:13px;color:#333"><strong><?= htmlspecialchars($ev['action']) ?></strong> — <?= htmlspecialchars($ev['username'] ?? 'System') ?></div>
+                      <div style="font-size:12px;color:#666"><?= htmlspecialchars($ev['new_values'] ?? '') ?></div>
+                      <div style="font-size:11px;color:#999"><?= htmlspecialchars($ev['created_at']) ?> from <?= htmlspecialchars($ev['ip_address'] ?? '') ?></div>
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+              <?php endif; ?>
+            </div>
             
             <div style="margin-bottom:20px">
               <strong>Submitted:</strong> <?= htmlspecialchars($viewingApp['created_at']) ?>
@@ -305,6 +466,60 @@ if (!$viewId) {
                 </table>
               <?php endif; ?>
             <?php endif; ?>
+            
+            <?php
+              // Fetch documents for this application
+              $docList = [];
+              try {
+                $dS = $pdo->prepare('SELECT d.*, u.username AS verifier_name FROM documents d LEFT JOIN users u ON d.verified_by = u.id WHERE d.application_id = :aid');
+                $dS->execute([':aid' => $viewingApp['id']]);
+                $docList = $dS->fetchAll(PDO::FETCH_ASSOC) ?: [];
+              } catch (Exception $e) { $docList = []; }
+            ?>
+
+            <div style="margin-top:20px">
+              <h4>Submitted Documents</h4>
+              <?php if (empty($docList)): ?>
+                <p class="muted">No documents uploaded for this application.</p>
+              <?php else: ?>
+                <table style="width:100%;border-collapse:collapse">
+                  <thead><tr><th>File</th><th>Type</th><th>Status</th><th>Verified By</th><th>Uploaded</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    <?php foreach ($docList as $doc): ?>
+                      <tr>
+                        <td><a href="../<?= htmlspecialchars($doc['file_path']) ?>" target="_blank"><?= htmlspecialchars($doc['file_name']) ?></a></td>
+                        <td><?= htmlspecialchars($doc['document_type']) ?></td>
+                        <td style="text-transform:capitalize"><?= htmlspecialchars($doc['verification_status']) ?></td>
+                        <td><?= htmlspecialchars($doc['verifier_name'] ?? '') ?><?= (!empty($doc['verified_at'])? ' <br><small>'.htmlspecialchars($doc['verified_at']).'</small>':'') ?></td>
+                        <td><?= htmlspecialchars($doc['uploaded_at']) ?></td>
+                        <td>
+                          <?php if (in_array($_SESSION['user']['role'] ?? '', ['staff','admin'])): ?>
+                            <form method="POST" style="display:inline;margin-right:6px" onsubmit="return handleDocAction(this,'verify');">
+                              <input type="hidden" name="action" value="verify_document">
+                              <input type="hidden" name="document_id" value="<?= (int)$doc['id'] ?>">
+                              <input type="hidden" name="application_id" value="<?= (int)$viewingApp['id'] ?>">
+                              <input type="hidden" name="new_status" value="verified">
+                              <input type="hidden" name="notes" value="">
+                              <input type="hidden" name="return_to_view" value="1">
+                              <button type="submit" style="background:#16a34a;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer">Verify</button>
+                            </form>
+                            <form method="POST" style="display:inline" onsubmit="return handleDocAction(this,'reject');">
+                              <input type="hidden" name="action" value="verify_document">
+                              <input type="hidden" name="document_id" value="<?= (int)$doc['id'] ?>">
+                              <input type="hidden" name="application_id" value="<?= (int)$viewingApp['id'] ?>">
+                              <input type="hidden" name="new_status" value="rejected">
+                              <input type="hidden" name="notes" value="">
+                              <input type="hidden" name="return_to_view" value="1">
+                              <button type="submit" style="background:#b91c1c;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer">Reject</button>
+                            </form>
+                          <?php endif; ?>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              <?php endif; ?>
+            </div>
           </div>
         <?php else: ?>
       <section class="panel">
@@ -377,6 +592,22 @@ if (!$viewId) {
           if(reason !== null){
             var inp = form.querySelector('input[name="reason"]');
             if(inp) inp.value = reason;
+          }
+          return true;
+        }
+        function handleDocAction(form, action){
+          if(action === 'verify'){
+            if(!confirm('Mark this document as verified?')) return false;
+            return true;
+          }
+          if(action === 'reject'){
+            if(!confirm('Reject this document?')) return false;
+            var note = prompt('Provide a note for the applicant (optional):','');
+            if(note !== null){
+              var n = form.querySelector('input[name="notes"]');
+              if(n) n.value = note;
+            }
+            return true;
           }
           return true;
         }

@@ -52,11 +52,13 @@ function getDashboardStats($pdo) {
  * Get applications report with filters
  */
 function getApplicationsReport($pdo, $filters = []) {
-    $sql = 'SELECT a.id, a.user_id, a.scholarship_id, a.title, a.status, a.created_at, a.academic_year,
-            s.title as scholarship_title, u.username, u.email FROM applications a
-            LEFT JOIN scholarships s ON a.scholarship_id = s.id
-            LEFT JOIN users u ON a.user_id = u.id
-            WHERE 1=1';
+    // Select only existing columns from applications schema and useful related info
+    $sql = 'SELECT a.id, a.user_id, a.scholarship_id, a.motivational_letter AS details, a.gpa, a.status, a.submitted_at, a.created_at,
+        s.title AS scholarship_title, u.username, u.email
+        FROM applications a
+        LEFT JOIN scholarships s ON a.scholarship_id = s.id
+        LEFT JOIN users u ON a.user_id = u.id
+        WHERE 1=1';
     $params = [];
     
     if (!empty($filters['status'])) {
@@ -134,19 +136,123 @@ function getAuditLogs($pdo, $filters = [], $limit = 100) {
 function exportToCSV($data, $filename) {
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
-    
+
     $output = fopen('php://output', 'w');
-    
+
     if (!empty($data)) {
-        // Write headers
-        fputcsv($output, array_keys($data[0]));
-        
-        // Write rows
+        // Normalize rows to associative arrays
+        $first = (array)$data[0];
+        $headers = array_keys($first);
+        fputcsv($output, $headers);
+
         foreach ($data as $row) {
-            fputcsv($output, $row);
+            $row = (array)$row;
+            $out = [];
+            foreach ($headers as $h) $out[] = $row[$h] ?? '';
+            fputcsv($output, $out);
         }
     }
-    
+
     fclose($output);
+    exit;
+}
+
+/**
+ * Export data to real .xlsx using PhpSpreadsheet when available.
+ * Falls back to CSV-based Excel export if PhpSpreadsheet is not installed.
+ */
+function exportToXLSX($data, $filename) {
+    if (!class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+        // fallback: use CSV but name .xls/.xlsx accordingly
+        if (pathinfo($filename, PATHINFO_EXTENSION) !== 'xls' && pathinfo($filename, PATHINFO_EXTENSION) !== 'xlsx') {
+            $filename = pathinfo($filename, PATHINFO_FILENAME) . '.xls';
+        }
+        exportToExcel($data, $filename);
+    }
+
+    // Use PhpSpreadsheet to build an actual XLSX
+    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+
+    if (!empty($data)) {
+        $first = (array)$data[0];
+        $headers = array_keys($first);
+
+        // Write headers to first row
+        $sheet->fromArray($headers, null, 'A1');
+
+        // Prepare rows matching header order
+        $rows = [];
+        foreach ($data as $r) {
+            $row = (array)$r;
+            $out = [];
+            foreach ($headers as $h) $out[] = $row[$h] ?? '';
+            $rows[] = $out;
+        }
+
+        if (!empty($rows)) {
+            $sheet->fromArray($rows, null, 'A2');
+        }
+    }
+
+    // Stream to browser
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+    $writer->save('php://output');
+    exit;
+}
+
+/**
+ * Export data as Excel-compatible CSV (tabular CSV with .xls filename)
+ */
+function exportToExcel($data, $filename) {
+    // Reuse CSV exporter but set filename to .xls for Excel compatibility
+    if (pathinfo($filename, PATHINFO_EXTENSION) !== 'xls') {
+        $filename = pathinfo($filename, PATHINFO_FILENAME) . '.xls';
+    }
+    exportToCSV($data, $filename);
+}
+
+/**
+ * Export arbitrary tabular data as PDF using dompdf if available.
+ * If dompdf is not installed, send an informative message.
+ */
+function exportDataToPDF($data, $filename, $title = 'Report') {
+    if (!class_exists('\Dompdf\\Dompdf')) {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "PDF export requires dompdf.\n";
+        echo "Install via Composer: composer require dompdf/dompdf\n";
+        exit;
+    }
+
+    // Build simple HTML table
+    $html = "<html><head><meta charset='utf-8'><style>body{font-family:Arial,Helvetica,sans-serif}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #ddd;text-align:left;font-size:12px}th{background:#f4f4f4}</style></head><body>";
+    $html .= "<h2>" . htmlspecialchars($title) . "</h2>";
+    if (empty($data)) {
+        $html .= "<p>No data available.</p>";
+    } else {
+        $html .= "<table><thead><tr>";
+        // headers from first row
+        $headers = array_keys((array)$data[0]);
+        foreach ($headers as $h) $html .= '<th>' . htmlspecialchars($h) . '</th>';
+        $html .= "</tr></thead><tbody>";
+        foreach ($data as $row) {
+            $row = (array)$row;
+            $html .= '<tr>';
+            foreach ($headers as $h) {
+                $html .= '<td>' . htmlspecialchars($row[$h] ?? '') . '</td>';
+            }
+            $html .= '</tr>';
+        }
+        $html .= '</tbody></table>';
+    }
+    $html .= '</body></html>';
+
+    $dompdf = new \Dompdf\Dompdf();
+    $dompdf->loadHtml($html);
+    $dompdf->setPaper('A4', 'landscape');
+    $dompdf->render();
+    $dompdf->stream($filename, ['Attachment' => true]);
     exit;
 }

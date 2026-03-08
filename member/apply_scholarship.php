@@ -11,6 +11,14 @@ $user_id = $_SESSION['user_id'];
 $stmt = $pdo->query('SELECT * FROM scholarships WHERE status = "open" ORDER BY created_at DESC');
 $scholarships = $stmt->fetchAll();
 
+// Load student profile for eligibility checks
+$profile = [];
+try {
+  $ps = $pdo->prepare('SELECT * FROM student_profiles WHERE user_id = :uid');
+  $ps->execute([':uid' => $user_id]);
+  $profile = $ps->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (Exception $e) { $profile = []; }
+
 // Get selected scholarship details
 $selected_scholarship = null;
 $requirements = [];
@@ -22,9 +30,57 @@ if ($scholarship_id) {
     $selected_scholarship = $stmt->fetch();
     
     if ($selected_scholarship) {
-        $stmt = $pdo->prepare('SELECT requirement FROM eligibility_requirements WHERE scholarship_id = :id');
-        $stmt->execute([':id' => $scholarship_id]);
-        $requirements = $stmt->fetchAll(PDO::FETCH_COLUMN);
+      $stmt = $pdo->prepare('SELECT requirement, requirement_type, value FROM eligibility_requirements WHERE scholarship_id = :id');
+      $stmt->execute([':id' => $scholarship_id]);
+      $requirements = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+      // Load required documents list
+      try {
+        $dstmt = $pdo->prepare('SELECT document_name FROM scholarship_documents WHERE scholarship_id = :id');
+        $dstmt->execute([':id' => $scholarship_id]);
+        $required_documents = $dstmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+      } catch (Exception $e) { $required_documents = []; }
+
+      // Deadline countdown
+      $days_remaining = null;
+      if (!empty($selected_scholarship['deadline'])) {
+        $deadline_ts = strtotime($selected_scholarship['deadline']);
+        $now = time();
+        $diff = $deadline_ts - $now;
+        $days_remaining = $diff > 0 ? (int)ceil($diff / 86400) : 0;
+      }
+
+      // Basic eligibility checks using student profile
+      $eligible = true;
+      $eligibility_notes = [];
+      if (!empty($requirements)) {
+        foreach ($requirements as $r) {
+          $rtype = $r['requirement_type'] ?? 'documents';
+          $val = $r['value'] ?? '';
+          if ($rtype === 'gpa') {
+            $min = floatval($val ?: 0);
+            $user_gpa = floatval($profile['gpa'] ?? 0);
+            if ($user_gpa < $min) {
+              $eligible = false;
+              $eligibility_notes[] = "Minimum GPA of $min required (yours: $user_gpa)";
+            }
+          } elseif ($rtype === 'field') {
+            $required_field = strtolower($val);
+            $user_field = strtolower($profile['course'] ?? '');
+            if ($required_field && $required_field !== $user_field) {
+              $eligible = false;
+              $eligibility_notes[] = "Program requirement: $val";
+            }
+          } elseif ($rtype === 'enrollment') {
+            $en = strtolower($val);
+            $user_en = strtolower($profile['enrollment_status'] ?? '');
+            if ($en && $en !== $user_en) {
+              $eligible = false;
+              $eligibility_notes[] = "Enrollment: $val required (yours: " . ($profile['enrollment_status'] ?? 'N/A') . ")";
+            }
+          }
+        }
+      }
         
         // Check if already applied
         $stmt = $pdo->prepare('SELECT id FROM applications WHERE user_id = :uid AND scholarship_id = :sid');
@@ -36,6 +92,12 @@ if ($scholarship_id) {
         }
     }
 }
+
+// Default containers
+$required_documents = [];
+$days_remaining = null;
+$eligible = null;
+$eligibility_notes = [];
 ?>
 <!doctype html>
 <html>
@@ -116,9 +178,51 @@ if ($scholarship_id) {
               <strong>Eligibility Requirements:</strong>
               <ul>
                 <?php foreach ($requirements as $req): ?>
-                  <li><?= htmlspecialchars($req) ?></li>
+                  <?php if (is_array($req)): ?>
+                    <li><?= htmlspecialchars($req['requirement'] ?? ($req['value'] ?? '')) ?></li>
+                  <?php else: ?>
+                    <li><?= htmlspecialchars($req) ?></li>
+                  <?php endif; ?>
                 <?php endforeach; ?>
               </ul>
+            </div>
+          <?php endif; ?>
+
+          <?php if (!empty($required_documents)): ?>
+            <div class="requirements-list">
+              <strong>Required Documents:</strong>
+              <ul>
+                <?php foreach ($required_documents as $rd): ?>
+                  <li><?= htmlspecialchars($rd) ?></li>
+                <?php endforeach; ?>
+              </ul>
+            </div>
+          <?php endif; ?>
+
+          <?php if (isset($days_remaining)): ?>
+            <div class="requirements-list">
+              <strong>Deadline:</strong>
+              <?php if ($days_remaining > 0): ?>
+                <span><?= (int)$days_remaining ?> day(s) remaining (<?= htmlspecialchars($selected_scholarship['deadline']) ?>)</span>
+              <?php else: ?>
+                <span>Deadline reached (<?= htmlspecialchars($selected_scholarship['deadline']) ?>)</span>
+              <?php endif; ?>
+            </div>
+          <?php endif; ?>
+
+          <?php if (isset($eligible) && $eligible === false): ?>
+            <div class="requirements-list" style="background:#fff4f4;border-left:4px solid #f56565">
+              <strong>Eligibility notice:</strong>
+              <ul>
+                <?php foreach ($eligibility_notes as $note): ?>
+                  <li><?= htmlspecialchars($note) ?></li>
+                <?php endforeach; ?>
+              </ul>
+              <small>You may still apply, but your application could be flagged during screening.</small>
+            </div>
+          <?php elseif (isset($eligible) && $eligible === true): ?>
+            <div class="requirements-list" style="background:#f0fff4;border-left:4px solid #16a34a">
+              <strong>Eligibility:</strong> You appear to meet basic eligibility requirements.
             </div>
           <?php endif; ?>
           <form method="POST" action="../controllers/ApplicationController.php" enctype="multipart/form-data">

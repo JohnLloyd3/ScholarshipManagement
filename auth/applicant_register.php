@@ -77,16 +77,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'role' => 'student'
         ]);
         $user_id = $pdo->lastInsertId();
-        // Insert into students table
-        $stmt = $pdo->prepare('INSERT INTO students (user_id, first_name, last_name, email, phone, address, gpa, enrollment_status) VALUES (:user_id, :first_name, :last_name, :email, :phone, :address, :gpa, :enrollment_status)');
+        // Insert into student_profiles table (new canonical profile storage)
+        $stmt = $pdo->prepare('INSERT INTO student_profiles (user_id, gpa, university, course, enrollment_status) VALUES (:user_id, :gpa, :university, :course, :enrollment_status)');
         $stmt->execute([
             'user_id' => $user_id,
-            'first_name' => $first_name,
-            'last_name' => $last_name,
-            'email' => $email,
-            'phone' => $contact_number,
-            'address' => $mailing_address,
-            'gpa' => $report_card_average,
+            'gpa' => $report_card_average ?: null,
+            'university' => $intended_school ?: null,
+            'course' => $first_choice ?: null,
             'enrollment_status' => 'full-time'
         ]);
         header('Location: login.php?registered=1');

@@ -7,6 +7,51 @@ require_role('admin');
 
 $pdo = getPDO();
 $stats = getDashboardStats($pdo);
+
+// Export handlers (CSV/Excel/PDF)
+if (!empty($_GET['export'])) {
+  $what = $_GET['export'];
+  $format = strtolower($_GET['format'] ?? 'csv');
+
+  // Ensure only admins can trigger exports (redundant with require_role but explicit here)
+  if (!is_role('admin')) {
+    http_response_code(403);
+    echo 'Forbidden';
+    exit;
+  }
+
+  // Determine dataset
+  if ($what === 'applications') {
+    $data = getApplicationsReport($pdo, []);
+    $label = 'applications';
+  } elseif ($what === 'top_scholarships') {
+    $data = $stats['top_scholarships'];
+    $label = 'top_scholarships';
+  } elseif ($what === 'users_by_role') {
+    $data = $stats['users_by_role'];
+    $label = 'users_by_role';
+  } else {
+    $data = [];
+    $label = 'export';
+  }
+
+  // Log the export action
+  if (function_exists('logAuditTrail')) {
+    logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'EXPORT', $label, 0, 'format: ' . $format);
+  }
+
+  // Choose export format
+  if ($format === 'pdf') {
+    exportDataToPDF($data, $label . '.pdf', ucfirst(str_replace('_', ' ', $label)));
+  } elseif ($format === 'excel' || $format === 'xlsx') {
+    // Prefer real XLSX if PhpSpreadsheet available
+    $outName = $label . '.xlsx';
+    exportToXLSX($data, $outName);
+  } else {
+    // default CSV
+    exportToCSV($data, $label . '.csv');
+  }
+}
 ?>
 <!doctype html>
 <html>
@@ -96,6 +141,14 @@ $stats = getDashboardStats($pdo);
       <!-- Applications by Status -->
       <section class="panel">
         <h3>Applications by Status</h3>
+        <div style="margin-bottom:12px" class="quick-actions">
+          <a class="btn export-btn" href="?export=applications" data-format="csv"><span class="label">Export Applications (CSV)</span><span class="spinner" aria-hidden> ⏳</span></a>
+          <a class="btn export-btn" href="?export=applications&format=excel" data-format="excel"><span class="label">Export Applications (Excel)</span><span class="spinner" aria-hidden> ⏳</span></a>
+          <a class="btn export-btn" href="?export=top_scholarships" data-format="csv"><span class="label">Export Top Scholarships (CSV)</span><span class="spinner" aria-hidden> ⏳</span></a>
+          <a class="btn export-btn" href="?export=top_scholarships&format=excel" data-format="excel"><span class="label">Export Top Scholarships (Excel)</span><span class="spinner" aria-hidden> ⏳</span></a>
+          <a class="btn export-btn" href="?export=users_by_role" data-format="csv"><span class="label">Export Users By Role (CSV)</span><span class="spinner" aria-hidden> ⏳</span></a>
+          <a class="btn export-btn" href="?export=users_by_role&format=excel" data-format="excel"><span class="label">Export Users By Role (Excel)</span><span class="spinner" aria-hidden> ⏳</span></a>
+        </div>
         <table>
           <thead>
             <tr>
@@ -118,6 +171,21 @@ $stats = getDashboardStats($pdo);
             <?php endforeach; ?>
           </tbody>
         </table>
+      </section>
+
+      <section class="chart-container">
+        <h3>Applications by Status (Chart)</h3>
+        <canvas id="statusChart" width="400" height="160"></canvas>
+      </section>
+
+      <section class="chart-container">
+        <h3>Top Scholarships (Chart)</h3>
+        <canvas id="scholarshipChart" width="400" height="160"></canvas>
+      </section>
+
+      <section class="chart-container">
+        <h3>Users by Role</h3>
+        <canvas id="usersChart" width="400" height="160"></canvas>
       </section>
 
       <!-- Top Scholarships -->
@@ -166,5 +234,52 @@ $stats = getDashboardStats($pdo);
 
     </main>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="../assets/analytics-exports.css">
+  <script src="../assets/analytics-exports.js"></script>
+  <script>
+    // Prepare data from PHP
+    const statusData = <?= json_encode(array_column($stats['applications_by_status'], 'count')) ?>;
+    const statusLabels = <?= json_encode(array_map(function($i){ return ucfirst(str_replace('_',' ',$i['status'])); }, $stats['applications_by_status'])) ?>;
+
+    const topLabels = <?= json_encode(array_map(function($s){ return $s['title']; }, $stats['top_scholarships'])) ?>;
+    const topData = <?= json_encode(array_map(function($s){ return (int)$s['count']; }, $stats['top_scholarships'])) ?>;
+
+    const userLabels = <?= json_encode(array_map(function($r){ return ucfirst($r['role']); }, $stats['users_by_role'])) ?>;
+    const userData = <?= json_encode(array_map(function($r){ return (int)$r['count']; }, $stats['users_by_role'])) ?>;
+
+    // Status pie chart
+    try {
+      const ctx = document.getElementById('statusChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: statusLabels,
+          datasets: [{ data: statusData, backgroundColor: ['#667eea','#c41e3a','#f59e0b','#10b981','#ef4444','#9ca3af'] }]
+        },
+        options: { responsive: true }
+      });
+    } catch (e) {}
+
+    // Top scholarships bar chart
+    try {
+      const ctx2 = document.getElementById('scholarshipChart').getContext('2d');
+      new Chart(ctx2, {
+        type: 'bar',
+        data: { labels: topLabels, datasets: [{ label: 'Applications', data: topData, backgroundColor: '#c41e3a' }] },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+      });
+    } catch (e) {}
+
+    // Users by role donut
+    try {
+      const ctx3 = document.getElementById('usersChart').getContext('2d');
+      new Chart(ctx3, {
+        type: 'doughnut',
+        data: { labels: userLabels, datasets: [{ data: userData, backgroundColor: ['#667eea','#10b981','#f59e0b'] }] },
+        options: { responsive: true }
+      });
+    } catch (e) {}
+  </script>
 </body>
 </html>

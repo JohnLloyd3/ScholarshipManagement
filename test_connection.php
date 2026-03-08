@@ -114,7 +114,7 @@ header('Content-Type: text/html; charset=utf-8');
                 'scholarships',
                 'eligibility_requirements',
                 // reviews removed
-                'students',
+                'student_profiles',
                 'documents',
                 'notifications',
                 'awards',

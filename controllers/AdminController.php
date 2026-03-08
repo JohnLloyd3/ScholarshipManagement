@@ -167,7 +167,7 @@ if ($action === 'update_application') {
                 $subject = 'Application ' . ucfirst($status);
                 $body = "<p>Dear $applicantName,</p><p>Your application for '<b>$schTitle</b>' has been <b>$status</b>.</p>";
                 if ($reviewComments !== '') {
-                    $body .= "<p><b>Reviewer comment:</b> " . nl2br(htmlspecialchars($reviewComments)) . "</p>";
+                    $body .= "<p><b>Staff comment:</b> " . nl2br(htmlspecialchars($reviewComments)) . "</p>";
                 }
                 queueEmail($email, $subject, $body, $userId);
             }

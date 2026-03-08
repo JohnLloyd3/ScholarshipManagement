@@ -48,36 +48,30 @@ $pendingReviews = 0;
 $messagesCount = 0;
 
 if ($pdo) {
-    // Try to find a student id linked to this user
+    // Try to find a student profile linked to this user (uses canonical student_profiles table)
     $studentId = null;
     try {
-        $stmt = $pdo->prepare('SELECT id FROM students WHERE user_id = :uid LIMIT 1');
-        $stmt->execute([':uid' => $user_id]);
+      $stmt = $pdo->prepare('SELECT id FROM student_profiles WHERE user_id = :uid LIMIT 1');
+      $stmt->execute([':uid' => $user_id]);
+      $r = $stmt->fetch();
+      if ($r) {
+        $studentId = $r['id'];
+      } else {
+        // try matching by email through users -> student_profiles
+        $stmt = $pdo->prepare('SELECT sp.id FROM student_profiles sp JOIN users u ON sp.user_id = u.id WHERE u.email = :email LIMIT 1');
+        $stmt->execute([':email' => $user['email'] ?? '']);
         $r = $stmt->fetch();
         if ($r) $studentId = $r['id'];
-        else {
-            // try matching by email
-            $stmt = $pdo->prepare('SELECT id FROM students WHERE email = :email LIMIT 1');
-            $stmt->execute([':email' => $user['email'] ?? '']);
-            $r = $stmt->fetch();
-            if ($r) $studentId = $r['id'];
-        }
+      }
     } catch (Exception $e) {
-        $studentId = null;
+      $studentId = null;
     }
 
-    // Applications count
-    if ($studentId) {
-        $applicationsCount = try_count($pdo, [
-            ['sql' => 'SELECT COUNT(*) FROM applications WHERE student_id = :id', 'params' => [':id' => $studentId]]
-        ]);
-    } else {
-        // try counting applications by user_id or by applicant_email
-        $applicationsCount = try_count($pdo, [
-            ['sql' => 'SELECT COUNT(*) FROM applications WHERE user_id = :uid', 'params' => [':uid' => $user_id]],
-            ['sql' => 'SELECT COUNT(*) FROM applications WHERE email = :email', 'params' => [':email' => $user['email'] ?? '']]
-        ]);
-    }
+    // Applications count: prefer counting by user_id (reliable schema), fallback to applicant email
+    $applicationsCount = try_count($pdo, [
+      ['sql' => 'SELECT COUNT(*) FROM applications WHERE user_id = :uid', 'params' => [':uid' => $user_id]],
+      ['sql' => 'SELECT COUNT(*) FROM applications WHERE email = :email', 'params' => [':email' => $user['email'] ?? '']]
+    ]);
 
     // Open scholarships available to apply (2.7 status tracking)
     $activeScholarships = try_count($pdo, [

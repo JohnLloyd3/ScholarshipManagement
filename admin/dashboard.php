@@ -13,11 +13,14 @@ $pdo = getPDO();
 
 try {
     // Stats
-    $totalApplications = $pdo->query('SELECT COUNT(*) FROM applications')->fetchColumn() ?: 0;
-    $pendingApplications = $pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'pending'")->fetchColumn() ?: 0;
-    $pendingReviews = 0;
-    $totalUsers = $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() ?: 0;
-    $totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn() ?: 0;
+    $totalApplications = (int) $pdo->query('SELECT COUNT(*) FROM applications')->fetchColumn() ?: 0;
+    // Treat submitted / pending / under_review as pending workload
+    $pendingApplications = (int) $pdo->query("SELECT COUNT(*) FROM applications WHERE status IN ('submitted','pending','under_review')")->fetchColumn() ?: 0;
+    $totalUsers = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() ?: 0;
+    $totalStudents = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn() ?: 0;
+    $totalScholarships = (int) $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn() ?: 0;
+    $approvedCount = (int) $pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'approved'")->fetchColumn() ?: 0;
+    $rejectedCount = (int) $pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'rejected'")->fetchColumn() ?: 0;
 
     // Recent applications
     $stmt = $pdo->query('SELECT a.id, a.title, a.status, a.created_at, a.submitted_at, u.first_name, u.last_name, s.title as scholarship_title 
@@ -102,10 +105,12 @@ try {
       </div>
 
       <div class="stats-grid">
-        <div class="stat-card"><div class="value"><?= htmlspecialchars($totalApplications) ?></div><div class="label">Total Applications</div></div>
-        <div class="stat-card"><div class="value">—</div><div class="label">Pending Reviews</div></div>
+        <div class="stat-card"><div class="value"><?= htmlspecialchars($totalStudents) ?></div><div class="label">Registered Students</div></div>
+        <div class="stat-card"><div class="value"><?= htmlspecialchars($totalScholarships) ?></div><div class="label">Scholarships Available</div></div>
+        <div class="stat-card"><div class="value"><?= htmlspecialchars($pendingApplications) ?></div><div class="label">Pending Applications</div></div>
+        <div class="stat-card"><div class="value"><?= htmlspecialchars($approvedCount) ?></div><div class="label">Approved Scholars</div></div>
+        <div class="stat-card"><div class="value"><?= htmlspecialchars($rejectedCount) ?></div><div class="label">Rejected Applications</div></div>
         <div class="stat-card"><div class="value"><?= htmlspecialchars($totalUsers) ?></div><div class="label">Total Users</div></div>
-        <div class="stat-card"><div class="value">—</div><div class="label">System</div></div>
       </div>
 
       <section class="panel">

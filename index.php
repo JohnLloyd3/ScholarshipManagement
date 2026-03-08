@@ -112,7 +112,7 @@ $totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status
   <?php if (!isLoggedIn()): ?>
     <button class="primary-btn" onclick="window.location.href='auth/register.php'">Apply Now</button>
   <?php else: ?>
-    <button class="primary-btn" onclick="window.location.href='member/apply_scholarship_new.php'">Explore & Apply</button>
+    <button class="primary-btn" onclick="window.location.href='member/apply_scholarship.php'">Explore & Apply</button>
   <?php endif; ?>
 </section>
 
@@ -162,7 +162,7 @@ $totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status
               <div class="deadline">Deadline: <?= date('M d, Y', strtotime($sch['deadline'])) ?></div>
             </div>
             <?php if (isLoggedIn()): ?>
-              <button class="primary-btn" style="margin: 0;" onclick="window.location.href='member/apply_scholarship_new.php?id=<?= $sch['id'] ?>'">Apply</button>
+              <button class="primary-btn" style="margin: 0;" onclick="window.location.href='member/apply_scholarship.php?scholarship_id=<?= $sch['id'] ?>'">Apply</button>
             <?php else: ?>
               <button class="primary-btn" style="margin: 0;" onclick="window.location.href='auth/register.php'">Register to Apply</button>
             <?php endif; ?>

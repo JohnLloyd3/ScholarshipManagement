@@ -77,16 +77,12 @@ CREATE TABLE `applications` (
   `status` enum('draft','submitted','under_review','pending','approved','rejected','withdrawn') DEFAULT 'submitted',
   `submitted_at` datetime DEFAULT NULL,
   `reviewed_at` datetime DEFAULT NULL,
-  `reviewer_id` int(11) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 --
 -- Dumping data for table `applications`
---
-
-INSERT INTO `applications` (`id`, `user_id`, `scholarship_id`, `motivational_letter`, `gpa`, `status`, `submitted_at`, `reviewed_at`, `reviewer_id`, `created_at`, `updated_at`) VALUES
+-- (data omitted; reviewer references removed)
 (1, 4, 1, '{\"full_name\":\"Leonelen\",\"sex\":\"Female\",\"dob\":\"2004-09-13\",\"age\":\"21\",\"civil_status\":\"Single\",\"nationality\":\"Filipino\",\"mobile\":\"09063212440\",\"email\":\"leonelencarmen@gmail.com\",\"home_address\":\"CADULAWAN MINGLANILLA, CEBU\",\"shs_name\":\"St. Cecilia\'s College-Cebu, Inc.\",\"shs_address\":\"Natalio Bacalso Avenue, Minglanilla, Cebu\",\"strand\":\"STEM\",\"gwa\":\"1.5\",\"year_graduated\":\"2025\",\"intended_college\":\"St. Cecilia\'s College-Cebu, Inc.\",\"course_program\":\"BSIT\",\"institution_type\":\"Private\",\"admission_letter\":\"Yes\",\"enrollment_date\":\"2025-02-15\",\"father_name\":\"Glen Carmen\",\"father_occupation\":\"none\",\"father_income\":\"9000\",\"mother_name\":\"Leony Carmen\",\"mother_occupation\":\"none\",\"mother_income\":\"10000\",\"guardian\":\"Leony Carmen\",\"total_income\":\"19000\",\"family_members\":\"8\",\"scholarship_title\":\"Academic Excellence Award\",\"receiving_other\":\"No\",\"other_scholarship_details\":\"\",\"docs_checklist\":[\"Grade 12 Report Card\",\"Certificate of Graduation\",\"Admission Letter\",\"Proof of Income\",\"Valid ID\",\"2x2 ID Picture\"],\"applicant_signature\":\"Frans Ababa\",\"applicant_date\":\"2026-02-27\"}', 1.50, 'approved', '2026-02-27 16:18:22', '2026-02-27 16:19:19', 1, '2026-02-27 16:18:22', '2026-02-27 16:19:19');
 
 -- --------------------------------------------------------
@@ -316,20 +312,8 @@ CREATE TABLE `password_resets` (
 --
 -- Table structure for table `reviews`
 --
-
-CREATE TABLE `reviews` (
-  `id` int(11) NOT NULL,
-  `application_id` int(11) NOT NULL,
-  `reviewer_id` int(11) NOT NULL,
-  `rating` int(11) DEFAULT 0 CHECK (`rating` >= 0 and `rating` <= 5),
-  `comments` text DEFAULT NULL,
-  `documents_verified` tinyint(1) DEFAULT 0,
-  `status` enum('pending','approved','rejected') DEFAULT 'pending',
-  `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 -- --------------------------------------------------------
+
 
 --
 -- Table structure for table `scholarships`
@@ -410,7 +394,7 @@ CREATE TABLE `users` (
   `email` varchar(150) NOT NULL,
   `phone` varchar(50) DEFAULT NULL,
   `address` text DEFAULT NULL,
-  `role` enum('admin','reviewer','student','staff') DEFAULT 'student',
+  `role` enum('admin','student','staff') DEFAULT 'student',
   `active` tinyint(1) DEFAULT 1,
   `email_verified` tinyint(1) DEFAULT 0,
   `created_at` datetime DEFAULT current_timestamp(),
@@ -426,7 +410,6 @@ CREATE TABLE `users` (
 INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `email`, `phone`, `address`, `role`, `active`, `email_verified`, `created_at`, `updated_at`, `secret_question`, `secret_answer_hash`) VALUES
 (1, 'johnlloyd', '$2y$10$/xlVra5wnLw2V.qBNEsPUudvg986495hu0QAaNz26puVHz6XaGWA6', 'John Lloyd', 'Admin', 'johnlloydracaza88@gmail.com', '+63900000001', NULL, 'admin', 1, 1, '2026-02-27 15:49:48', '2026-02-27 16:11:46', NULL, NULL),
 (2, 'jaylester', '$2y$10$/xlVra5wnLw2V.qBNEsPUudvg986495hu0QAaNz26puVHz6XaGWA6', 'John', 'Staff', 'staff@scholarships.com', '+63900000002', NULL, 'staff', 1, 1, '2026-02-27 15:49:48', '2026-02-27 16:10:16', NULL, NULL),
-(3, 'reviewer1', '$2y$10$/xlVra5wnLw2V.qBNEsPUudvg986495hu0QAaNz26puVHz6XaGWA6', 'Nash', 'Reviewer', 'nashreviewer@gmail.com', '+63900000003', NULL, 'reviewer', 1, 1, '2026-02-27 15:49:48', '2026-02-27 16:13:47', NULL, NULL),
 (4, 'leonelen', '$2y$10$/xlVra5wnLw2V.qBNEsPUudvg986495hu0QAaNz26puVHz6XaGWA6', 'Leonelen', 'Student', 'leonelencarmen@gmail.com', '+63900000004', NULL, 'student', 1, 1, '2026-02-27 15:49:48', '2026-02-27 16:15:25', NULL, NULL);
 
 --
@@ -457,7 +440,6 @@ ALTER TABLE `announcements`
 ALTER TABLE `applications`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `unique_application` (`user_id`,`scholarship_id`),
-  ADD KEY `reviewer_id` (`reviewer_id`),
   ADD KEY `idx_user_id` (`user_id`),
   ADD KEY `idx_scholarship_id` (`scholarship_id`),
   ADD KEY `idx_status` (`status`),
@@ -567,11 +549,7 @@ ALTER TABLE `password_resets`
 --
 -- Indexes for table `reviews`
 --
-ALTER TABLE `reviews`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_application_id` (`application_id`),
-  ADD KEY `idx_reviewer_id` (`reviewer_id`),
-  ADD KEY `idx_status` (`status`);
+-- (reviews table removed)
 
 --
 -- Indexes for table `scholarships`
@@ -761,8 +739,7 @@ ALTER TABLE `password_resets`
 --
 -- AUTO_INCREMENT for table `reviews`
 --
-ALTER TABLE `reviews`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+-- (reviews table removed)
 
 --
 -- AUTO_INCREMENT for table `scholarships`
@@ -809,8 +786,7 @@ ALTER TABLE `announcements`
 --
 ALTER TABLE `applications`
   ADD CONSTRAINT `applications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `applications_ibfk_2` FOREIGN KEY (`scholarship_id`) REFERENCES `scholarships` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `applications_ibfk_3` FOREIGN KEY (`reviewer_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `applications_ibfk_2` FOREIGN KEY (`scholarship_id`) REFERENCES `scholarships` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `audit_logs`
@@ -883,9 +859,7 @@ ALTER TABLE `password_resets`
 --
 -- Constraints for table `reviews`
 --
-ALTER TABLE `reviews`
-  ADD CONSTRAINT `reviews_ibfk_1` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `reviews_ibfk_2` FOREIGN KEY (`reviewer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+-- (reviews table removed)
 
 --
 -- Constraints for table `scholarships`

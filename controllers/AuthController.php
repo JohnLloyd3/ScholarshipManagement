@@ -2,6 +2,8 @@
 session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
+// Security helpers (verification code, tokens)
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method !== 'POST') {
@@ -96,17 +98,16 @@ if ($action === 'register') {
     $phone = trim($_POST['phone'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $role = trim($_POST['role'] ?? '');
-    $secretQuestion = trim($_POST['secret_question'] ?? '');
-    $secretAnswer = trim($_POST['secret_answer'] ?? '');
+    // Secret question/answer removed: rely on email-based resets instead
 
     // Validate role - only allow student for public registration
     if ($role !== 'student') {
-        $_SESSION['flash'] = "Only students can self-register. Staff/Reviewer accounts must be created by admin.";
+        $_SESSION['flash'] = "Only students can self-register. Staff accounts must be created by admin.";
         header("Location: ../auth/register.php");
         exit;
     }
 
-    if ($username === '' || $password === '' || $first === '' || $last === '' || $email === '' || $role === '' || $secretQuestion === '' || $secretAnswer === '') {
+    if ($username === '' || $password === '' || $first === '' || $last === '' || $email === '' || $role === '') {
         $_SESSION['flash'] = "Please complete required fields.";
         header("Location: ../auth/register.php");
         exit;
@@ -124,9 +125,8 @@ if ($action === 'register') {
             }
 
             $pwHash = password_hash($password, PASSWORD_DEFAULT);
-            $secretAnswerHash = password_hash($secretAnswer, PASSWORD_DEFAULT);
             // Email verification removed: accounts are created as verified immediately.
-            $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, phone, address, role, email_verified, active, secret_question, secret_answer_hash) VALUES (:u, :p, :f, :l, :e, :ph, :a, :r, 1, 1, :sq, :sah)');
+            $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, phone, address, role, email_verified, active) VALUES (:u, :p, :f, :l, :e, :ph, :a, :r, 1, 1)');
             $stmt->execute([
                 ':u' => $username,
                 ':p' => $pwHash,
@@ -135,9 +135,7 @@ if ($action === 'register') {
                 ':e' => $email,
                 ':ph' => $phone,
                 ':a' => $address,
-                ':r' => $role,
-                ':sq' => $secretQuestion,
-                ':sah' => $secretAnswerHash
+                ':r' => $role
             ]);
 
             $id = $pdo->lastInsertId();
@@ -174,8 +172,7 @@ if ($action === 'register') {
             'address' => $address,
             'created_at' => date('c'),
             'role' => $role,
-            'secret_question' => $secretQuestion,
-            'secret_answer_hash' => password_hash($secretAnswer, PASSWORD_DEFAULT)
+            // secret question/answer intentionally omitted
         ];
         if (_save_user_file($newUser)) {
             $_SESSION['user_id'] = $id;
@@ -295,45 +292,32 @@ if ($action === 'register') {
                 exit;
             }
 
-            if (!empty($user['secret_question'])) {
-                // Use secret question flow
-                $_SESSION['pending_reset'] = [
-                    'user_id' => $user['id'],
-                    'reset_type' => 'secret',
-                    'secret_question' => $user['secret_question']
-                ];
-                $_SESSION['success'] = 'Please answer your secret question to reset your password.';
-                header("Location: ../auth/reset_password.php");
-                exit;
-            }
-
-            // Fallback: email-based reset when no secret question
+            // Always use email-based reset: require email on account
             if (empty($user['email'])) {
                 $_SESSION['flash'] = 'Account has no email on file. Please contact administrator.';
                 header("Location: ../auth/forgot_password.php");
                 exit;
             }
 
+            // Generate a one-time code and keep it only in the session.
             $code = generateVerificationCode();
-            $expires = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-            $stmt = $pdo->prepare('INSERT INTO email_verification_codes (user_id, email, code, type, expires_at) VALUES (:uid, :email, :code, :type, :exp)');
-            $stmt->execute([
-                ':uid' => $user['id'],
-                ':email' => $user['email'],
-                ':code' => $code,
-                ':type' => 'password_reset',
-                ':exp' => $expires
-            ]);
-
+            $expiresTs = time() + 15 * 60;
+            $_SESSION['pending_reset_code'] = $code;
+            $_SESSION['pending_reset_expires'] = $expiresTs;
             $subject = 'Password Reset Code';
             $message = getPasswordResetEmailTemplate($code);
-            queueEmail($user['email'], $subject, $message, $user['id']);
+            // Send to the real email address (no DB storage of the code).
+            $sent = queueEmail($user['email'], $subject, $message, $user['id']);
+
             $_SESSION['pending_reset'] = [
-                'user_id' => $user['id'],
-                'reset_type' => 'email',
-                'email' => $user['email']
+                'user_id'   => $user['id'],
+                'reset_type'=> 'email',
+                'email'     => $user['email']
             ];
-            $_SESSION['success'] = 'A reset code was queued to your email. Please check your inbox.';
+
+            $_SESSION['success'] = $sent
+                ? 'A reset code was queued to your email. Please check your inbox.'
+                : 'We generated a reset code but could not send the email. Please contact the administrator.';
             header("Location: ../auth/reset_password.php");
             exit;
         } catch (PDOException $e) {
@@ -360,17 +344,27 @@ if ($action === 'register') {
         header("Location: ../auth/forgot_password.php");
         exit;
     }
-    if (empty($found['secret_question'])) {
-        $_SESSION['flash'] = 'Account has no secret question. Database required for email reset.';
+    if (empty($found['email'])) {
+        $_SESSION['flash'] = 'Account has no email on file. Please contact administrator.';
         header("Location: ../auth/forgot_password.php");
         exit;
     }
+
+    // File-based fallback: generate code, send email, store code in session
+    $code = generateVerificationCode();
+    $_SESSION['pending_reset_code'] = $code;
+    $_SESSION['pending_reset_expires'] = time() + 15 * 60;
+    $subject = 'Password Reset Code';
+    $message = getPasswordResetEmailTemplate($code);
+    $sent = queueEmail($found['email'], $subject, $message, $found['id'] ?? null);
     $_SESSION['pending_reset'] = [
         'user_id' => $found['id'],
-        'reset_type' => 'secret',
-        'secret_question' => $found['secret_question']
+        'reset_type' => 'email',
+        'email' => $found['email']
     ];
-    $_SESSION['success'] = 'Please answer your secret question to reset your password.';
+    $_SESSION['success'] = $sent
+        ? 'A reset code was queued to your email. Please check your inbox.'
+        : 'We generated a reset code but could not send the email. Please contact the administrator.';
     header("Location: ../auth/reset_password.php");
     exit;
 } elseif ($action === 'reset_password_by_code') {
@@ -397,30 +391,23 @@ if ($action === 'register') {
         exit;
     }
 
+    // Verify the code stored in the session (no DB-based code storage).
+    $stored = $_SESSION['pending_reset_code'] ?? null;
+    $expiresTs = $_SESSION['pending_reset_expires'] ?? 0;
+    if (!$stored || $stored !== $code || time() > $expiresTs) {
+        $_SESSION['flash'] = 'Invalid or expired code. Please request a new reset.';
+        header("Location: ../auth/forgot_password.php");
+        exit;
+    }
+
     if ($pdo) {
+        // Update password in the main users table using the remembered user_id.
         try {
-            $stmt = $pdo->prepare('SELECT id, user_id FROM email_verification_codes WHERE user_id = :uid AND email = :email AND code = :code AND type = :type AND expires_at > NOW() AND used = 0 LIMIT 1');
-            $stmt->execute([
-                ':uid' => $pending['user_id'],
-                ':email' => $pending['email'],
-                ':code' => $code,
-                ':type' => 'password_reset'
-            ]);
-            $row = $stmt->fetch();
-
-            if (!$row) {
-                $_SESSION['flash'] = 'Invalid or expired code. Please request a new reset.';
-                header("Location: ../auth/forgot_password.php");
-                exit;
-            }
-
             $pwHash = password_hash($new_password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare('UPDATE users SET password = :p WHERE id = :id');
             $stmt->execute([':p' => $pwHash, ':id' => $pending['user_id']]);
 
-            $pdo->prepare('UPDATE email_verification_codes SET used = 1 WHERE id = :id')->execute([':id' => $row['id']]);
-
-            unset($_SESSION['pending_reset']);
+            unset($_SESSION['pending_reset'], $_SESSION['pending_reset_code'], $_SESSION['pending_reset_expires']);
             $_SESSION['success'] = 'Password reset successfully! Please login with your new password.';
             header("Location: ../auth/login.php");
             exit;
@@ -432,8 +419,25 @@ if ($action === 'register') {
         }
     }
 
-    $_SESSION['flash'] = 'Database required for email reset.';
-    header("Location: ../auth/forgot_password.php");
+    // File-based fallback: update password in users.json
+    $users = _load_users();
+    $idx = null;
+    foreach ($users as $i => $u) {
+        if ((string)($u['id'] ?? '') === (string)$pending['user_id']) {
+            $idx = $i;
+            break;
+        }
+    }
+    if ($idx === null) {
+        $_SESSION['flash'] = 'Account not found.';
+        header("Location: ../auth/forgot_password.php");
+        exit;
+    }
+    $users[$idx]['password'] = password_hash($new_password, PASSWORD_DEFAULT);
+    _save_users($users);
+    unset($_SESSION['pending_reset'], $_SESSION['pending_reset_code'], $_SESSION['pending_reset_expires']);
+    $_SESSION['success'] = 'Password reset successfully! Please login with your new password.';
+    header("Location: ../auth/login.php");
     exit;
 
 } elseif ($action === 'reset_password') {

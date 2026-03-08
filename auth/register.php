@@ -1,8 +1,25 @@
 <?php
 session_start();
-if (isset($_SESSION['user_id'])) {
-    header("Location: ../member/dashboard.php");
+
+function redirectDashboardForRole()
+{
+    $role = $_SESSION['user']['role'] ?? 'student';
+    switch ($role) {
+        case 'admin':
+            header("Location: ../admin/dashboard.php");
+            break;
+        case 'staff':
+            header("Location: ../staff/dashboard.php");
+            break;
+        default:
+            header("Location: ../member/dashboard.php");
+            break;
+    }
     exit;
+}
+
+if (isset($_SESSION['user_id'])) {
+    redirectDashboardForRole();
 }
 ?>
 <!DOCTYPE html>
@@ -72,27 +89,10 @@ if (isset($_SESSION['user_id'])) {
           <select id="role" name="role" required readonly>
             <option value="student" selected>Student - Apply for scholarships</option>
           </select>
-          <small>Only students can self-register. Staff/Reviewer accounts must be created by admin.</small>
+          <small>Only students can self-register. Staff accounts must be created by admin.</small>
         </div>
 
-        <div class="form-group">
-          <label for="secret_question">Secret Question</label>
-          <select id="secret_question" name="secret_question" required>
-            <option value="">Select a question</option>
-            <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
-            <option value="What is the name of your first pet?">What is the name of your first pet?</option>
-            <option value="What city were you born in?">What city were you born in?</option>
-            <option value="What is your favorite teacher's name?">What is your favorite teacher's name?</option>
-            <option value="What is your favorite food?">What is your favorite food?</option>
-          </select>
-          <small>You will answer this during login for extra security.</small>
-        </div>
-
-        <div class="form-group">
-          <label for="secret_answer">Secret Answer</label>
-          <input id="secret_answer" name="secret_answer" type="text" placeholder="Enter your answer" required>
-          <small>Keep it memorable. Do not share it with anyone.</small>
-        </div>
+        <!-- Secret question/answer removed: using email-based resets instead -->
 
         <button type="submit" class="submit-btn">Create account</button>
       </form>

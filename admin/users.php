@@ -480,9 +480,6 @@ function getFieldError($fieldName) {
                 <div class="number"><?= $roleCounts['staff'] ?></div>
                 <div class="label">Staff</div>
             </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                <!-- reviewer role removed -->
-            </div>
             <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
                 <div class="number"><?= $roleCounts['student'] ?></div>
                 <div class="label">Students</div>
