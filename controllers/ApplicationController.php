@@ -23,34 +23,39 @@ if ($action === 'create') {
     // ensure we don't include action or scholarship id
     unset($posted['action'], $posted['scholarship_id']);
 
-    // simple required validations following spec
+    // determine if user is saving draft
+    $is_draft = !empty($_POST['save_draft']);
+
+    // simple required validations following spec (skip strict validation for drafts)
     $validation_errors = [];
     if (!$scholarship_id) {
         $validation_errors[] = 'Please select a scholarship.';
     }
-    if (empty($posted['full_name'])) {
-        $validation_errors[] = 'Full name is required.';
-    }
-    if (empty($posted['sex'])) {
-        $validation_errors[] = 'Sex is required.';
-    }
-    if (empty($posted['dob'])) {
-        $validation_errors[] = 'Date of birth is required.';
-    }
-    if (empty($posted['age'])) {
-        $validation_errors[] = 'Age is required.';
-    }
-    if (empty($posted['civil_status'])) {
-        $validation_errors[] = 'Civil status is required.';
-    }
-    if (empty($posted['mobile'])) {
-        $validation_errors[] = 'Mobile number is required.';
-    }
-    if (empty($posted['email'])) {
-        $validation_errors[] = 'Email address is required.';
-    }
-    if (empty($posted['home_address'])) {
-        $validation_errors[] = 'Home address is required.';
+    if (!$is_draft) {
+        if (empty($posted['full_name'])) {
+            $validation_errors[] = 'Full name is required.';
+        }
+        if (empty($posted['sex'])) {
+            $validation_errors[] = 'Sex is required.';
+        }
+        if (empty($posted['dob'])) {
+            $validation_errors[] = 'Date of birth is required.';
+        }
+        if (empty($posted['age'])) {
+            $validation_errors[] = 'Age is required.';
+        }
+        if (empty($posted['civil_status'])) {
+            $validation_errors[] = 'Civil status is required.';
+        }
+        if (empty($posted['mobile'])) {
+            $validation_errors[] = 'Mobile number is required.';
+        }
+        if (empty($posted['email'])) {
+            $validation_errors[] = 'Email address is required.';
+        }
+        if (empty($posted['home_address'])) {
+            $validation_errors[] = 'Home address is required.';
+        }
     }
     if (!empty($validation_errors)) {
         $_SESSION['flash'] = implode(' ', $validation_errors);
@@ -69,13 +74,15 @@ if ($action === 'create') {
         exit;
     }
 
-    // Duplicate application check (user, scholarship)
-    $stmt = $pdo->prepare('SELECT id FROM applications WHERE user_id = :uid AND scholarship_id = :sid');
-    $stmt->execute([':uid' => $user_id, ':sid' => $scholarship_id]);
-    if ($stmt->fetch()) {
-        $_SESSION['flash'] = 'Duplicate application detected: You have already applied for this scholarship.';
-        header('Location: ../member/apply_scholarship.php');
-        exit;
+    // Duplicate application check (user, scholarship) - only prevent duplicate on final submission
+    if (!$is_draft) {
+        $stmt = $pdo->prepare('SELECT id FROM applications WHERE user_id = :uid AND scholarship_id = :sid AND status != "draft"');
+        $stmt->execute([':uid' => $user_id, ':sid' => $scholarship_id]);
+        if ($stmt->fetch()) {
+            $_SESSION['flash'] = 'Duplicate application detected: You have already applied for this scholarship.';
+            header('Location: ../member/apply_scholarship.php');
+            exit;
+        }
     }
 
     // Validate eligibility requirements generically (not enforcing GPA anymore)
@@ -86,17 +93,17 @@ if ($action === 'create') {
     foreach ($requirements as $req) {
         if (stripos($req, 'document') !== false || stripos($req, 'upload') !== false) {
             // ensure at least one file uploaded when requirement mentions document
-            if (empty($_FILES['documents']) || empty($_FILES['documents']['name'][0])) {
+            if (!$is_draft && (empty($_FILES['documents']) || empty($_FILES['documents']['name'][0]))) {
                 $validation_errors[] = "Please upload required document(s): $req";
             }
         }
     }
 
-    // Check deadline
+    // Check deadline (only enforce on final submission)
     $stmt = $pdo->prepare('SELECT deadline FROM scholarships WHERE id = :id');
     $stmt->execute([':id' => $scholarship_id]);
     $scholarship_deadline = $stmt->fetchColumn();
-    if ($scholarship_deadline && strtotime('now') > strtotime($scholarship_deadline)) {
+    if (!$is_draft && $scholarship_deadline && strtotime('now') > strtotime($scholarship_deadline)) {
         $validation_errors[] = "Application deadline has passed.";
     }
 
@@ -172,14 +179,27 @@ if ($action === 'create') {
     try {
         $pdo->beginTransaction();
 
-        $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, gpa, motivational_letter, status, submitted_at) VALUES (:uid, :sid, :gpa, :motiv, :status, NOW())');
-        $stmt->execute([
-            ':uid' => $user_id,
-            ':sid' => $scholarship_id,
-            ':gpa' => $gwa,
-            ':motiv' => $motivational_letter,
-            ':status' => 'submitted'
-        ]);
+        // Determine status and submitted_at for draft vs final
+        $db_status = $is_draft ? 'draft' : 'submitted';
+        if ($is_draft) {
+            $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, gpa, motivational_letter, status, created_at, updated_at) VALUES (:uid, :sid, :gpa, :motiv, :status, NOW(), NOW())');
+            $stmt->execute([
+                ':uid' => $user_id,
+                ':sid' => $scholarship_id,
+                ':gpa' => $gwa,
+                ':motiv' => $motivational_letter,
+                ':status' => $db_status
+            ]);
+        } else {
+            $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, gpa, motivational_letter, status, submitted_at) VALUES (:uid, :sid, :gpa, :motiv, :status, NOW())');
+            $stmt->execute([
+                ':uid' => $user_id,
+                ':sid' => $scholarship_id,
+                ':gpa' => $gwa,
+                ':motiv' => $motivational_letter,
+                ':status' => $db_status
+            ]);
+        }
 
         $application_id = $pdo->lastInsertId();
 
@@ -200,12 +220,16 @@ if ($action === 'create') {
             }
         }
 
-        // Perform intelligent application screening (may adjust status)
-        $screening_result = screenApplication($application_id, $user_id, $scholarship_id, $pdo);
-        $final_status = $screening_result['status'] ?? 'submitted';
+        // Perform intelligent application screening only for final submissions
+        if (!$is_draft) {
+            $screening_result = screenApplication($application_id, $user_id, $scholarship_id, $pdo);
+            $final_status = $screening_result['status'] ?? 'submitted';
 
-        $updateStmt = $pdo->prepare('UPDATE applications SET status = :status WHERE id = :id');
-        $updateStmt->execute([':status' => $final_status, ':id' => $application_id]);
+            $updateStmt = $pdo->prepare('UPDATE applications SET status = :status WHERE id = :id');
+            $updateStmt->execute([':status' => $final_status, ':id' => $application_id]);
+        } else {
+            $final_status = 'draft';
+        }
 
         // Commit after successful inserts and screening
         $pdo->commit();
@@ -213,21 +237,24 @@ if ($action === 'create') {
         // Log audit trail
         logAuditTrail($pdo, $user_id, 'APPLICATION_SUBMITTED', 'applications', $application_id, 'Initial status: ' . $final_status);
 
-        // Queue notification email
+        // Queue notification email for final submissions only
         $applicant_email = $posted['email'] ?? '';
-        $subject = 'Application Submitted - ' . $scholarship['title'];
-        $body = "<p>Dear Applicant,</p><p>Your application for '<b>{$scholarship['title']}</b>' has been submitted successfully.</p>";
-        if (isset($screening_result['issues'])) {
-            $body .= "<p><b>Note:</b> Your application requires the following attention:</p><ul>";
-            foreach ($screening_result['issues'] as $issue) {
-                $body .= "<li>" . htmlspecialchars($issue) . "</li>";
+        if (!$is_draft) {
+            $subject = 'Application Submitted - ' . $scholarship['title'];
+            $body = "<p>Dear Applicant,</p><p>Your application for '<b>{$scholarship['title']}</b>' has been submitted successfully.</p>";
+            if (isset($screening_result['issues'])) {
+                $body .= "<p><b>Note:</b> Your application requires the following attention:</p><ul>";
+                foreach ($screening_result['issues'] as $issue) {
+                    $body .= "<li>" . htmlspecialchars($issue) . "</li>";
+                }
+                $body .= "</ul>";
             }
-            $body .= "</ul>";
+            $body .= "<p>You will be notified once evaluation begins.</p>";
+            queueEmail($applicant_email, $subject, $body, $user_id);
+            $_SESSION['success'] = 'Application submitted successfully! Status: ' . ucfirst(str_replace('_', ' ', $final_status));
+        } else {
+            $_SESSION['success'] = 'Application saved as draft.';
         }
-        $body .= "<p>You will be notified once evaluation begins.</p>";
-        queueEmail($applicant_email, $subject, $body, $user_id);
-
-        $_SESSION['success'] = 'Application submitted successfully! Status: ' . ucfirst(str_replace('_', ' ', $final_status));
         header('Location: ../member/applications.php');
         exit;
     } catch (Exception $e) {

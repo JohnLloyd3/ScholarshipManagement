@@ -16,9 +16,8 @@ $pdo = null;
 try {
     $pdo = getPDO();
 } catch (Exception $e) {
-    // Log the exception and continue with file-based fallback so users can still login/register locally
+    // Log the exception silently - system will use file-based fallback
     error_log('[AuthController] DB connection error: ' . $e->getMessage());
-    $_SESSION['flash'] = 'Database unavailable — using local fallback storage.';
     $pdo = null; // proceed, using file fallback
 }
 

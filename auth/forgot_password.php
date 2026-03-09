@@ -22,47 +22,124 @@ if (isset($_SESSION['user_id'])) {
     redirectDashboardForRole();
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Forgot Password | Scholarship Management</title>
-  <link rel="stylesheet" href="../assets/style.css">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <main class="auth-container" role="main">
-    <div class="auth-card">
-      <header class="logo-section">
-        <h1><span class="logo-emoji">🎓</span> SMS</h1>
-        <p>Reset your password</p>
-      </header>
+<?php
+$page_title = 'Forgot Password - ScholarHub';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+?>
 
-      <?php if (!empty($_SESSION['success'])): ?>
-        <div class="flash success-flash"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
-      <?php endif; ?>
+<style>
+  body {
+    background: linear-gradient(135deg, var(--red-ghost) 0%, var(--white) 50%, var(--red-ghost) 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+  }
+  
+  .auth-container {
+    width: 100%;
+    max-width: 480px;
+  }
+  
+  .auth-card {
+    background: var(--white);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-2xl);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--gray-200);
+  }
+  
+  .auth-logo {
+    text-align: center;
+    margin-bottom: var(--space-2xl);
+  }
+  
+  .auth-logo-icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-md);
+  }
+  
+  .auth-logo-text {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--red-primary);
+    font-family: var(--font-display);
+  }
+  
+  .auth-title {
+    text-align: center;
+    margin-bottom: var(--space-sm);
+  }
+  
+  .auth-subtitle {
+    text-align: center;
+    color: var(--gray-600);
+    margin-bottom: var(--space-2xl);
+  }
+  
+  .auth-footer {
+    text-align: center;
+    margin-top: var(--space-xl);
+    color: var(--gray-600);
+  }
+  
+  .auth-footer a {
+    color: var(--red-primary);
+    font-weight: 600;
+  }
+</style>
 
-      <?php if (!empty($_SESSION['flash'])): ?>
-        <div class="flash error-flash"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
-      <?php endif; ?>
-
-      <form class="auth-form-content" method="POST" action="../controllers/AuthController.php" autocomplete="off">
-        <input type="hidden" name="action" value="request_password_reset">
-        
-        <div class="form-group">
-          <label for="identifier">Username or Email</label>
-          <input id="identifier" name="identifier" type="text" placeholder="username or you@email.com" required autofocus>
-          <small>We will send a 6-digit reset code to the email associated with your account.</small>
-        </div>
-
-        <button type="submit" class="submit-btn">Continue</button>
-      </form>
-
-      <div class="auth-links">
-        <p><a href="login.php">Back to Login</a></p>
-      </div>
+<div class="auth-container">
+  <div class="auth-card fade-in">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🔑</div>
+      <div class="auth-logo-text">ScholarHub</div>
     </div>
-  </main>
+    
+    <h2 class="auth-title">Forgot Password?</h2>
+    <p class="auth-subtitle">Enter your username or email to reset your password</p>
+    
+    <?php if (!empty($_SESSION['success'])): ?>
+      <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+    <?php endif; ?>
+    
+    <?php if (!empty($_SESSION['flash'])): ?>
+      <div class="alert alert-error"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
+    <?php endif; ?>
+    
+    <form method="POST" action="../controllers/AuthController.php">
+      <input type="hidden" name="action" value="request_password_reset">
+      
+      <div class="form-group">
+        <label for="identifier" class="form-label">Username or Email</label>
+        <input 
+          type="text" 
+          id="identifier" 
+          name="identifier" 
+          class="form-input" 
+          placeholder="Enter your username or email"
+          required
+          autofocus
+        >
+        <p class="form-help">We'll send a 6-digit reset code to your email</p>
+      </div>
+      
+      <button type="submit" class="btn btn-primary" style="width: 100%;">
+        Send Reset Code
+      </button>
+    </form>
+    
+    <div class="auth-footer">
+      <a href="login.php">← Back to Login</a>
+    </div>
+  </div>
+  
+  <div style="text-align: center; margin-top: var(--space-xl); color: var(--gray-500); font-size: 0.875rem;">
+    <p>© 2026 ScholarHub. All rights reserved.</p>
+  </div>
+</div>
+
 </body>
 </html>

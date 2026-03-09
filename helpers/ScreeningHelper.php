@@ -86,11 +86,29 @@ function logAuditTrail($pdo, $user_id, $action, $target_table, $target_id, $desc
     try {
         $new_values = null;
         if ($description !== null) {
-            $new_values = json_encode(['note' => $description], JSON_UNESCAPED_UNICODE);
+            $new_values = is_array($description) ? json_encode($description, JSON_UNESCAPED_UNICODE) : $description;
         }
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $stmt = $pdo->prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_values, ip_address, user_agent, created_at) VALUES (:uid, :action, :etype, :eid, :nvals, :ip, :ua, NOW())');
+        
+        // Ensure audit_logs table exists with correct schema
+        $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT DEFAULT NULL,
+            action VARCHAR(255) NOT NULL,
+            entity_type VARCHAR(128) DEFAULT NULL,
+            entity_id INT DEFAULT NULL,
+            old_value TEXT DEFAULT NULL,
+            new_value TEXT DEFAULT NULL,
+            ip VARCHAR(45) DEFAULT NULL,
+            user_agent TEXT DEFAULT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_user (user_id),
+            INDEX idx_entity (entity_type, entity_id),
+            INDEX idx_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        
+        $stmt = $pdo->prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_value, ip, user_agent, created_at) VALUES (:uid, :action, :etype, :eid, :nvals, :ip, :ua, NOW())');
         $stmt->execute([
             ':uid' => $user_id,
             ':action' => $action,
@@ -101,6 +119,6 @@ function logAuditTrail($pdo, $user_id, $action, $target_table, $target_id, $desc
             ':ua' => $ua
         ]);
     } catch (Exception $e) {
-        // Silent fail for audit logs
+        error_log('[logAuditTrail] Failed: ' . $e->getMessage());
     }
 }

@@ -366,210 +366,123 @@ function getFieldError($fieldName) {
     return $form_errors[$fieldName] ?? '';
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management - Admin</title>
-    <link rel="stylesheet" href="../assets/style.css">
-    <link rel="stylesheet" href="../member/dashboard.css">
-    <style>
-        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
-        body { background-color: #f8f9fa; color: #1a1a1a; }
-        h2 { font-size: 28px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.5px; }
-        
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .navbar { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 15px; display: flex; justify-content: space-between; }
-        .navbar a { color: white; margin-right: 20px; text-decoration: none; }
-        
-        .panel { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
-        .role-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 0; }
-        .role-tab { padding: 12px 24px; cursor: pointer; text-decoration: none; color: #7f8c8d; border: none; background: none; font-size: 14px; font-weight: 500; border-bottom: 3px solid transparent; transition: all 0.3s ease; }
-        .role-tab.active { color: #c41e3a; border-bottom-color: #c41e3a; }
-        .role-tab:hover { color: #c41e3a; }
-        
-        .stat-card { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 24px; border-radius: 12px; display: inline-block; margin-right: 15px; margin-bottom: 15px; text-align: center; min-width: 140px; box-shadow: 0 4px 12px rgba(196,30,58,0.2); }
-        .stat-card .number { font-size: 32px; font-weight: 700; line-height: 1; }
-        .stat-card .label { font-size: 12px; opacity: 0.95; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
-        
-        .table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        .table th, .table td { padding: 14px; text-align: left; border-bottom: 1px solid #ecf0f1; }
-        .table th { background-color: #f8f9fa; font-weight: 600; color: #1a1a1a; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
-        .table td { color: #34495e; }
-        .table tbody tr:hover { background: #f8f9fa; }
-        
-        .btn { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block; font-weight: 500; transition: all 0.3s ease; }
-        .btn:hover { transform: translateY(-2px); }
-        .btn-primary { background-color: #c41e3a; color: white; }
-        .btn-primary:hover { background-color: #9d1729; }
-        .btn-success { background-color: #2d5016; color: white; }
-        .btn-danger { background-color: #dc2626; color: white; }
-        
-        .status-active { background-color: #dcfce7; color: #16a34a; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
-        .status-inactive { background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
-        
-        .message { padding: 16px; margin-bottom: 20px; border-radius: 8px; display: none; font-weight: 500; }
-        .message.show { display: block; }
-        .message.success { background-color: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
-        .message.error { background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
-        .message strong { display: block; margin-bottom: 5px; }
-        
-        .role-badge { padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
-        .role-admin { background-color: #fee2e2; color: #dc2626; }
-        .role-staff { background-color: #dbeafe; color: #1e40af; }
-        .role-student { background-color: #fed7aa; color: #9a3412; }
-        
-        .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow-y: auto; padding-top: 60px; box-sizing: border-box; }
-        .modal-content { background-color: white; margin: 0 auto; padding: 30px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 20px 25px rgba(0,0,0,0.15); max-height: calc(100vh - 120px); overflow-y: auto; }
-        .modal-header { font-size: 24px; font-weight: 600; margin-bottom: 20px; color: #1a1a1a; }
-        
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; box-sizing: border-box; font-size: 14px; transition: all 0.2s ease; }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: #c41e3a; box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1); }
-        
-        .field-error input, .field-error select { border-color: #dc2626; }
-        .field-error-message { color: #dc2626; font-size: 12px; margin-top: 5px; font-weight: 500; }
-        
-        .password-requirements { font-size: 12px; color: #7f8c8d; margin-top: 8px; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 2px solid #c41e3a; }
-        .requirement-item { display: flex; align-items: center; margin: 6px 0; }
-        .requirement-item.met { color: #16a34a; }
-        .requirement-item.unmet { color: #dc2626; }
-        .requirement-item::before { content: '○ '; margin-right: 6px; font-weight: 600; }
-        .requirement-item.met::before { content: '✓ '; }
-        
-        .btn-new-user { margin-bottom: 20px; }
-    </style>
-</head>
-<body>
-    <div class="dashboard-app">
-        <aside class="sidebar">
-            <div class="profile">
-                <div class="avatar">A</div>
-                <div>
-                    <div class="welcome">Admin</div>
-                    <div class="username"><?= htmlspecialchars($_SESSION['user']['username']) ?></div>
-                </div>
-            </div>
-            <nav>
-                <a href="dashboard.php">Dashboard</a>
-                <a href="applications.php">Applications</a>
-                <a href="scholarships.php">Scholarships</a>
-                <a href="users.php">Users</a>
-                <a href="analytics.php">Analytics</a>
-                <a href="../auth/logout.php">Logout</a>
-            </nav>
-        </aside>
+<?php
+$page_title = 'User Management - Admin';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+require_once __DIR__ . '/../includes/modern-sidebar.php';
+?>
 
-        <main class="main">
-        <?php if ($message): ?>
-            <div class="message show <?= $message_type ?>">
-                <strong><?= $message_type === 'success' ? '✓ Success' : '⚠ Error' ?></strong>
-                <?= sanitizeString($message) ?>
-            </div>
-        <?php endif; ?>
+<div class="page-header">
+  <h1>👥 User Management</h1>
+  <p class="text-muted">Manage system users and permissions</p>
+</div>
 
-        <div class="panel">
-            <h2>User Statistics</h2>
-            <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                <div class="number"><?= $roleCounts['admin'] ?></div>
-                <div class="label">Admins</div>
-            </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                <div class="number"><?= $roleCounts['staff'] ?></div>
-                <div class="label">Staff</div>
-            </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-                <div class="number"><?= $roleCounts['student'] ?></div>
-                <div class="label">Students</div>
-            </div>
-        </div>
+<?php if ($message): ?>
+  <div class="alert alert-<?= $message_type === 'success' ? 'success' : 'error' ?>">
+    <?= sanitizeString($message) ?>
+  </div>
+<?php endif; ?>
 
-        <div class="panel">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2>Users</h2>
-                <button class="btn btn-primary btn-new-user" onclick="openCreateModal()">+ New User</button>
-            </div>
-            
-            <div class="role-tabs">
-                <a href="users.php" class="role-tab <?= empty($filter) ? 'active' : '' ?>">All</a>
-                <a href="?role=admin" class="role-tab <?= $filter === 'admin' ? 'active' : '' ?>">Admins</a>
-                <a href="?role=staff" class="role-tab <?= $filter === 'staff' ? 'active' : '' ?>">Staff</a>
-                <!-- reviewer role removed -->
-                <a href="?role=student" class="role-tab <?= $filter === 'student' ? 'active' : '' ?>">Students</a>
-            </div>
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon">👑</div>
+    <div class="stat-value"><?= $roleCounts['admin'] ?></div>
+    <div class="stat-label">Admins</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">💼</div>
+    <div class="stat-value"><?= $roleCounts['staff'] ?></div>
+    <div class="stat-label">Staff</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🎓</div>
+    <div class="stat-value"><?= $roleCounts['student'] ?></div>
+    <div class="stat-label">Students</div>
+  </div>
+</div>
 
-            <?php if (!empty($users)): ?>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Username</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Email Verified</th>
-                            <th>Joined</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($users as $user): ?>
-                            <tr>
-                                <td>
-                                    <strong><?= sanitizeString($user['first_name'] . ' ' . $user['last_name']) ?></strong>
-                                </td>
-                                <td><?= sanitizeString($user['email']) ?></td>
-                                <td><?= sanitizeString($user['username']) ?></td>
-                                <td>
-                                    <form method="POST" style="display: inline;">
-                                        <input type="hidden" name="action" value="update_role">
-                                        <input type="hidden" name="id" value="<?= $user['id'] ?>">
-                                        <select name="role" onchange="this.form.submit()" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
-                                            <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
-                                            <option value="staff" <?= $user['role'] === 'staff' ? 'selected' : '' ?>>Staff</option>
-                                            <!-- reviewer option removed -->
-                                            <option value="student" <?= $user['role'] === 'student' ? 'selected' : '' ?>>Student</option>
-                                        </select>
-                                    </form>
-                                </td>
-                                <td>
-                                    <span class="<?= $user['active'] ? 'status-active' : 'status-inactive' ?>">
-                                        <?= $user['active'] ? 'Active' : 'Inactive' ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <?= $user['email_verified'] ? '✓ Yes' : '✗ No' ?>
-                                </td>
-                                <td><?= date('M d, Y', strtotime($user['created_at'])) ?></td>
-                                <td>
-                                    <button class="btn btn-primary" style="padding: 5px 10px;" onclick="openEditModal(<?= $user['id'] ?>, '<?= sanitizeString($user['first_name']) ?>', '<?= sanitizeString($user['last_name']) ?>', '<?= sanitizeString($user['email']) ?>')">Edit</button>
-                                    <?php if ($user['id'] != $_SESSION['user_id']): ?>
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="action" value="activate_deactivate">
-                                            <input type="hidden" name="id" value="<?= $user['id'] ?>">
-                                            <input type="hidden" name="current_status" value="<?= $user['active'] ?>">
-                                            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-                                            <button type="submit" class="btn <?= $user['active'] ? 'btn-danger' : 'btn-success' ?>" style="padding: 5px 10px;">
-                                                <?= $user['active'] ? 'Deactivate' : 'Activate' ?>
-                                            </button>
-                                        </form>
-                                        <button class="btn btn-danger" style="padding: 5px 10px;" onclick="openDeleteModal(<?= $user['id'] ?>, '<?= sanitizeString($user['first_name']) ?> <?= sanitizeString($user['last_name']) ?>')">Delete</button>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php else: ?>
-                <p>No users found.</p>
-            <?php endif; ?>
-        </div>
-    </main>
+<div class="content-card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
+    <h3>All Users</h3>
+    <button class="btn btn-primary" onclick="openCreateModal()">+ New User</button>
+  </div>
+  
+  <div class="tabs" style="margin-bottom: var(--space-xl);">
+    <a href="users.php" class="tab <?= empty($filter) ? 'active' : '' ?>">All</a>
+    <a href="?role=admin" class="tab <?= $filter === 'admin' ? 'active' : '' ?>">Admins</a>
+    <a href="?role=staff" class="tab <?= $filter === 'staff' ? 'active' : '' ?>">Staff</a>
+    <a href="?role=student" class="tab <?= $filter === 'student' ? 'active' : '' ?>">Students</a>
   </div>
 
-    <!-- Create User Modal -->
+  <?php if (!empty($users)): ?>
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Email Verified</th>
+          <th>Joined</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($users as $user): ?>
+          <tr>
+            <td><strong><?= sanitizeString($user['first_name'] . ' ' . $user['last_name']) ?></strong></td>
+            <td><?= sanitizeString($user['email']) ?></td>
+            <td><?= sanitizeString($user['username']) ?></td>
+            <td>
+              <form method="POST" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                <input type="hidden" name="action" value="update_role">
+                <input type="hidden" name="id" value="<?= $user['id'] ?>">
+                <select name="role" onchange="this.form.submit()" class="form-select-sm">
+                  <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
+                  <option value="staff" <?= $user['role'] === 'staff' ? 'selected' : '' ?>>Staff</option>
+                  <option value="student" <?= $user['role'] === 'student' ? 'selected' : '' ?>>Student</option>
+                </select>
+              </form>
+            </td>
+            <td>
+              <span class="status-badge status-<?= $user['active'] ? 'approved' : 'rejected' ?>">
+                <?= $user['active'] ? 'Active' : 'Inactive' ?>
+              </span>
+            </td>
+            <td><?= $user['email_verified'] ? '✓ Yes' : '✗ No' ?></td>
+            <td><?= date('M d, Y', strtotime($user['created_at'])) ?></td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick="openEditModal(<?= $user['id'] ?>, '<?= sanitizeString($user['first_name']) ?>', '<?= sanitizeString($user['last_name']) ?>', '<?= sanitizeString($user['email']) ?>')">Edit</button>
+              <?php if ($user['id'] != $_SESSION['user_id']): ?>
+                <form method="POST" style="display: inline;">
+                  <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                  <input type="hidden" name="action" value="activate_deactivate">
+                  <input type="hidden" name="id" value="<?= $user['id'] ?>">
+                  <input type="hidden" name="current_status" value="<?= $user['active'] ?>">
+                  <button type="submit" class="btn btn-ghost btn-sm">
+                    <?= $user['active'] ? 'Deactivate' : 'Activate' ?>
+                  </button>
+                </form>
+                <button class="btn btn-ghost btn-sm" onclick="openDeleteModal(<?= $user['id'] ?>, '<?= sanitizeString($user['first_name']) ?> <?= sanitizeString($user['last_name']) ?>')">Delete</button>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php else: ?>
+    <div class="empty-state">
+      <div class="empty-state-icon">👥</div>
+      <h3 class="empty-state-title">No Users Found</h3>
+      <p class="empty-state-description">No users match the selected filter.</p>
+    </div>
+  <?php endif; ?>
+</div>
+
+<!-- Create User Modal -->
     <div id="createModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">Create New User</div>
@@ -889,5 +802,5 @@ function getFieldError($fieldName) {
             }
         }
     </script>
-</body>
-</html>
+
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

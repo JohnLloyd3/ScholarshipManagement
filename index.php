@@ -32,184 +32,308 @@ $totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scholarship Management System</title>
-  <link rel="stylesheet" href="assets/style.css">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; background: #fff; }
-    .navbar { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .navbar-logo { font-size: 28px; font-weight: bold; }
-    .navbar-nav { display: flex; gap: 30px; }
-    .navbar-nav a { color: white; text-decoration: none; font-size: 16px; }
-    .navbar-nav a:hover { opacity: 0.8; }
-    .navbar-buttons { display: flex; gap: 10px; }
-    .navbar-buttons button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-    .login { background: transparent; color: white; border: 2px solid white; }
-    .register { background: white; color: #c41e3a; font-weight: bold; }
-    .login:hover { background: rgba(255,255,255,0.1); }
-    .register:hover { opacity: 0.9; }
-    .hero { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 80px 40px; text-align: center; }
-    .hero h1 { font-size: 48px; margin-bottom: 20px; }
-    .hero p { font-size: 20px; margin-bottom: 30px; }
-    .primary-btn { background: #c41e3a; color: white; padding: 15px 40px; border: none; border-radius: 4px; font-size: 18px; cursor: pointer; font-weight: bold; transition: all 0.3s; }
-    .primary-btn:hover { background: #8b1a1a; opacity: 0.9; transform: translateY(-2px); }
-    .container { max-width: 1200px; margin: 0 auto; padding: 0 40px; }
-    .section { padding: 60px 0; }
-    .section h2 { font-size: 36px; margin-bottom: 40px; text-align: center; color: #c41e3a; }
-    .features { background: #f5f5f5; }
-    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
-    .feature-card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; font-size: 18px; font-weight: bold; border-top: 4px solid #c41e3a; }
-    .feature-card:hover { transform: translateY(-5px); box-shadow: 0 4px 16px rgba(196,30,58,0.3); }
-    .process { background: white; }
-    .process ol { max-width: 600px; margin: 0 auto; font-size: 18px; }
-    .process li { margin-bottom: 20px; padding: 20px; background: #f9f9f9; border-left: 4px solid #c41e3a; border-radius: 4px; }
-    .scholarships { background: white; }
-    .scholarship-card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; border-left: 5px solid #c41e3a; }
-    .scholarship-card h4 { color: #c41e3a; margin-bottom: 10px; }
-    .scholarship-card .amount { font-size: 24px; font-weight: bold; color: #c41e3a; }
-    .scholarship-card .deadline { color: #999; font-size: 14px; }
-    .announcements { background: #f5f5f5; }
-    .announcement { background: linear-gradient(135deg, #c41e3a 0%, #f5576c 100%); color: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; }
-    .announcement h4 { margin-bottom: 10px; }
-    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; margin-bottom: 40px; }
-    .stat-card { background: linear-gradient(135deg, #c41e3a 0%, #8b1a1a 100%); color: white; padding: 30px; border-radius: 8px; text-align: center; }
-    .stat-card .number { font-size: 48px; font-weight: bold; }
-    .stat-card .label { font-size: 16px; opacity: 0.9; }
-    .contact { background: #c41e3a; color: white; text-align: center; }
-    .contact p { font-size: 18px; margin-bottom: 20px; }
-    footer { background: #8b1a1a; color: white; text-align: center; padding: 20px; }
-    @media (max-width: 768px) {
-      .feature-grid { grid-template-columns: 1fr; }
-      .stats-grid { grid-template-columns: 1fr; }
-      .navbar { flex-direction: column; gap: 20px; }
-      .navbar-nav { flex-direction: column; gap: 10px; }
-    }
-  </style>
+  <title>Scholarship Hub - Your Future Starts Here</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/modern-theme.css">
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="navbar-logo">🎓 Scholarship Management System</div>
-  <div class="navbar-nav">
-    <a href="#home">Home</a>
-    <a href="#scholarships">Scholarships</a>
-    <a href="#features">Features</a>
-  </div>
-  <div class="navbar-buttons">
-    <?php if (isLoggedIn()): ?>
-      <button class="login" onclick="window.location.href='member/dashboard_new.php'" style="background: white; color: #667eea;">Dashboard</button>
-      <button class="register" onclick="window.location.href='auth/logout.php'" style="background: #f56565; color: white;">Logout</button>
-    <?php else: ?>
-      <button class="login" onclick="window.location.href='auth/login.php'">Login</button>
-      <button class="register" onclick="window.location.href='auth/register.php'">Register</button>
-    <?php endif; ?>
-  </div>
-</nav>
-
-<section id="home" class="hero">
-  <h1>Scholarship Opportunities</h1>
-  <p>Apply for life-changing scholarships and achieve your dreams</p>
-  <?php if (!isLoggedIn()): ?>
-    <button class="primary-btn" onclick="window.location.href='auth/register.php'">Apply Now</button>
-  <?php else: ?>
-    <button class="primary-btn" onclick="window.location.href='member/apply_scholarship.php'">Explore & Apply</button>
-  <?php endif; ?>
-</section>
-
-<div class="container">
-  <!-- Stats Section -->
-  <div class="section">
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="number"><?= $totalScholarships ?></div>
-        <div class="label">Active Scholarships</div>
-      </div>
-      <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-        <div class="number"><?= $totalApps ?></div>
-        <div class="label">Applications Submitted</div>
-      </div>
-      <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-        <div class="number">100+</div>
-        <div class="label">Successful Awardees</div>
+  <!-- Modern Navbar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="index.php" class="navbar-logo">
+        <span class="navbar-logo-icon">🎓</span>
+        <span>ScholarHub</span>
+      </a>
+      
+      <ul class="navbar-menu">
+        <li><a href="#home" class="navbar-link">Home</a></li>
+        <li><a href="#scholarships" class="navbar-link">Scholarships</a></li>
+        <li><a href="#features" class="navbar-link">Features</a></li>
+        <li><a href="#about" class="navbar-link">About</a></li>
+      </ul>
+      
+      <div class="navbar-actions">
+        <?php if (isLoggedIn()): ?>
+          <a href="member/dashboard.php" class="btn btn-ghost">Dashboard</a>
+          <a href="auth/logout.php" class="btn btn-primary">Logout</a>
+        <?php else: ?>
+          <a href="auth/login.php" class="btn btn-ghost">Login</a>
+          <a href="auth/register.php" class="btn btn-primary">Get Started</a>
+        <?php endif; ?>
       </div>
     </div>
-  </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section id="home" class="hero">
+    <div class="container">
+      <div class="hero-content fade-in">
+        <div class="hero-badge">
+          <span>✨</span>
+          <span><?= $totalScholarships ?> Active Scholarships</span>
+        </div>
+        
+        <h1 class="hero-title">
+          Your Future Starts with a <span class="highlight">Scholarship</span>
+        </h1>
+        
+        <p class="hero-description">
+          Discover opportunities, apply with ease, and track your journey to success. 
+          Join thousands of students achieving their dreams.
+        </p>
+        
+        <div class="hero-actions">
+          <?php if (!isLoggedIn()): ?>
+            <a href="auth/register.php" class="btn btn-primary btn-lg">Apply Now</a>
+            <a href="#scholarships" class="btn btn-secondary btn-lg">Browse Scholarships</a>
+          <?php else: ?>
+            <a href="member/scholarships.php" class="btn btn-primary btn-lg">Explore Scholarships</a>
+            <a href="member/applications.php" class="btn btn-secondary btn-lg">My Applications</a>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="section-sm bg-white">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-card slide-in">
+          <div class="stat-icon">📚</div>
+          <div class="stat-value"><?= $totalScholarships ?></div>
+          <div class="stat-label">Active Scholarships</div>
+        </div>
+        
+        <div class="stat-card slide-in" style="animation-delay: 0.1s;">
+          <div class="stat-icon">👥</div>
+          <div class="stat-value"><?= $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn() ?: 0 ?></div>
+          <div class="stat-label">Students Registered</div>
+        </div>
+        
+        <div class="stat-card slide-in" style="animation-delay: 0.2s;">
+          <div class="stat-icon">📝</div>
+          <div class="stat-value"><?= $totalApps ?></div>
+          <div class="stat-label">Applications Submitted</div>
+        </div>
+        
+        <div class="stat-card slide-in" style="animation-delay: 0.3s;">
+          <div class="stat-icon">🎉</div>
+          <div class="stat-value">98%</div>
+          <div class="stat-label">Success Rate</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="container">
 
   <!-- Announcements -->
   <?php if (!empty($announcements)): ?>
-    <section id="announcements" class="announcements section">
-      <h2>Latest Announcements</h2>
-      <?php foreach ($announcements as $ann): ?>
-        <div class="announcement">
-          <h4><?= sanitizeString($ann['title']) ?></h4>
-          <p><?= sanitizeString(substr($ann['message'], 0, 150)) ?>...</p>
+  <section class="section bg-gray">
+    <div class="container">
+      <h2 class="text-center mb-4">📢 Latest Updates</h2>
+      
+      <div class="feature-grid">
+        <?php foreach ($announcements as $ann): ?>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title"><?= sanitizeString($ann['title']) ?></h3>
+            <p class="card-subtitle"><?= date('M d, Y', strtotime($ann['published_at'])) ?></p>
+          </div>
+          <div class="card-body">
+            <p><?= sanitizeString(substr($ann['message'], 0, 150)) ?>...</p>
+          </div>
         </div>
-      <?php endforeach; ?>
-    </section>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </section>
   <?php endif; ?>
 
-  <!-- Available Scholarships -->
-  <section id="scholarships" class="scholarships section">
-    <h2>Available Scholarships</h2>
-    <?php if (!empty($scholarships)): ?>
-      <?php foreach ($scholarships as $sch): ?>
-        <div class="scholarship-card">
-          <h4><?= sanitizeString($sch['title']) ?></h4>
-          <p><?= sanitizeString(substr($sch['description'] ?? '', 0, 150)) ?>...</p>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+  <!-- Scholarships Section -->
+  <section id="scholarships" class="section bg-white">
+    <div class="container">
+      <div class="text-center mb-4">
+        <h2>Available Scholarships</h2>
+        <p class="text-gray">Find the perfect opportunity for your educational journey</p>
+      </div>
+      
+      <?php if (!empty($scholarships)): ?>
+      <div class="feature-grid">
+        <?php foreach ($scholarships as $sch): ?>
+        <div class="card">
+          <div class="card-header">
+            <div class="flex justify-between items-center">
+              <h3 class="card-title"><?= sanitizeString($sch['title']) ?></h3>
+              <span class="badge badge-primary">Open</span>
+            </div>
+          </div>
+          
+          <div class="card-body">
+            <p><?= sanitizeString(substr($sch['description'] ?? '', 0, 120)) ?>...</p>
+          </div>
+          
+          <div class="card-footer">
             <div>
-              <div class="amount">₱<?= number_format($sch['amount'] ?? 0, 2) ?></div>
-              <div class="deadline">Deadline: <?= date('M d, Y', strtotime($sch['deadline'])) ?></div>
+              <div class="stat-value" style="font-size: 1.5rem;">₱<?= number_format($sch['amount'] ?? 0, 0) ?></div>
+              <div class="text-muted" style="font-size: 0.875rem;">
+                Deadline: <?= date('M d, Y', strtotime($sch['deadline'])) ?>
+              </div>
             </div>
             <?php if (isLoggedIn()): ?>
-              <button class="primary-btn" style="margin: 0;" onclick="window.location.href='member/apply_scholarship.php?scholarship_id=<?= $sch['id'] ?>'">Apply</button>
+              <a href="member/apply_scholarship.php?scholarship_id=<?= $sch['id'] ?>" class="btn btn-primary btn-sm">Apply Now</a>
             <?php else: ?>
-              <button class="primary-btn" style="margin: 0;" onclick="window.location.href='auth/register.php'">Register to Apply</button>
+              <a href="auth/register.php" class="btn btn-secondary btn-sm">Register</a>
             <?php endif; ?>
           </div>
         </div>
-      <?php endforeach; ?>
-    <?php else: ?>
-      <p style="text-align: center;">No scholarships available at this time. Please check back soon!</p>
-    <?php endif; ?>
+        <?php endforeach; ?>
+      </div>
+      <?php else: ?>
+      <div class="text-center">
+        <p class="text-gray">No scholarships available at this time. Check back soon!</p>
+      </div>
+      <?php endif; ?>
+    </div>
   </section>
 
-  <!-- Features -->
-  <section id="features" class="features section">
-    <h2>Key Features</h2>
-    <div class="feature-grid">
-      <div class="feature-card">📋 Online Application</div>
-      <div class="feature-card">📄 Document Upload</div>
-      <div class="feature-card">🔍 Application Tracking</div>
-      <div class="feature-card">📧 Email Notifications</div>
-      <div class="feature-card">📊 Admin Dashboard</div>
-      <div class="feature-card">👥 Team Management</div>
+  <!-- Features Section -->
+  <section id="features" class="section bg-gray">
+    <div class="container">
+      <div class="text-center mb-4">
+        <h2>Why Choose ScholarHub?</h2>
+        <p class="text-gray">Everything you need to succeed in one place</p>
+      </div>
+      
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📱</div>
+          <h3 class="feature-title">Easy Application</h3>
+          <p class="feature-description">Apply to multiple scholarships with a single profile</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🔔</div>
+          <h3 class="feature-title">Real-time Updates</h3>
+          <p class="feature-description">Get instant notifications about your application status</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3 class="feature-title">Track Progress</h3>
+          <p class="feature-description">Monitor all your applications in one dashboard</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3 class="feature-title">Secure & Private</h3>
+          <p class="feature-description">Your data is protected with enterprise-grade security</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">💬</div>
+          <h3 class="feature-title">24/7 Support</h3>
+          <p class="feature-description">Get help whenever you need it from our support team</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3 class="feature-title">Fast Processing</h3>
+          <p class="feature-description">Quick review and approval process for all applications</p>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- How It Works -->
-  <section id="process" class="process section">
-    <h2>How It Works</h2>
-    <ol>
-      <li><strong>Register an Account:</strong> Create your student profile with all required information</li>
-      <li><strong>Explore & Apply:</strong> Browse available scholarships and submit your applications</li>
-      <li><strong>Track Status:</strong> Monitor your applications in real-time from your dashboard</li>
-      <li><strong>Get Notified:</strong> Receive email and in-app notifications about your application status</li>
-      <li><strong>Receive Award:</strong> Once approved, receive your scholarship and disbursement details</li>
-    </ol>
+  <section id="about" class="section bg-white">
+    <div class="container container-sm">
+      <div class="text-center mb-4">
+        <h2>How It Works</h2>
+        <p class="text-gray">Get started in 4 simple steps</p>
+      </div>
+      
+      <div class="flex flex-col gap-3">
+        <div class="card">
+          <div class="flex gap-3">
+            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--red-primary); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">1</div>
+            <div>
+              <h4 class="card-title">Create Your Profile</h4>
+              <p class="text-gray">Sign up and complete your student profile with your academic information</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="flex gap-3">
+            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--red-primary); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">2</div>
+            <div>
+              <h4 class="card-title">Browse Scholarships</h4>
+              <p class="text-gray">Explore available scholarships and find the ones that match your goals</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="flex gap-3">
+            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--red-primary); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">3</div>
+            <div>
+              <h4 class="card-title">Submit Application</h4>
+              <p class="text-gray">Fill out the application form and upload required documents</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="flex gap-3">
+            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--red-primary); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">4</div>
+            <div>
+              <h4 class="card-title">Track & Receive</h4>
+              <p class="text-gray">Monitor your application status and receive your scholarship award</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 </div>
 
-<section class="contact">
-  <h2>Contact Us</h2>
-  <p>Email: scholarship@system.com</p>
-  <p>Phone: +63 (2) 912-3456</p>
-  <p>Office Hours: Mon-Fri, 9:00 AM - 5:00 PM</p>
-</section>
+  <!-- CTA Section -->
+  <section class="section" style="background: linear-gradient(135deg, var(--red-primary) 0%, var(--red-dark) 100%); color: white;">
+    <div class="container text-center">
+      <h2 style="color: white; margin-bottom: var(--space-lg);">Ready to Start Your Journey?</h2>
+      <p style="color: rgba(255,255,255,0.9); font-size: 1.125rem; margin-bottom: var(--space-xl); max-width: 600px; margin-left: auto; margin-right: auto;">
+        Join thousands of students who have already found their perfect scholarship opportunity
+      </p>
+      <?php if (!isLoggedIn()): ?>
+        <a href="auth/register.php" class="btn btn-lg" style="background: white; color: var(--red-primary);">Create Free Account</a>
+      <?php else: ?>
+        <a href="member/scholarships.php" class="btn btn-lg" style="background: white; color: var(--red-primary);">Browse Scholarships</a>
+      <?php endif; ?>
+    </div>
+  </section>
 
-<footer>
-  <p>© 2026 Scholarship Management System | All Rights Reserved | <a href="#" style="color: #667eea; text-decoration: none;">Privacy Policy</a></p>
-</footer>
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-links">
+          <a href="#" class="footer-link">About Us</a>
+          <a href="#" class="footer-link">Contact</a>
+          <a href="#" class="footer-link">Privacy Policy</a>
+          <a href="#" class="footer-link">Terms of Service</a>
+          <a href="#" class="footer-link">FAQ</a>
+        </div>
+        <p class="footer-copyright">
+          © 2026 ScholarHub. All rights reserved. Made with ❤️ for students.
+        </p>
+      </div>
+    </div>
+  </footer>
 
 </body>
 </html>

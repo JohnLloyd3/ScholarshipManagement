@@ -13,46 +13,42 @@ $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
 $stmt->execute();
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Activity Logs | Admin</title>
-  <link rel="stylesheet" href="../assets/style.css">
-</head>
-<body>
-  <div class="dashboard-app">
-    <aside class="sidebar">
-      <div class="profile"><div class="avatar">A</div><div><div class="welcome">Admin</div><div class="username"><?= htmlspecialchars($_SESSION['user']['username']) ?></div></div></div>
-      <nav>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="analytics.php">Analytics</a>
-        <a href="activity_logs.php">Activity Logs</a>
-        <a href="../auth/logout.php">Logout</a>
-      </nav>
-    </aside>
-    <main class="main">
-      <div class="header-row"><h2>System Activity Log</h2><p class="muted">Recent system actions and audit trail</p></div>
-      <section class="panel">
-        <form method="get" style="margin-bottom:12px">Limit: <input type="number" name="limit" value="<?= htmlspecialchars($limit) ?>" style="width:100px"> <button class="btn">Apply</button></form>
-        <table>
-          <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>Entity ID</th><th>Details</th></tr></thead>
-          <tbody>
-            <?php foreach ($logs as $l): ?>
-              <tr>
-                <td><?= htmlspecialchars($l['created_at']) ?></td>
-                <td><?= htmlspecialchars($l['username'] ?? 'System') ?></td>
-                <td><?= htmlspecialchars($l['action']) ?></td>
-                <td><?= htmlspecialchars($l['entity_type'] ?? $l['target_table'] ?? '') ?></td>
-                <td><?= htmlspecialchars($l['entity_id'] ?? $l['target_id'] ?? '') ?></td>
-                <td><pre style="white-space:pre-wrap;max-width:600px;overflow:auto"><?= htmlspecialchars($l['new_values'] ?? $l['description'] ?? '') ?></pre></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </section>
-    </main>
-  </div>
-</body>
-</html>
+<?php
+$page_title = 'Activity Logs - ScholarHub';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+require_once __DIR__ . '/../includes/modern-sidebar.php';
+?>
+
+<div class="page-header">
+  <h1>📋 System Activity Log</h1>
+  <p class="text-muted">Recent system actions and audit trail</p>
+</div>
+
+<div class="content-card">
+  <form method="get" style="margin-bottom:var(--space-xl);display:flex;gap:var(--space-md);align-items:end">
+    <div class="form-group" style="margin:0">
+      <label class="form-label">Limit</label>
+      <input type="number" name="limit" value="<?= htmlspecialchars($limit) ?>" class="form-input" style="width:120px">
+    </div>
+    <button class="btn btn-primary">Apply</button>
+  </form>
+  
+  <table class="modern-table">
+    <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>Entity ID</th><th>Details</th></tr></thead>
+    <tbody>
+      <?php foreach ($logs as $l): ?>
+        <tr>
+          <td><small><?= htmlspecialchars($l['created_at']) ?></small></td>
+          <td><?= htmlspecialchars($l['username'] ?? 'System') ?></td>
+          <td><?= htmlspecialchars($l['action']) ?></td>
+          <td><?= htmlspecialchars($l['entity_type'] ?? $l['target_table'] ?? '') ?></td>
+          <td><?= htmlspecialchars($l['entity_id'] ?? $l['target_id'] ?? '') ?></td>
+          <td><pre style="white-space:pre-wrap;max-width:600px;overflow:auto;background:var(--gray-50);padding:var(--space-sm);border-radius:var(--radius-md);font-size:0.875rem"><?= htmlspecialchars($l['new_values'] ?? $l['description'] ?? '') ?></pre></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

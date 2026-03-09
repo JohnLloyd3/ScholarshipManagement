@@ -91,99 +91,284 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!doctype html>
-<html>
-<head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>Applicant Registration</title>
-        <link rel="stylesheet" href="../assets/style.css">
-        <style>
-            body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; }
-            .container { max-width: 900px; margin: 40px auto; padding: 20px; }
-            .panel { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-            h2 { text-align: center; margin-bottom: 20px; font-size: 1.8rem; }
-            .form-group { margin-bottom: 16px; }
-            .form-group label { display:block; font-weight:600; margin-bottom:6px; }
-            .form-group input, .form-group select, .form-group textarea { width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px; }
-            .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-            .btn-primary { background-color: #667eea; color: #fff; padding: 12px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
-            .flash.error-flash { background: #ffeaea; color: #b71c1c; border: 1px solid #ffcdd2; padding: 10px 18px; border-radius: 6px; margin-bottom: 18px; }
-            @media (max-width: 700px) { .form-row { grid-template-columns: 1fr; } }
-        </style>
-</head>
-<body>
-    <div class="container">
-        <div class="panel">
-        <h2>Applicant Registration</h2>
-        <?php if (!empty($errors)): ?>
-            <div class="flash error-flash">
-                <?php foreach ($errors as $e): ?>
-                    <div><?= htmlspecialchars($e) ?></div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-        <form method="POST">
-            <fieldset style="margin-bottom:20px;padding:15px;border:1px solid #eee;border-radius:6px;">
-                <legend><b>Account Information</b></legend>
-                <div class="form-group"><label>Username *</label><input type="text" name="username" required value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"></div>
-                <div class="form-group"><label>Email *</label><input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"></div>
-                <div class="form-group"><label>Password *</label><input type="password" name="password" required></div>
-            </fieldset>
-            <fieldset style="margin-bottom:20px;padding:15px;border:1px solid #eee;border-radius:6px;">
-                <legend><b>Personal Information</b></legend>
-                <div class="form-group"><label>First Name *</label><input type="text" name="first_name" required value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>"></div>
-                <div class="form-group"><label>Last Name *</label><input type="text" name="last_name" required value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>"></div>
-                <div class="form-group"><label>Middle Name</label><input type="text" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? '') ?>"></div>
-                <div class="form-group"><label>Age *</label><input type="number" name="age" min="1" required value="<?= htmlspecialchars($_POST['age'] ?? '') ?>"></div>
-                <div class="form-group"><label>Sex *</label><select name="sex" required><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
-                <div class="form-group"><label>Status *</label><input type="text" name="status" required value="<?= htmlspecialchars($_POST['status'] ?? '') ?>"></div>
-                <div class="form-group"><label>Religion</label><input type="text" name="religion" value="<?= htmlspecialchars($_POST['religion'] ?? '') ?>"></div>
-                <div class="form-group"><label>Citizenship *</label><input type="text" name="citizenship" required value="<?= htmlspecialchars($_POST['citizenship'] ?? '') ?>"></div>
-                <div class="form-group"><label>Date of Birth *</label><input type="date" name="dob" required value="<?= htmlspecialchars($_POST['dob'] ?? '') ?>"></div>
-                <div class="form-group"><label>Place of Birth *</label><input type="text" name="birth_place" required value="<?= htmlspecialchars($_POST['birth_place'] ?? '') ?>"></div>
-                <div class="form-group"><label>Complete Mailing Address *</label><input type="text" name="mailing_address" required value="<?= htmlspecialchars($_POST['mailing_address'] ?? '') ?>"></div>
-                <div class="form-group"><label>Home/Provincial Address</label><input type="text" name="provincial_address" value="<?= htmlspecialchars($_POST['provincial_address'] ?? '') ?>"></div>
-                <div class="form-group"><label>Tel./Mobile Number *</label><input type="text" name="contact_number" required value="<?= htmlspecialchars($_POST['contact_number'] ?? '') ?>"></div>
-            </fieldset>
-            <fieldset style="margin-bottom:20px;padding:15px;border:1px solid #eee;border-radius:6px;">
-                <legend><b>Family Background</b></legend>
-                <div class="form-group"><label>Father's Name</label><input type="text" name="father_name" value="<?= htmlspecialchars($_POST['father_name'] ?? '') ?>"></div>
-                <div class="form-group"><label>Father's Status</label><select name="father_status"><option value="Living">Living</option><option value="Deceased">Deceased</option></select></div>
-                <div class="form-group"><label>Father's Occupation</label><input type="text" name="father_occupation" value="<?= htmlspecialchars($_POST['father_occupation'] ?? '') ?>"></div>
-                <div class="form-group"><label>Mother's Name</label><input type="text" name="mother_name" value="<?= htmlspecialchars($_POST['mother_name'] ?? '') ?>"></div>
-                <div class="form-group"><label>Mother's Status</label><select name="mother_status"><option value="Living">Living</option><option value="Deceased">Deceased</option></select></div>
-                <div class="form-group"><label>Mother's Occupation</label><input type="text" name="mother_occupation" value="<?= htmlspecialchars($_POST['mother_occupation'] ?? '') ?>"></div>
-                <div class="form-group"><label>Total Parents' Gross Income</label><input type="number" name="gross_income" min="0" value="<?= htmlspecialchars($_POST['gross_income'] ?? '') ?>"></div>
-                <div class="form-group"><label>Brothers/Sisters Enjoying Scholarship</label><textarea name="siblings_scholarship" rows="2"><?= htmlspecialchars($_POST['siblings_scholarship'] ?? '') ?></textarea></div>
-                <div class="form-group"><label>Number of children in the family</label><input type="number" name="children_count" min="1" value="<?= htmlspecialchars($_POST['children_count'] ?? '') ?>"></div>
-            </fieldset>
-            <fieldset style="margin-bottom:20px;padding:15px;border:1px solid #eee;border-radius:6px;">
-                <legend><b>Academic Information</b></legend>
-                <div class="form-group"><label>School Name (High School) *</label><input type="text" name="school_name" required value="<?= htmlspecialchars($_POST['school_name'] ?? '') ?>"></div>
-                <div class="form-group"><label>School Address *</label><input type="text" name="school_address" required value="<?= htmlspecialchars($_POST['school_address'] ?? '') ?>"></div>
-                <div class="form-group"><label>School Type *</label><select name="school_type" required><option value="">Select</option><option value="Public">Public</option><option value="Private">Private</option><option value="Vocational">Vocational</option></select></div>
-                <div class="form-group"><label>Highest Grade/Year *</label><input type="text" name="highest_grade" required value="<?= htmlspecialchars($_POST['highest_grade'] ?? '') ?>"></div>
-                <div class="form-group"><label>Date of Graduation *</label><input type="date" name="graduation_date" required value="<?= htmlspecialchars($_POST['graduation_date'] ?? '') ?>"></div>
-                <div class="form-group"><label>Report Card Average *</label><input type="text" name="report_card_average" required value="<?= htmlspecialchars($_POST['report_card_average'] ?? '') ?>"></div>
-                <div class="form-group"><label>Rank in Graduating Class</label><input type="text" name="class_rank" value="<?= htmlspecialchars($_POST['class_rank'] ?? '') ?>"></div>
-                <div class="form-group"><label>Academic Awards/Honors Received</label><textarea name="awards" rows="2"><?= htmlspecialchars($_POST['awards'] ?? '') ?></textarea></div>
-            </fieldset>
-            <fieldset style="margin-bottom:20px;padding:15px;border:1px solid #eee;border-radius:6px;">
-                <legend><b>Parent/Legal Guardian Declaration</b></legend>
-                <div class="form-group">
-                  <textarea name="parent_declaration" rows="4" readonly>I/We hereby certify to the truthfulness and completeness of information provided. Any misinformation will automatically disqualify my/our child from the Scholarship Program. I/We are also willing to refund all financial benefits received plus the interest if such misinformation is discovered after my/our child accepted the reward. In connection with this application for financial aide, I/we hereby authorize the Scholarship Committee to conduct a background check on the family finances and to visit our family dwelling.</textarea>
-                </div>
-                <div class="form-group"><label>Parent/Guardian Name *</label><input type="text" name="guardian_name" required value="<?= htmlspecialchars($_POST['guardian_name'] ?? '') ?>"></div>
-                <div class="form-group"><label>Signature *</label><input type="text" name="guardian_signature" required value="<?= htmlspecialchars($_POST['guardian_signature'] ?? '') ?>"></div>
-                <div class="form-group"><label>Date *</label><input type="date" name="guardian_date" required value="<?= htmlspecialchars($_POST['guardian_date'] ?? '') ?>"></div>
-            </fieldset>
-            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:18px">
-              <a href="../" class="btn-secondary" style="padding:10px 14px;text-decoration:none;border-radius:6px">Cancel</a>
-              <button type="submit" class="btn-primary">Register</button>
-            </div>
-        </form>
-        </div>
+<?php
+$page_title = 'Applicant Registration - ScholarHub';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+?>
+
+<style>
+  body {
+    background: var(--gray-50);
+  }
+  
+  .registration-container {
+    max-width: 900px;
+    margin: var(--space-2xl) auto;
+    padding: var(--space-xl);
+  }
+  
+  .registration-header {
+    text-align: center;
+    margin-bottom: var(--space-2xl);
+  }
+  
+  .registration-header h1 {
+    font-size: 2rem;
+    color: var(--red-primary);
+    margin-bottom: var(--space-sm);
+  }
+  
+  .registration-header p {
+    color: var(--gray-600);
+  }
+  
+  fieldset {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    margin-bottom: var(--space-xl);
+    background: var(--white);
+  }
+  
+  legend {
+    font-weight: 700;
+    color: var(--red-primary);
+    padding: 0 var(--space-md);
+    font-size: 1.125rem;
+  }
+  
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+  }
+  
+  @media (max-width: 768px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="registration-container">
+  <div class="registration-header">
+    <h1>📝 Applicant Registration</h1>
+    <p>Complete the form below to create your scholarship account</p>
+  </div>
+  <?php if (!empty($errors)): ?>
+    <div class="alert alert-error">
+      <?php foreach ($errors as $e): ?>
+        <div><?= htmlspecialchars($e) ?></div>
+      <?php endforeach; ?>
     </div>
-</body>
-</html>
+  <?php endif; ?>
+  
+  <form method="POST">
+    <fieldset>
+      <legend>🔐 Account Information</legend>
+      <div class="form-group">
+        <label class="form-label">Username *</label>
+        <input type="text" name="username" class="form-input" required value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email *</label>
+        <input type="email" name="email" class="form-input" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password *</label>
+        <input type="password" name="password" class="form-input" required minlength="6">
+      </div>
+    </fieldset>
+    
+    <fieldset>
+      <legend>👤 Personal Information</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">First Name *</label>
+          <input type="text" name="first_name" class="form-input" required value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name *</label>
+          <input type="text" name="last_name" class="form-input" required value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Middle Name</label>
+        <input type="text" name="middle_name" class="form-input" value="<?= htmlspecialchars($_POST['middle_name'] ?? '') ?>">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Age *</label>
+          <input type="number" name="age" class="form-input" min="1" required value="<?= htmlspecialchars($_POST['age'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sex *</label>
+          <select name="sex" class="form-select" required>
+            <option value="">Select</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Status *</label>
+          <input type="text" name="status" class="form-input" required value="<?= htmlspecialchars($_POST['status'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Religion</label>
+          <input type="text" name="religion" class="form-input" value="<?= htmlspecialchars($_POST['religion'] ?? '') ?>">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Citizenship *</label>
+          <input type="text" name="citizenship" class="form-input" required value="<?= htmlspecialchars($_POST['citizenship'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Birth *</label>
+          <input type="date" name="dob" class="form-input" required value="<?= htmlspecialchars($_POST['dob'] ?? '') ?>">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Place of Birth *</label>
+        <input type="text" name="birth_place" class="form-input" required value="<?= htmlspecialchars($_POST['birth_place'] ?? '') ?>">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Complete Mailing Address *</label>
+        <input type="text" name="mailing_address" class="form-input" required value="<?= htmlspecialchars($_POST['mailing_address'] ?? '') ?>">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Home/Provincial Address</label>
+        <input type="text" name="provincial_address" class="form-input" value="<?= htmlspecialchars($_POST['provincial_address'] ?? '') ?>">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tel./Mobile Number *</label>
+        <input type="text" name="contact_number" class="form-input" required value="<?= htmlspecialchars($_POST['contact_number'] ?? '') ?>">
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>👨‍👩‍👧‍👦 Family Background</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Father's Name</label>
+          <input type="text" name="father_name" class="form-input" value="<?= htmlspecialchars($_POST['father_name'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Father's Status</label>
+          <select name="father_status" class="form-select">
+            <option value="Living">Living</option>
+            <option value="Deceased">Deceased</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Father's Occupation</label>
+        <input type="text" name="father_occupation" class="form-input" value="<?= htmlspecialchars($_POST['father_occupation'] ?? '') ?>">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Mother's Name</label>
+          <input type="text" name="mother_name" class="form-input" value="<?= htmlspecialchars($_POST['mother_name'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mother's Status</label>
+          <select name="mother_status" class="form-select">
+            <option value="Living">Living</option>
+            <option value="Deceased">Deceased</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mother's Occupation</label>
+        <input type="text" name="mother_occupation" class="form-input" value="<?= htmlspecialchars($_POST['mother_occupation'] ?? '') ?>">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Total Parents' Gross Income</label>
+          <input type="number" name="gross_income" class="form-input" min="0" value="<?= htmlspecialchars($_POST['gross_income'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Number of Children in Family</label>
+          <input type="number" name="children_count" class="form-input" min="1" value="<?= htmlspecialchars($_POST['children_count'] ?? '') ?>">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Brothers/Sisters Enjoying Scholarship</label>
+        <textarea name="siblings_scholarship" class="form-input" rows="2"><?= htmlspecialchars($_POST['siblings_scholarship'] ?? '') ?></textarea>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>🎓 Academic Information</legend>
+      <div class="form-group">
+        <label class="form-label">School Name (High School) *</label>
+        <input type="text" name="school_name" class="form-input" required value="<?= htmlspecialchars($_POST['school_name'] ?? '') ?>">
+      </div>
+      <div class="form-group">
+        <label class="form-label">School Address *</label>
+        <input type="text" name="school_address" class="form-input" required value="<?= htmlspecialchars($_POST['school_address'] ?? '') ?>">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">School Type *</label>
+          <select name="school_type" class="form-select" required>
+            <option value="">Select</option>
+            <option value="Public">Public</option>
+            <option value="Private">Private</option>
+            <option value="Vocational">Vocational</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Highest Grade/Year *</label>
+          <input type="text" name="highest_grade" class="form-input" required value="<?= htmlspecialchars($_POST['highest_grade'] ?? '') ?>">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date of Graduation *</label>
+          <input type="date" name="graduation_date" class="form-input" required value="<?= htmlspecialchars($_POST['graduation_date'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Report Card Average *</label>
+          <input type="text" name="report_card_average" class="form-input" required value="<?= htmlspecialchars($_POST['report_card_average'] ?? '') ?>">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rank in Graduating Class</label>
+        <input type="text" name="class_rank" class="form-input" value="<?= htmlspecialchars($_POST['class_rank'] ?? '') ?>">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Academic Awards/Honors Received</label>
+        <textarea name="awards" class="form-input" rows="2"><?= htmlspecialchars($_POST['awards'] ?? '') ?></textarea>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>✍️ Parent/Legal Guardian Declaration</legend>
+      <div class="form-group">
+        <textarea name="parent_declaration" class="form-input" rows="6" readonly style="background: var(--gray-50);">I/We hereby certify to the truthfulness and completeness of information provided. Any misinformation will automatically disqualify my/our child from the Scholarship Program. I/We are also willing to refund all financial benefits received plus the interest if such misinformation is discovered after my/our child accepted the reward. In connection with this application for financial aide, I/we hereby authorize the Scholarship Committee to conduct a background check on the family finances and to visit our family dwelling.</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Parent/Guardian Name *</label>
+        <input type="text" name="guardian_name" class="form-input" required value="<?= htmlspecialchars($_POST['guardian_name'] ?? '') ?>">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Signature *</label>
+          <input type="text" name="guardian_signature" class="form-input" required value="<?= htmlspecialchars($_POST['guardian_signature'] ?? '') ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input type="date" name="guardian_date" class="form-input" required value="<?= htmlspecialchars($_POST['guardian_date'] ?? '') ?>">
+        </div>
+      </div>
+    </fieldset>
+    
+    <div style="display: flex; gap: var(--space-md); justify-content: flex-end; margin-top: var(--space-xl);">
+      <a href="../" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary">Register</button>
+    </div>
+  </form>
+</div>
+
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

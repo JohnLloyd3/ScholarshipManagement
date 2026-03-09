@@ -60,6 +60,15 @@ foreach (['pending', 'approved', 'rejected', 'under_review', 'submitted'] as $st
     $stmt->execute([':user_id' => $user_id, ':status' => $status]);
     $stats[$status] = $stmt->fetchColumn() ?: 0;
 }
+
+// Get published announcements for student dashboard (recent)
+try {
+    $stmt = $pdo->prepare("SELECT * FROM announcements WHERE published = 1 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY published_at DESC LIMIT 5");
+    $stmt->execute();
+    $announcements = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (Exception $e) {
+    $announcements = [];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -142,6 +151,20 @@ foreach (['pending', 'approved', 'rejected', 'under_review', 'submitted'] as $st
             <a href="apply_scholarship.php" class="btn btn-primary">+ Apply for Scholarship</a>
             <a href="notifications.php" class="btn btn-info">View All Notifications</a>
         </div>
+
+        <!-- Announcements -->
+        <?php if (!empty($announcements)): ?>
+            <div class="section">
+                <h2>Announcements</h2>
+                <?php foreach ($announcements as $ann): ?>
+                    <div class="notification-item <?= !$ann['published'] ? '' : '' ?>">
+                        <strong><?= sanitizeString($ann['title']) ?></strong>
+                        <p><?= sanitizeString($ann['message']) ?></p>
+                        <small><?= date('M d, Y H:i', strtotime($ann['published_at'])) ?></small>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
 
         <!-- Recent Notifications -->
         <?php if (!empty($recent_notifications)): ?>

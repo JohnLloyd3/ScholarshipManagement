@@ -52,12 +52,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!doctype html>
-<html>
-<head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>Post Scholarship</title>
+<?php
+$page_title = 'Post Scholarship - ScholarHub';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+require_once __DIR__ . '/../includes/modern-sidebar.php';
+?>
+
+<div class="page-header">
+  <h1>➕ Post Scholarship</h1>
+  <p class="text-muted">Create a new scholarship opportunity</p>
+</div>
         <link rel="stylesheet" href="../assets/style.css">
         <style>
             body { background: #f7f7fa; }

@@ -268,42 +268,7 @@ function getPDO()
             INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Ensure awards table exists
-        $pdo->exec("CREATE TABLE IF NOT EXISTS awards (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            application_id INT NOT NULL,
-            user_id INT NOT NULL,
-            scholarship_id INT NOT NULL,
-            award_amount DECIMAL(12,2) NOT NULL,
-            award_date DATE NOT NULL,
-            status ENUM('pending','approved','disbursed','cancelled','rejected') DEFAULT 'pending',
-            notes TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
-            INDEX idx_scholarship_id (scholarship_id),
-            INDEX idx_status (status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-        // Ensure disbursements table exists
-        $pdo->exec("CREATE TABLE IF NOT EXISTS disbursements (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            award_id INT NOT NULL,
-            user_id INT NOT NULL,
-            amount DECIMAL(12,2) NOT NULL,
-            disbursement_date DATE NOT NULL,
-            payment_method VARCHAR(50) NOT NULL,
-            transaction_reference VARCHAR(255),
-            status ENUM('pending','processed','completed','failed') DEFAULT 'pending',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            INDEX idx_award_id (award_id),
-            INDEX idx_status (status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        // Awards and disbursements tables intentionally omitted (removed per admin request)
 
         // Ensure announcements table exists
         $pdo->exec("CREATE TABLE IF NOT EXISTS announcements (

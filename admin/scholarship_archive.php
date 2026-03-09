@@ -25,57 +25,56 @@ $stmt = $pdo->prepare("SELECT * FROM scholarships WHERE status = 'archived' OR i
 $stmt->execute();
 $archived = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Scholarship Archive | Admin</title>
-  <link rel="stylesheet" href="../assets/style.css">
-</head>
-<body>
-  <div class="dashboard-app">
-    <aside class="sidebar">
-      <div class="profile"><div class="avatar">A</div><div><div class="welcome">Admin</div><div class="username"><?= htmlspecialchars($_SESSION['user']['username']) ?></div></div></div>
-      <nav>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="scholarships.php">Scholarships</a>
-        <a href="scholarship_archive.php">Archive</a>
-        <a href="../auth/logout.php">Logout</a>
-      </nav>
-    </aside>
-    <main class="main">
-      <div class="header-row"><h2>Scholarship Archive</h2><p class="muted">Past scholarships</p></div>
-      <section class="panel">
-        <?php if (empty($archived)): ?>
-          <p>No archived scholarships.</p>
-        <?php else: ?>
-          <table>
-            <thead><tr><th>Title</th><th>Organization</th><th>Deadline</th><th>Updated</th><th>Actions</th></tr></thead>
-            <tbody>
-              <?php foreach ($archived as $a): ?>
-                <tr>
-                  <td><?= htmlspecialchars($a['title']) ?></td>
-                  <td><?= htmlspecialchars($a['organization'] ?? '') ?></td>
-                  <td><?= htmlspecialchars($a['deadline'] ?? '') ?></td>
-                  <td><?= htmlspecialchars($a['updated_at'] ?? $a['created_at'] ?? '') ?></td>
-                  <td>
-                    <form method="post" style="display:inline">
-                      <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                      <button name="action" value="restore" class="btn">Restore</button>
-                    </form>
-                    <form method="post" style="display:inline" onsubmit="return confirm('Delete permanently?');">
-                      <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                      <button name="action" value="delete" class="btn btn-danger">Delete</button>
-                    </form>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        <?php endif; ?>
-      </section>
-    </main>
-  </div>
-</body>
-</html>
+<?php
+$page_title = 'Scholarship Archive - Admin';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+require_once __DIR__ . '/../includes/modern-sidebar.php';
+?>
+
+<div class="page-header">
+  <h1>🗄️ Scholarship Archive</h1>
+  <p class="text-muted">Past and archived scholarships</p>
+</div>
+
+<?php if (!empty($_SESSION['success'])): ?>
+  <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+<?php endif; ?>
+
+<div class="content-card">
+  <?php if (empty($archived)): ?>
+    <div class="empty-state">
+      <div class="empty-state-icon">🗄️</div>
+      <h3 class="empty-state-title">No Archived Scholarships</h3>
+      <p class="empty-state-description">Archived scholarships will appear here.</p>
+    </div>
+  <?php else: ?>
+    <table class="modern-table">
+      <thead>
+        <tr><th>Title</th><th>Organization</th><th>Deadline</th><th>Updated</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        <?php foreach ($archived as $a): ?>
+          <tr>
+            <td><?= htmlspecialchars($a['title']) ?></td>
+            <td><?= htmlspecialchars($a['organization'] ?? '') ?></td>
+            <td><?= htmlspecialchars($a['deadline'] ?? '') ?></td>
+            <td><small><?= htmlspecialchars($a['updated_at'] ?? $a['created_at'] ?? '') ?></small></td>
+            <td>
+              <form method="post" style="display:inline">
+                <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                <button name="action" value="restore" class="btn btn-primary btn-sm">Restore</button>
+              </form>
+              <form method="post" style="display:inline" onsubmit="return confirm('Delete permanently?');">
+                <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                <button name="action" value="delete" class="btn btn-ghost btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
+
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

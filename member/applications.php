@@ -122,46 +122,26 @@ $stmt = $pdo->prepare('SELECT a.*, s.title as scholarship_title, s.organization,
 $stmt->execute([':uid' => $user_id]);
 $apps = $stmt->fetchAll();
 ?>
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Your Applications</title>
-  <link rel="stylesheet" href="../assets/style.css">
-  <link rel="stylesheet" href="../member/dashboard.css">
-</head>
-<body>
-  <div class="dashboard-app">
-    <aside class="sidebar">
-      <div class="profile">
-        <div class="avatar"><?= strtoupper(substr(($_SESSION['user']['first_name']??$_SESSION['user']['username']),0,1)) ?></div>
-        <div>
-          <div class="welcome">Welcome</div>
-          <div class="username"><?= htmlspecialchars($_SESSION['user']['first_name'] ?? $_SESSION['user']['username']) ?></div>
-        </div>
-      </div>
-      <nav>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="applications.php">Your Applications</a>
-        <a href="apply_scholarship.php">Apply for Scholarship</a>
-        <a href="notifications.php">Notifications</a>
-        <a href="../auth/logout.php">Logout</a>
-      </nav>
-    </aside>
-    <main class="main">
-      <h2>Your Applications</h2>
+<?php
+$page_title = 'My Applications - ScholarHub';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+require_once __DIR__ . '/../includes/modern-sidebar.php';
+?>
 
-      <?php if (!empty($_SESSION['success'])): ?>
-        <div class="flash success-flash"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
-      <?php endif; ?>
+<div class="page-header">
+  <h1>📝 My Applications</h1>
+  <p class="text-muted">Track and manage your scholarship applications</p>
+</div>
+<?php if (!empty($_SESSION['success'])): ?>
+  <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+<?php endif; ?>
 
-      <?php if (!empty($_SESSION['flash'])): ?>
-        <div class="flash error-flash"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
-      <?php endif; ?>
+<?php if (!empty($_SESSION['flash'])): ?>
+  <div class="alert alert-error"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
+<?php endif; ?>
 
-      <section class="panel">
-        <h3>My Applications</h3>
+<div class="content-card">
         
         <?php if ($viewingApp): ?>
           <a href=\"applications.php\" style=\"color:#2196F3;text-decoration:none;margin-bottom:15px;display:inline-block\">← Back to Applications</a>
@@ -245,7 +225,7 @@ $apps = $stmt->fetchAll();
                       <tbody>
                         <?php foreach ($studentDocs as $doc): ?>
                           <tr style="border-bottom:1px solid #eee">
-                            <td style="padding:10px"><a href="../<?= htmlspecialchars($doc['file_path']) ?>" target="_blank"><?= htmlspecialchars($doc['file_name']) ?></a></td>
+                            <td style="padding:10px"><a href="document_view.php?id=<?= (int)$doc['id'] ?>" target="_blank"><?= htmlspecialchars($doc['file_name']) ?></a></td>
                             <td style="padding:10px"><?= htmlspecialchars($doc['document_type']) ?></td>
                             <td style="padding:10px;text-transform:capitalize"><?= htmlspecialchars($doc['verification_status']) ?></td>
                             <td style="padding:10px"><?= !empty($doc['verified_at']) ? htmlspecialchars($doc['verified_at']) : '—' ?></td>
@@ -259,10 +239,14 @@ $apps = $stmt->fetchAll();
               </div>
         <?php else: ?>
           <?php if (empty($apps)): ?>
-          <p class="muted">You have not submitted any applications yet.</p>
-          <p><a href="apply_scholarship.php" class="btn">Apply for a Scholarship</a></p>
+          <div class="empty-state">
+            <div class="empty-state-icon">📝</div>
+            <h3 class="empty-state-title">No Applications Yet</h3>
+            <p class="empty-state-description">You haven't submitted any scholarship applications. Start your journey today!</p>
+            <a href="apply_scholarship.php" class="btn btn-primary">Apply for Scholarship</a>
+          </div>
         <?php else: ?>
-          <table style="width:100%;border-collapse:collapse">
+          <table class="modern-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -313,7 +297,7 @@ $apps = $stmt->fetchAll();
                       ];
                       $color = $status_color[$s] ?? '#999';
                     ?>
-                    <span style="color:<?= $color ?>">
+                    <span class="status-badge status-<?= strtolower(str_replace(' ', '_', $status)) ?>">
                       <?= ucfirst(str_replace('_', ' ', htmlspecialchars($status))) ?>
                     </span>
                   </td>
@@ -330,7 +314,4 @@ $apps = $stmt->fetchAll();
         <?php endif; ?>
       </section>
 
-    </main>
-  </div>
-</body>
-</html>
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

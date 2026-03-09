@@ -1,58 +1,194 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
+session_start();
 require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../helpers/ScreeningHelper.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
-require_role(['staff', 'admin']);
+requireLogin();
+requireRole('staff', 'Staff access required');
 
 $pdo = getPDO();
+$user = $_SESSION['user'] ?? [];
 
-// Handle deletion requests from staff/admin
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_application') {
-  $delId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-  if ($delId > 0) {
-    try {
-      $stmt = $pdo->prepare('SELECT id FROM applications WHERE id = :id');
-      $stmt->execute([':id' => $delId]);
-      $exists = $stmt->fetch();
-      if ($exists) {
-      $pdo->prepare('DELETE FROM applications WHERE id = :id')->execute([':id' => $delId]);
-      if (function_exists('logAuditTrail')) logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'APPLICATION_DELETED', 'applications', $delId, 'Deleted by user');
-      $_SESSION['success'] = 'Application deleted successfully.';
-      } else {
-        $_SESSION['flash'] = 'Application not found.';
-      }
-    } catch (Exception $e) {
-      $_SESSION['flash'] = 'Failed to delete application.';
+// Handle POST actions: update_status
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    if ($action === 'update_status') {
+        $appid = (int)($_POST['application_id'] ?? 0);
+        $status = trim($_POST['status'] ?? '');
+        $allowed = ['submitted','under_review','pending','approved','rejected','waitlisted','draft'];
+        if ($appid && in_array($status, $allowed, true)) {
+            // Get application details for notification
+            $appStmt = $pdo->prepare('SELECT a.*, u.email, u.first_name, u.last_name, s.title as scholarship_title 
+                                      FROM applications a 
+                                      LEFT JOIN users u ON a.user_id = u.id 
+                                      LEFT JOIN scholarships s ON a.scholarship_id = s.id 
+                                      WHERE a.id = :id');
+            $appStmt->execute([':id' => $appid]);
+            $app = $appStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($app) {
+                // Update status
+                $stmt = $pdo->prepare('UPDATE applications SET status = :status, reviewed_at = NOW() WHERE id = :id');
+                $stmt->execute([':status'=>$status, ':id'=>$appid]);
+                
+                // Create in-app notification
+                try {
+                    $notifTitle = 'Application Status Updated';
+                    $notifMsg = 'Your application for "' . ($app['scholarship_title'] ?? 'scholarship') . '" status has been updated to: ' . ucfirst(str_replace('_', ' ', $status));
+                    
+                    $notifStmt = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, related_scholarship_id, created_at) 
+                                                VALUES (:uid, :title, :msg, :type, :aid, :sid, NOW())');
+                    $notifStmt->execute([
+                        ':uid' => $app['user_id'],
+                        ':title' => $notifTitle,
+                        ':msg' => $notifMsg,
+                        ':type' => 'application',
+                        ':aid' => $appid,
+                        ':sid' => $app['scholarship_id'] ?? null
+                    ]);
+                } catch (Exception $e) {
+                    error_log('[Notification Error] ' . $e->getMessage());
+                }
+                
+                // Queue email notification
+                require_once __DIR__ . '/../config/email.php';
+                
+                if (!empty($app['email'])) {
+                    $emailSubject = 'Application Status Update - ' . ($app['scholarship_title'] ?? 'Scholarship');
+                    $emailBody = '<h2>Application Status Update</h2>';
+                    $emailBody .= '<p>Dear ' . htmlspecialchars($app['first_name'] ?? 'Student') . ',</p>';
+                    $emailBody .= '<p>Your application for <strong>' . htmlspecialchars($app['scholarship_title'] ?? 'scholarship') . '</strong> has been updated.</p>';
+                    $emailBody .= '<p><strong>New Status:</strong> <span style="color: #c41e3a; font-weight: bold;">' . ucfirst(str_replace('_', ' ', $status)) . '</span></p>';
+                    $emailBody .= '<p>Please log in to your account to view full details.</p>';
+                    $emailBody .= '<p>Best regards,<br>ScholarHub Team</p>';
+                    
+                    queueEmail($app['email'], $emailSubject, $emailBody, $app['user_id']);
+                }
+                
+                // Log audit trail
+                if (function_exists('logAuditTrail')) {
+                    require_once __DIR__ . '/../helpers/ScreeningHelper.php';
+                    logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'APPLICATION_STATUS_UPDATED', 'applications', $appid, 'Status changed to: ' . $status);
+                }
+                
+                $_SESSION['success'] = 'Application status updated to ' . ucfirst(str_replace('_', ' ', $status)) . '. Notification sent to applicant.';
+            } else {
+                $_SESSION['flash'] = 'Application not found.';
+            }
+        } else {
+            $_SESSION['flash'] = 'Invalid status or application ID.';
+        }
     }
-  } else {
-    $_SESSION['flash'] = 'Invalid application ID.';
-  }
-  header('Location: applications.php');
-  exit;
+    header('Location: applications.php'); exit;
 }
 
-// Handle status change (approve/reject) by staff/admin
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'change_status') {
-  $chgId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-  $newStatus = trim($_POST['new_status'] ?? '');
-  $comments = trim($_POST['reason'] ?? $_POST['comments'] ?? '');
-  if ($chgId > 0 && in_array($newStatus, ['Approved','Rejected','Pending','Completed','Submitted'])) {
-    try {
-      $stmt = $pdo->prepare('SELECT id, user_id, scholarship_id, status FROM applications WHERE id = :id');
-      $stmt->execute([':id' => $chgId]);
-      $row = $stmt->fetch(PDO::FETCH_ASSOC);
-          if ($row) {
-        // only allow approve/reject when application is under_review
-        if (strtolower($row['status']) !== 'under_review' && in_array($newStatus, ['Approved','Rejected'])) {
-          $_SESSION['flash'] = 'Can only approve or reject applications that are currently under review.';
-        } else {
-          $update = $pdo->prepare('UPDATE applications SET status = :status, updated_at = NOW() WHERE id = :id');
-          $update->execute([':status' => $newStatus, ':id' => $chgId]);
+// Filters
+$q = trim($_GET['q'] ?? '');
+$statusFilter = $_GET['status'] ?? '';
 
-        // Create a notification for the applicant
-        $notif = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, related_scholarship_id) VALUES (:user_id, :title, :message, :type, :app_id, :sch_id)');
-        $title = ($newStatus === 'Approved') ? 'Application Approved' : (($newStatus === 'Rejected') ? 'Application Rejected' : 'Application Status Updated');
+$sql = 'SELECT a.id, a.user_id, a.status, a.created_at, s.title as scholarship_title, u.first_name, u.last_name, u.email FROM applications a LEFT JOIN scholarships s ON a.scholarship_id = s.id LEFT JOIN users u ON a.user_id = u.id';
+$where = [];
+$params = [];
+if ($statusFilter) { $where[] = 'a.status = :status'; $params[':status']=$statusFilter; }
+if ($q) { $where[] = '(s.title LIKE :q OR u.first_name LIKE :q OR u.last_name LIKE :q OR u.email LIKE :q)'; $params[':q']='%'.$q.'%'; }
+if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
+$sql .= ' ORDER BY a.created_at DESC LIMIT 200';
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$apps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+?>
+<?php
+$page_title = 'Applications Queue - ScholarHub';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+require_once __DIR__ . '/../includes/modern-sidebar.php';
+?>
+
+<div class="page-header">
+  <h1>📋 Applications Queue</h1>
+  <p class="text-muted">Review and manage scholarship applications</p>
+</div>
+
+<?php if (!empty($_SESSION['success'])): ?>
+  <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+<?php endif; ?>
+
+<div class="content-card">
+  <div style="display: flex; gap: var(--space-md); margin-bottom: var(--space-xl); flex-wrap: wrap;">
+    <form method="GET" style="display: flex; gap: var(--space-md); flex: 1; flex-wrap: wrap;">
+      <input type="text" name="q" value="<?= htmlspecialchars($q) ?>" placeholder="Search applicant or scholarship" class="form-input" style="flex: 1; min-width: 200px;">
+      <select name="status" class="form-input" style="min-width: 150px;">
+        <option value="">All statuses</option>
+        <?php 
+        $statuses = ['submitted', 'under_review', 'pending', 'approved', 'rejected', 'waitlisted', 'draft'];
+        foreach($statuses as $st) {
+          $selected = ($statusFilter === $st) ? 'selected' : '';
+          echo '<option value="' . $st . '" ' . $selected . '>' . ucfirst(str_replace('_', ' ', $st)) . '</option>';
+        }
+        ?>
+      </select>
+      <button type="submit" class="btn btn-primary">🔍 Filter</button>
+    </form>
+  </div>
+
+  <?php if (!empty($apps)): ?>
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Applicant</th>
+          <th>Scholarship</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach($apps as $a): ?>
+          <tr>
+            <td><?= (int)$a['id'] ?></td>
+            <td>
+              <strong><?= htmlspecialchars(($a['first_name'] ?? '') . ' ' . ($a['last_name'] ?? '')) ?></strong><br>
+              <small class="text-muted"><?= htmlspecialchars($a['email'] ?? '') ?></small>
+            </td>
+            <td><?= htmlspecialchars($a['scholarship_title'] ?? 'N/A') ?></td>
+            <td>
+              <span class="status-badge status-<?= strtolower($a['status']) ?>">
+                <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $a['status']))) ?>
+              </span>
+            </td>
+            <td><small><?= date('M d, Y', strtotime($a['created_at'])) ?></small></td>
+            <td>
+              <a href="application_view.php?id=<?= (int)$a['id'] ?>" class="btn btn-ghost btn-sm">👁️ View</a>
+              <form method="POST" style="display: inline-block; margin-left: var(--space-xs);">
+                <select name="status" class="form-input" style="display: inline-block; width: auto; padding: 4px 8px; font-size: 0.875rem;">
+                  <?php foreach($statuses as $st): ?>
+                    <option value="<?= $st ?>" <?= $a['status'] === $st ? 'selected' : '' ?>>
+                      <?= ucfirst(str_replace('_', ' ', $st)) ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+                <input type="hidden" name="action" value="update_status">
+                <input type="hidden" name="application_id" value="<?= (int)$a['id'] ?>">
+                <button type="submit" class="btn btn-primary btn-sm">✓ Update</button>
+              </form>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php else: ?>
+    <div class="empty-state">
+      <div class="empty-state-icon">📋</div>
+      <h3 class="empty-state-title">No Applications Found</h3>
+      <p class="empty-state-description">No applications match your search criteria.</p>
+    </div>
+  <?php endif; ?>
+</div>
+
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>
         $message = 'Your application (ID ' . $chgId . ') status has been updated to ' . $newStatus . '.';
         if ($comments) $message .= ' Comments: ' . $comments;
         $notif->execute([
@@ -292,328 +428,5 @@ if (!$viewId) {
   // Statistics for summary
   $stats = $pdo->query('SELECT status, COUNT(*) as count FROM applications GROUP BY status')->fetchAll(PDO::FETCH_KEY_PAIR);
 }
-?>
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Applications | Staff</title>
-  <link rel="stylesheet" href="../assets/style.css">
-  <link rel="stylesheet" href="../assets/staff-dashboard.css">
-</head>
-<body>
-  <div class="dashboard-app">
-    <aside class="sidebar">
-      <div class="profile">
-        <div class="avatar">S</div>
-        <div>
-          <div class="welcome">Staff</div>
-          <div class="username"><?= htmlspecialchars($_SESSION['user']['username'] ?? '') ?></div>
-        </div>
-      </div>
-      <nav>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="applications.php">View Applications</a>
-        <a href="../auth/logout.php">Logout</a>
-      </nav>
-    </aside>
 
-    <main class="main">
-
-      <div class="header-row" style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap">
-        <div>
-          <h2>Applications</h2>
-          <p class="muted">View and manage all submitted applications</p>
-        </div>
-        <div style="text-align:right;min-width:220px">
-          <div style="font-size:13px;color:#888">Summary</div>
-          <div style="display:flex;gap:10px;margin-top:2px">
-            <div style="background:#f5f5f5;padding:6px 10px;border-radius:6px;font-size:13px">Pending: <b><?= $stats['Pending'] ?? 0 ?></b></div>
-            <div style="background:#f5f5f5;padding:6px 10px;border-radius:6px;font-size:13px">Approved: <b><?= $stats['Approved'] ?? 0 ?></b></div>
-            <div style="background:#f5f5f5;padding:6px 10px;border-radius:6px;font-size:13px">Completed: <b><?= $stats['Completed'] ?? 0 ?></b></div>
-            <div style="background:#f5f5f5;padding:6px 10px;border-radius:6px;font-size:13px">Rejected: <b><?= $stats['Rejected'] ?? 0 ?></b></div>
-          </div>
-        </div>
-      </div>
-
-
-      <form method="get" style="margin:18px 0 8px 0;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-        <div>
-          <a href="?" class="tab<?= $status_filter=='' ? ' active' : '' ?>">All</a>
-          <a href="?status=Pending" class="tab<?= $status_filter=='Pending' ? ' active' : '' ?>">Pending</a>
-          <a href="?status=Approved" class="tab<?= $status_filter=='Approved' ? ' active' : '' ?>">Approved</a>
-          <a href="?status=Submitted" class="tab<?= $status_filter=='Submitted' ? ' active' : '' ?>">Submitted</a>
-          <a href="?status=Completed" class="tab<?= $status_filter=='Completed' ? ' active' : '' ?>">Completed</a>
-          <a href="?status=Rejected" class="tab<?= $status_filter=='Rejected' ? ' active' : '' ?>">Rejected</a>
-        </div>
-        <input type="text" name="applicant" value="<?= htmlspecialchars($applicant_filter) ?>" placeholder="Applicant name" style="padding:6px 12px;border-radius:8px;border:1px solid #ddd;font-size:14px;">
-        <input type="text" name="scholarship" value="<?= htmlspecialchars($scholarship_filter) ?>" placeholder="Scholarship title" style="padding:6px 12px;border-radius:8px;border:1px solid #ddd;font-size:14px;">
-        <select name="sort" style="padding:6px 12px;border-radius:8px;border:1px solid #ddd;font-size:14px;">
-          <option value="created_at"<?= $sort_by=='created_at'?' selected':'' ?>>Sort by Date</option>
-          <option value="status"<?= $sort_by=='status'?' selected':'' ?>>Sort by Status</option>
-          <option value="scholarship_title"<?= $sort_by=='scholarship_title'?' selected':'' ?>>Sort by Scholarship</option>
-          <option value="username"<?= $sort_by=='username'?' selected':'' ?>>Sort by Applicant</option>
-        </select>
-        <select name="dir" style="padding:6px 12px;border-radius:8px;border:1px solid #ddd;font-size:14px;">
-          <option value="desc"<?= $sort_dir=='desc'?' selected':'' ?>>Descending</option>
-          <option value="asc"<?= $sort_dir=='asc'?' selected':'' ?>>Ascending</option>
-        </select>
-        <button type="submit" style="padding:6px 18px;border-radius:8px;background:#b71c1c;color:#fff;border:none;font-size:14px;">Apply</button>
-        <style>
-          .tab { display:inline-block;padding:6px 18px;margin-right:4px;border-radius:16px;text-decoration:none;color:#444;background:#eee;font-size:14px;transition:background .2s; }
-          .tab.active, .tab:hover { background:#b71c1c;color:#fff; }
-        </style>
-      </form>
-
-      <?php if (!empty($_SESSION['success'])): ?>
-        <div class="flash success-flash"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
-      <?php endif; ?>
-      <?php if (!empty($_SESSION['flash'])): ?>
-        <div class="flash error-flash"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
-      <?php endif; ?>
-
-      <section class="panel">
-        <h3>My Applications</h3>
-        
-        <?php if ($viewingApp): ?>
-          <a href="applications.php" style="color:#b91c1c;text-decoration:none;margin-bottom:15px;display:inline-block;font-weight:500">← Back to Applications</a>
-          <div style="margin-top:20px;background:#f9f9f9;padding:20px;border-radius:8px">
-            <h2><?= htmlspecialchars($viewingApp['scholarship_title']) ?></h2>
-            <p style="color:#666;margin-bottom:20px"><?= htmlspecialchars($viewingApp['scholarship_desc'] ?? '') ?></p>
-            
-            <div style="margin-bottom:20px">
-              <strong>Applicant:</strong> <?= htmlspecialchars(($viewingApp['first_name'] ?? '') . ' ' . ($viewingApp['last_name'] ?? '')) ?>
-              <br><strong>Email:</strong> <?= htmlspecialchars($viewingApp['email'] ?? '') ?>
-            </div>
-            
-            <div style="margin-bottom:20px">
-              <strong>Status:</strong> 
-              <?php
-                $status = $viewingApp['status'];
-                $s = strtolower($status);
-                $status_color = ['draft'=>'#999','submitted'=>'#2196F3','pending'=>'#FF9800','under_review'=>'#2196F3','approved'=>'#4CAF50','rejected'=>'#f44336','waitlisted'=>'#FFC107'];
-                $color = $status_color[$s] ?? '#999';
-              ?>
-              <span style="color:<?= $color ?>;font-weight:bold"><?= ucfirst(str_replace('_', ' ', htmlspecialchars(strtolower($status)))) ?></span>
-            </div>
-
-            <?php if (in_array($_SESSION['user']['role'] ?? '', ['staff','admin']) && strtolower(($viewingApp['status'] ?? '')) === 'under_review'): ?>
-              <div style="margin-top:12px;display:flex;gap:8px">
-                <form method="POST" onsubmit="return confirm('Approve this application?');" style="display:inline">
-                  <input type="hidden" name="action" value="change_status">
-                  <input type="hidden" name="id" value="<?= (int)$viewingApp['id'] ?>">
-                  <input type="hidden" name="new_status" value="Approved">
-                  <input type="hidden" name="return_to_view" value="1">
-                  <button type="submit" style="background:#16a34a;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer">Approve</button>
-                </form>
-                <form method="POST" onsubmit="return handleReject(this);" style="display:inline">
-                  <input type="hidden" name="action" value="change_status">
-                  <input type="hidden" name="id" value="<?= (int)$viewingApp['id'] ?>">
-                  <input type="hidden" name="new_status" value="Rejected">
-                  <input type="hidden" name="reason" value="">
-                  <input type="hidden" name="return_to_view" value="1">
-                  <button type="submit" style="background:#b91c1c;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer">Reject</button>
-                </form>
-              </div>
-            <?php endif; ?>
-
-            <!-- Application Timeline -->
-            <div style="margin-top:20px;padding:16px;background:#fff;border-radius:8px;">
-              <h4>Application Timeline</h4>
-              <?php
-                try {
-                    $tstmt = $pdo->prepare('SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.new_values, al.ip_address, al.user_agent, al.created_at, u.username FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id WHERE (al.entity_type = :etype OR al.target_table = :tt) AND al.entity_id = :aid ORDER BY al.created_at ASC');
-                    $tstmt->execute([':etype' => 'applications', ':tt' => 'applications', ':aid' => $viewingApp['id']]);
-                    $events = $tstmt->fetchAll(PDO::FETCH_ASSOC);
-                } catch (Exception $e) {
-                    $events = [];
-                }
-              ?>
-              <?php if (empty($events)): ?>
-                <p class="muted">No timeline events recorded for this application.</p>
-              <?php else: ?>
-                <ul style="list-style:none;padding-left:0;margin:0">
-                  <?php foreach ($events as $ev): ?>
-                    <li style="padding:8px 0;border-bottom:1px solid #f0f0f0">
-                      <div style="font-size:13px;color:#333"><strong><?= htmlspecialchars($ev['action']) ?></strong> — <?= htmlspecialchars($ev['username'] ?? 'System') ?></div>
-                      <div style="font-size:12px;color:#666"><?= htmlspecialchars($ev['new_values'] ?? '') ?></div>
-                      <div style="font-size:11px;color:#999"><?= htmlspecialchars($ev['created_at']) ?> from <?= htmlspecialchars($ev['ip_address'] ?? '') ?></div>
-                    </li>
-                  <?php endforeach; ?>
-                </ul>
-              <?php endif; ?>
-            </div>
-            
-            <div style="margin-bottom:20px">
-              <strong>Submitted:</strong> <?= htmlspecialchars($viewingApp['created_at']) ?>
-            </div>
-            
-            <hr style="margin:20px 0">
-            <h4>Application Details</h4>
-            <?php if ($viewingApp['motivational_letter']): ?>
-              <?php $formData = json_decode($viewingApp['motivational_letter'], true); ?>
-              <?php if ($formData): ?>
-                <table style="width:100%;border-collapse:collapse">
-                  <?php foreach ($formData as $key => $value): ?>
-                    <?php if (is_string($value) || is_numeric($value)): ?>
-                      <tr style="border-bottom:1px solid #eee">
-                        <td style="padding:10px;font-weight:bold;width:30%"><?= htmlspecialchars(str_replace('_', ' ', ucfirst($key))) ?></td>
-                        <td style="padding:10px"><?= htmlspecialchars($value) ?></td>
-                      </tr>
-                    <?php endif; ?>
-                  <?php endforeach; ?>
-                </table>
-              <?php endif; ?>
-            <?php endif; ?>
-            
-            <?php
-              // Fetch documents for this application
-              $docList = [];
-              try {
-                $dS = $pdo->prepare('SELECT d.*, u.username AS verifier_name FROM documents d LEFT JOIN users u ON d.verified_by = u.id WHERE d.application_id = :aid');
-                $dS->execute([':aid' => $viewingApp['id']]);
-                $docList = $dS->fetchAll(PDO::FETCH_ASSOC) ?: [];
-              } catch (Exception $e) { $docList = []; }
-            ?>
-
-            <div style="margin-top:20px">
-              <h4>Submitted Documents</h4>
-              <?php if (empty($docList)): ?>
-                <p class="muted">No documents uploaded for this application.</p>
-              <?php else: ?>
-                <table style="width:100%;border-collapse:collapse">
-                  <thead><tr><th>File</th><th>Type</th><th>Status</th><th>Verified By</th><th>Uploaded</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    <?php foreach ($docList as $doc): ?>
-                      <tr>
-                        <td><a href="../<?= htmlspecialchars($doc['file_path']) ?>" target="_blank"><?= htmlspecialchars($doc['file_name']) ?></a></td>
-                        <td><?= htmlspecialchars($doc['document_type']) ?></td>
-                        <td style="text-transform:capitalize"><?= htmlspecialchars($doc['verification_status']) ?></td>
-                        <td><?= htmlspecialchars($doc['verifier_name'] ?? '') ?><?= (!empty($doc['verified_at'])? ' <br><small>'.htmlspecialchars($doc['verified_at']).'</small>':'') ?></td>
-                        <td><?= htmlspecialchars($doc['uploaded_at']) ?></td>
-                        <td>
-                          <?php if (in_array($_SESSION['user']['role'] ?? '', ['staff','admin'])): ?>
-                            <form method="POST" style="display:inline;margin-right:6px" onsubmit="return handleDocAction(this,'verify');">
-                              <input type="hidden" name="action" value="verify_document">
-                              <input type="hidden" name="document_id" value="<?= (int)$doc['id'] ?>">
-                              <input type="hidden" name="application_id" value="<?= (int)$viewingApp['id'] ?>">
-                              <input type="hidden" name="new_status" value="verified">
-                              <input type="hidden" name="notes" value="">
-                              <input type="hidden" name="return_to_view" value="1">
-                              <button type="submit" style="background:#16a34a;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer">Verify</button>
-                            </form>
-                            <form method="POST" style="display:inline" onsubmit="return handleDocAction(this,'reject');">
-                              <input type="hidden" name="action" value="verify_document">
-                              <input type="hidden" name="document_id" value="<?= (int)$doc['id'] ?>">
-                              <input type="hidden" name="application_id" value="<?= (int)$viewingApp['id'] ?>">
-                              <input type="hidden" name="new_status" value="rejected">
-                              <input type="hidden" name="notes" value="">
-                              <input type="hidden" name="return_to_view" value="1">
-                              <button type="submit" style="background:#b91c1c;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer">Reject</button>
-                            </form>
-                          <?php endif; ?>
-                        </td>
-                      </tr>
-                    <?php endforeach; ?>
-                  </tbody>
-                </table>
-              <?php endif; ?>
-            </div>
-          </div>
-        <?php else: ?>
-      <section class="panel">
-        <h3>All Applications</h3>
-        <?php if (!$apps): ?>
-          <p class="muted">No applications yet.</p>
-        <?php else: ?>
-          <div style="overflow-x:auto">
-            <table class="app-table" style="width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(185,28,28,0.08);">
-              <thead style="background:#b91c1c;color:#fff">
-                <tr>
-                  <th style="padding:1rem;border-radius:12px 0 0 0">#</th>
-                  <th>Scholarship</th>
-                  <th>Applicant</th>
-                  <th>Status</th>
-                  <th>Document</th>
-                  <th>Submitted</th>
-                  <th style="border-radius:0 12px 0 0">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($apps as $a): ?>
-                  <tr style="border-top:1px solid #eee;transition:background .2s;">
-                    <td style="padding:1rem;" data-label="#"><?= htmlspecialchars($a['id']) ?></td>
-                    <td style="padding:1rem;" data-label="Scholarship"><?= htmlspecialchars($a['scholarship_title'] ?? '—') ?></td>
-                    <td style="padding:1rem;" data-label="Applicant"><?= htmlspecialchars(($a['first_name'] ?? '') . ' ' . ($a['last_name'] ?? '') ?: ($a['username'] ?? '')) ?></td>
-                    <td style="padding:1rem;" data-label="Status">
-                      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:8px;background:<?= $a['status']=='Approved'?'#e0f7e9':($a['status']=='Pending'?'#fffbe6':($a['status']=='Rejected'?'#fee2e2':'#f3f4f6')) ?>;color:<?= $a['status']=='Approved'?'#16a34a':($a['status']=='Pending'?'#b91c1c':($a['status']=='Rejected'?'#b91c1c':'#444')) ?>;font-weight:600;font-size:0.95rem;" title="Status: <?= htmlspecialchars($a['status']) ?>">
-                        <?php if ($a['status']=='Approved'): ?>
-                          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" style="vertical-align:middle" title="Approved"><circle cx="10" cy="10" r="10" fill="#16a34a"/><path d="M6 10.5l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <?php elseif ($a['status']=='Pending'): ?>
-                          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" style="vertical-align:middle" title="Pending"><circle cx="10" cy="10" r="10" fill="#b91c1c"/><path d="M10 5v5l3 3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <?php elseif ($a['status']=='Rejected'): ?>
-                          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" style="vertical-align:middle" title="Rejected"><circle cx="10" cy="10" r="10" fill="#b91c1c"/><path d="M7 7l6 6M13 7l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <?php else: ?>
-                          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" style="vertical-align:middle" title="Other"><circle cx="10" cy="10" r="10" fill="#888"/><path d="M10 6v4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="14" r="1" fill="#fff"/></svg>
-                        <?php endif; ?>
-                        <?= htmlspecialchars($a['status']) ?>
-                      </span>
-                    </td>
-                    <td style="padding:1rem;" data-label="Document">
-                      <?php if (!empty($a['document'])): ?>
-                        <a href="../<?= htmlspecialchars($a['document']) ?>" target="_blank" style="color:#b91c1c;text-decoration:underline;font-weight:500;display:inline-flex;align-items:center;gap:4px" title="View submitted document">
-                          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style="vertical-align:middle" title="Document"><rect x="3" y="3" width="14" height="14" rx="2" fill="#b91c1c"/><path d="M7 7h6v6H7V7z" fill="#fff"/></svg>
-                          View
-                        </a>
-                      <?php else: ?>—<?php endif; ?>
-                    </td>
-                    <td style="padding:1rem;" data-label="Submitted"><small><?= htmlspecialchars($a['created_at']) ?></small></td>
-                    <td style="padding:1rem;" data-label="Actions">
-                      <a href="applications.php?view=<?= $a['id'] ?>" style="color:#b91c1c;text-decoration:none;font-weight:500;margin-right:8px">View</a>
-                      <form method="POST" style="display:inline" onsubmit="return confirm('Delete this application? This action cannot be undone.');">
-                        <input type="hidden" name="action" value="delete_application">
-                        <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                        <button type="submit" style="background:transparent;border:none;color:#b91c1c;cursor:pointer;font-weight:500;padding:0">Delete</button>
-                      </form>
-                    </td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        <?php endif; ?>
-        <?php endif; ?>
-      </section>
-      <script>
-        function handleReject(form){
-          if(!confirm('Reject this application?')) return false;
-          var reason = prompt('Optional: provide a reason or comment for rejection (leave blank to skip):','');
-          if(reason !== null){
-            var inp = form.querySelector('input[name="reason"]');
-            if(inp) inp.value = reason;
-          }
-          return true;
-        }
-        function handleDocAction(form, action){
-          if(action === 'verify'){
-            if(!confirm('Mark this document as verified?')) return false;
-            return true;
-          }
-          if(action === 'reject'){
-            if(!confirm('Reject this document?')) return false;
-            var note = prompt('Provide a note for the applicant (optional):','');
-            if(note !== null){
-              var n = form.querySelector('input[name="notes"]');
-              if(n) n.value = note;
-            }
-            return true;
-          }
-          return true;
-        }
-      </script>
-    </main>
-  </div>
-</body>
-</html>
-
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

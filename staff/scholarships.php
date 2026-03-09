@@ -31,33 +31,17 @@ if ($edit_id) {
 		}
 }
 ?>
-<!doctype html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width,initial-scale=1">
-	<title>Scholarship Management | Staff</title>
-	<link rel="stylesheet" href="../assets/style.css">
-	<link rel="stylesheet" href="../assets/staff-dashboard.css">
-	<style>
-		.form-modal { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-		.form-group { margin-bottom: 15px; }
-		.form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-		.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-		.requirement-item { margin-bottom: 10px; }
-		.requirement-item input { width: calc(100% - 100px); display: inline-block; }
-		.btn-add-req { padding: 8px 15px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
-		.btn-remove-req { padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px; }
-	</style>
-</head>
-<body>
-	<div class="dashboard-app">
-		<aside class="sidebar">
-			<div class="profile">
-				<div class="avatar">S</div>
-				<div>
-					<div class="welcome">Staff</div>
-					<div class="username"><?= htmlspecialchars($_SESSION['user']['username']) ?></div>
+<?php
+$page_title = 'Scholarship Management - ScholarHub';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+require_once __DIR__ . '/../includes/modern-sidebar.php';
+?>
+
+<div class="page-header">
+	<h1>🎓 Scholarship Management</h1>
+	<p class="text-muted">Create, edit, and manage scholarship programs</p>
+</div>
 				</div>
 			</div>
 			<nav>

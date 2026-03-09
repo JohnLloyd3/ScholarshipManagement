@@ -99,138 +99,122 @@ $days_remaining = null;
 $eligible = null;
 $eligibility_notes = [];
 ?>
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Apply for Scholarship | Student</title>
-  <link rel="stylesheet" href="../assets/style.css">
-  <link rel="stylesheet" href="dashboard.css">
-  <style>
-    .form-section { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .form-group { margin-bottom: 15px; }
-    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-    .requirements-list { background: #f9f9f9; padding: 15px; border-radius: 4px; margin: 15px 0; }
-    .requirements-list ul { margin: 10px 0; padding-left: 20px; }
-    .scholarship-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
-    .scholarship-card:hover { background: #f5f5f5; }
-    .scholarship-card.selected { border-color: #4CAF50; background: #e8f5e9; }
-  </style>
-</head>
-<body>
-  <div class="dashboard-app">
-    <aside class="sidebar">
-      <div class="profile">
-        <div class="avatar"><?= strtoupper(substr(($_SESSION['user']['first_name']??$_SESSION['user']['username']),0,1)) ?></div>
-        <div>
-          <div class="welcome">Welcome,</div>
-          <div class="username"><?= htmlspecialchars($_SESSION['user']['first_name'] ?? $_SESSION['user']['username']) ?></div>
+<?php
+$page_title = 'Apply for Scholarship - ScholarHub';
+$base_path = '../';
+require_once __DIR__ . '/../includes/modern-header.php';
+require_once __DIR__ . '/../includes/modern-sidebar.php';
+?>
+
+<div class="page-header">
+  <h1>📝 Apply for Scholarship</h1>
+  <p class="text-muted">Select a scholarship and complete your application</p>
+</div>
+
+<?php if (!empty($_SESSION['success'])): ?>
+  <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+<?php endif; ?>
+
+<?php if (!empty($_SESSION['flash'])): ?>
+  <div class="alert alert-error"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
+<?php endif; ?>
+
+<div class="content-card">
+  <h3 style="margin-bottom: var(--space-xl);">Available Scholarships</h3>
+  <?php if (empty($scholarships)): ?>
+    <div class="empty-state">
+      <div class="empty-state-icon">🎓</div>
+      <h3 class="empty-state-title">No Open Scholarships</h3>
+      <p class="empty-state-description">There are no open scholarships available at this time. Check back later!</p>
+    </div>
+  <?php else: ?>
+    <div style="display: grid; gap: var(--space-lg);">
+      <?php foreach ($scholarships as $sch): ?>
+        <div class="card <?= $selected_scholarship && $selected_scholarship['id'] == $sch['id'] ? 'selected' : '' ?>" 
+             onclick="window.location.href='?scholarship_id=<?= $sch['id'] ?>'"
+             style="cursor: pointer; <?= $selected_scholarship && $selected_scholarship['id'] == $sch['id'] ? 'border: 2px solid var(--red-primary); background: var(--red-ghost);' : '' ?>">
+          <div class="card-header">
+            <h4 class="card-title"><?= htmlspecialchars($sch['title']) ?></h4>
+          </div>
+          <div class="card-body">
+            <p><strong>Organization:</strong> <?= htmlspecialchars($sch['organization'] ?? 'N/A') ?></p>
+            <p><?= htmlspecialchars(substr($sch['description'] ?? '', 0, 150)) ?>...</p>
+          </div>
         </div>
-      </div>
-      <nav>
-        <a href="dashboard.php">Dashboard</a>
-        <a href="applications.php">Your Applications</a>
-        <a href="apply_scholarship.php">Scholarships</a>
-        <a href="notifications.php">Notifications</a>
-        <a href="../auth/logout.php">Logout</a>
-      </nav>
-    </aside>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
 
-    <main class="main">
-      <div class="header-row">
-        <div>
-          <h2>Apply for Scholarship</h2>
-          <p class="muted">Select a scholarship and complete your application</p>
-        </div>
-      </div>
-
-      <?php if (!empty($_SESSION['success'])): ?>
-        <div class="flash success-flash"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
-      <?php endif; ?>
-
-      <?php if (!empty($_SESSION['flash'])): ?>
-        <div class="flash error-flash"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
-      <?php endif; ?>
-
-      <section class="panel">
-        <h3>Available Scholarships</h3>
-        <?php if (empty($scholarships)): ?>
-          <p>No open scholarships available at this time.</p>
-        <?php else: ?>
-          <?php foreach ($scholarships as $sch): ?>
-            <div class="scholarship-card <?= $selected_scholarship && $selected_scholarship['id'] == $sch['id'] ? 'selected' : '' ?>" 
-                 onclick="window.location.href='?scholarship_id=<?= $sch['id'] ?>'">
-              <h4><?= htmlspecialchars($sch['title']) ?></h4>
-              <p><strong>Organization:</strong> <?= htmlspecialchars($sch['organization'] ?? 'N/A') ?></p>
-              <p><?= htmlspecialchars(substr($sch['description'] ?? '', 0, 150)) ?>...</p>
-            </div>
+<?php if ($selected_scholarship): ?>
+  <div class="content-card" style="margin-top: var(--space-xl);">
+    <h3 style="margin-bottom: var(--space-xl);">Application Form: <?= htmlspecialchars($selected_scholarship['title']) ?></h3>
+    
+    <?php if (!empty($requirements)): ?>
+      <div class="alert alert-info" style="margin-bottom: var(--space-lg);">
+        <strong>📋 Eligibility Requirements:</strong>
+        <ul style="margin: var(--space-sm) 0 0 var(--space-lg); padding: 0;">
+          <?php foreach ($requirements as $req): ?>
+            <?php if (is_array($req)): ?>
+              <li><?= htmlspecialchars($req['requirement'] ?? ($req['value'] ?? '')) ?></li>
+            <?php else: ?>
+              <li><?= htmlspecialchars($req) ?></li>
+            <?php endif; ?>
           <?php endforeach; ?>
+        </ul>
+      </div>
+    <?php endif; ?>
+
+    <?php if (!empty($required_documents)): ?>
+      <div class="alert alert-info" style="margin-bottom: var(--space-lg);">
+        <strong>📄 Required Documents:</strong>
+        <ul style="margin: var(--space-sm) 0 0 var(--space-lg); padding: 0;">
+          <?php foreach ($required_documents as $rd): ?>
+            <li><?= htmlspecialchars($rd) ?></li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+    <?php endif; ?>
+
+    <?php if (isset($days_remaining)): ?>
+      <div class="alert <?= $days_remaining > 7 ? 'alert-success' : 'alert-warning' ?>" style="margin-bottom: var(--space-lg);">
+        <strong>⏰ Deadline:</strong>
+        <?php if ($days_remaining > 0): ?>
+          <?= (int)$days_remaining ?> day(s) remaining (<?= htmlspecialchars($selected_scholarship['deadline']) ?>)
+        <?php else: ?>
+          Deadline reached (<?= htmlspecialchars($selected_scholarship['deadline']) ?>)
         <?php endif; ?>
-      </section>
+      </div>
+    <?php endif; ?>
 
-      <?php if ($selected_scholarship): ?>
-        <section class="form-section">
-          <h3>Application Form: <?= htmlspecialchars($selected_scholarship['title']) ?></h3>
-          <?php if (!empty($requirements)): ?>
-            <div class="requirements-list">
-              <strong>Eligibility Requirements:</strong>
-              <ul>
-                <?php foreach ($requirements as $req): ?>
-                  <?php if (is_array($req)): ?>
-                    <li><?= htmlspecialchars($req['requirement'] ?? ($req['value'] ?? '')) ?></li>
-                  <?php else: ?>
-                    <li><?= htmlspecialchars($req) ?></li>
-                  <?php endif; ?>
-                <?php endforeach; ?>
-              </ul>
-            </div>
-          <?php endif; ?>
-
-          <?php if (!empty($required_documents)): ?>
-            <div class="requirements-list">
-              <strong>Required Documents:</strong>
-              <ul>
-                <?php foreach ($required_documents as $rd): ?>
-                  <li><?= htmlspecialchars($rd) ?></li>
-                <?php endforeach; ?>
-              </ul>
-            </div>
-          <?php endif; ?>
-
-          <?php if (isset($days_remaining)): ?>
-            <div class="requirements-list">
-              <strong>Deadline:</strong>
-              <?php if ($days_remaining > 0): ?>
-                <span><?= (int)$days_remaining ?> day(s) remaining (<?= htmlspecialchars($selected_scholarship['deadline']) ?>)</span>
-              <?php else: ?>
-                <span>Deadline reached (<?= htmlspecialchars($selected_scholarship['deadline']) ?>)</span>
-              <?php endif; ?>
-            </div>
-          <?php endif; ?>
-
-          <?php if (isset($eligible) && $eligible === false): ?>
-            <div class="requirements-list" style="background:#fff4f4;border-left:4px solid #f56565">
-              <strong>Eligibility notice:</strong>
-              <ul>
-                <?php foreach ($eligibility_notes as $note): ?>
-                  <li><?= htmlspecialchars($note) ?></li>
-                <?php endforeach; ?>
-              </ul>
-              <small>You may still apply, but your application could be flagged during screening.</small>
-            </div>
-          <?php elseif (isset($eligible) && $eligible === true): ?>
-            <div class="requirements-list" style="background:#f0fff4;border-left:4px solid #16a34a">
-              <strong>Eligibility:</strong> You appear to meet basic eligibility requirements.
-            </div>
-          <?php endif; ?>
-          <form method="POST" action="../controllers/ApplicationController.php" enctype="multipart/form-data">
+    <?php if (isset($eligible) && $eligible === false): ?>
+      <div class="alert alert-warning" style="margin-bottom: var(--space-lg);">
+        <strong>⚠️ Eligibility Notice:</strong>
+        <ul style="margin: var(--space-sm) 0 0 var(--space-lg); padding: 0;">
+          <?php foreach ($eligibility_notes as $note): ?>
+            <li><?= htmlspecialchars($note) ?></li>
+          <?php endforeach; ?>
+        </ul>
+        <small>You may still apply, but your application could be flagged during screening.</small>
+      </div>
+    <?php elseif (isset($eligible) && $eligible === true): ?>
+      <div class="alert alert-success" style="margin-bottom: var(--space-lg);">
+        <strong>✅ Eligibility:</strong> You appear to meet basic eligibility requirements.
+      </div>
+    <?php endif; ?>
+          <form id="appForm" method="POST" action="../controllers/ApplicationController.php" enctype="multipart/form-data">
             <input type="hidden" name="action" value="create">
             <input type="hidden" name="scholarship_id" value="<?= $selected_scholarship['id'] ?>">
 
+            <div id="stepProgress" style="display:flex;gap:.5rem;margin-bottom:12px;align-items:center">
+              <?php $stepCount = 7; for($i=1;$i<=$stepCount;$i++): ?>
+                <div class="step-dot" data-step="<?= $i ?>" style="flex:1;padding:.4rem;border-radius:6px;text-align:center;background:#f3f4f6;color:#6b7280;font-weight:600">Step <?= $i ?></div>
+              <?php endfor; ?>
+            </div>
+
+            <!-- Multi-step: each .step is one page -->
             <!-- I. Personal Information -->
-            <div class="form-section">
+            <div class="form-section step">
               <h4>I. Personal Information</h4>
               <div class="form-group"><label>Full Name *</label><input type="text" name="full_name" required></div>
               <div class="form-group"><label>Sex *</label><select name="sex" required><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option><option value="Prefer not to say">Prefer not to say</option></select></div>
@@ -244,7 +228,7 @@ $eligibility_notes = [];
             </div>
 
             <!-- II. Senior High School Information -->
-            <div class="form-section">
+            <div class="form-section step">
               <h4>II. Senior High School Information</h4>
               <div class="form-group"><label>Name of Senior High School *</label><input type="text" name="shs_name" required></div>
               <div class="form-group"><label>School Address *</label><input type="text" name="shs_address" required></div>
@@ -254,7 +238,7 @@ $eligibility_notes = [];
             </div>
 
             <!-- III. College Enrollment Information -->
-            <div class="form-section">
+            <div class="form-section step">
               <h4>III. College Enrollment Information</h4>
               <div class="form-group"><label>Intended College/University *</label><input type="text" name="intended_college" required></div>
               <div class="form-group"><label>Course/Degree Program *</label><input type="text" name="course_program" required></div>
@@ -264,7 +248,7 @@ $eligibility_notes = [];
             </div>
 
             <!-- IV. Family Background -->
-            <div class="form-section">
+            <div class="form-section step">
               <h4>IV. Family Background</h4>
               <div class="form-group"><label>Father’s Name</label><input type="text" name="father_name"></div>
               <div class="form-group"><label>Occupation</label><input type="text" name="father_occupation"></div>
@@ -278,7 +262,7 @@ $eligibility_notes = [];
             </div>
 
             <!-- V. Scholarship Details -->
-            <div class="form-section">
+            <div class="form-section step">
               <h4>V. Scholarship Details</h4>
               <div class="form-group"><label>Scholarship Applying For</label><input type="text" name="scholarship_title" value="<?= htmlspecialchars($selected_scholarship['title']) ?>" readonly></div>
               <div class="form-group"><label>Receiving another scholarship?</label><select name="receiving_other"><option value="No">No</option><option value="Yes">Yes</option></select></div>
@@ -286,7 +270,7 @@ $eligibility_notes = [];
             </div>
 
             <!-- VI. Required Documents -->
-            <div class="form-section">
+            <div class="form-section step">
               <h4>VI. Required Documents (please attach)</h4>
               <div class="form-group">
                 <label><input type="checkbox" name="docs_checklist[]" value="Grade 12 Report Card"> Grade 12 Report Card (Form 138)</label><br>
@@ -303,19 +287,92 @@ $eligibility_notes = [];
             </div>
 
             <!-- VII. Applicant’s Declaration -->
-            <div class="form-section">
+            <div class="form-section step">
               <h4>VII. Applicant’s Declaration</h4>
               <p>I certify that the information provided is true and correct. I understand that providing false information may result in disqualification from the scholarship program.</p>
               <div class="form-group"><label>Applicant’s Name & Signature *</label><input type="text" name="applicant_signature" required></div>
               <div class="form-group"><label>Date *</label><input type="date" name="applicant_date" required></div>
             </div>
 
-            <button type="submit" class="submit-btn">Submit Application</button>
-            <a href="apply_scholarship.php" style="margin-left:10px">Cancel</a>
+            <div style="display:flex;gap:var(--space-md);align-items:center;margin-top:var(--space-xl);">
+              <button type="button" id="prevBtn" class="btn btn-secondary" style="display:none;">← Previous</button>
+              <button type="button" id="nextBtn" class="btn btn-primary">Next →</button>
+              <button type="submit" name="save_draft" value="1" class="btn btn-ghost">💾 Save Draft</button>
+              <button type="submit" class="btn btn-primary">✅ Submit Application</button>
+              <a href="apply_scholarship.php" style="margin-left:var(--space-md)" class="text-muted">Cancel</a>
+            </div>
           </form>
-        </section>
-      <?php endif; ?>
-    </main>
+
+          <script>
+            (function(){
+              const steps = Array.from(document.querySelectorAll('.step'));
+              const dots = Array.from(document.querySelectorAll('#stepProgress .step-dot'));
+              const form = document.getElementById('appForm');
+              let cur = 0;
+
+              function updateProgress(i){
+                dots.forEach((d,idx)=>{
+                  d.style.background = idx<=i ? '#b91c1c' : '#f3f4f6';
+                  d.style.color = idx<=i ? '#fff' : '#6b7280';
+                });
+              }
+
+              function show(i){
+                steps.forEach((s,idx)=> s.style.display = idx===i ? 'block' : 'none');
+                updateProgress(i);
+                prevBtn.style.display = i>0 ? 'inline-block' : 'none';
+                nextBtn.style.display = i < steps.length-1 ? 'inline-block' : 'none';
+              }
+
+              function validateStep(i){
+                const step = steps[i];
+                const required = Array.from(step.querySelectorAll('[required]'));
+                for (const el of required){
+                  if (el.type === 'checkbox' || el.type === 'radio'){
+                    // ensure at least one in group checked
+                    const name = el.name;
+                    const group = step.querySelectorAll('[name="'+name+'"]');
+                    let ok = false;
+                    group.forEach(g=>{ if (g.checked) ok = true; });
+                    if (!ok) { el.focus(); return {valid:false, message:'Please complete required fields.'}; }
+                  } else if (el.type === 'file'){
+                    if (el.required && el.files.length === 0){ el.focus(); return {valid:false, message:'Please attach required files.'}; }
+                  } else if (!el.value || el.value.trim() === ''){
+                    el.focus();
+                    return {valid:false, message:'Please fill the required field: ' + (el.previousElementSibling ? el.previousElementSibling.innerText : el.name)};
+                  }
+                }
+                return {valid:true};
+              }
+
+              const prevBtn = document.getElementById('prevBtn');
+              const nextBtn = document.getElementById('nextBtn');
+
+              prevBtn.addEventListener('click', ()=>{ if(cur>0){ cur--; show(cur); } });
+              nextBtn.addEventListener('click', ()=>{
+                const v = validateStep(cur);
+                if (!v.valid){ alert(v.message); return; }
+                if(cur<steps.length-1){ cur++; show(cur); }
+              });
+
+              // Final submit: validate all required fields across steps
+              form.addEventListener('submit', function(e){
+                // If user clicked Save Draft (name save_draft present) allow partial
+                const fm = new FormData(form);
+                if (fm.get('save_draft')) return true;
+                for(let i=0;i<steps.length;i++){
+                  const v = validateStep(i);
+                  if (!v.valid){ e.preventDefault(); alert(v.message); show(i); cur = i; return false; }
+                }
+                return true;
+              });
+
+              // initialize
+              show(cur);
+            })();
+          </script>
+    </form>
   </div>
-</body>
-</html>
+<?php endif; ?>
+
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>
