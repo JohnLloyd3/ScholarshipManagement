@@ -36,8 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $role = $_POST['role'] ?? 'student';
         $phone = trim($_POST['phone'] ?? '');
         $address = trim($_POST['address'] ?? '');
-        $secret_question = trim($_POST['secret_question'] ?? '');
-        $secret_answer = trim($_POST['secret_answer'] ?? '');
         
         $errors = [];
         
@@ -107,14 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors['role'] = 'Invalid role selected';
         }
 
-        // Validate secret question/answer (required)
-        if (empty($secret_question)) {
-            $errors['secret_question'] = 'Secret question is required';
-        }
-        if (empty($secret_answer)) {
-            $errors['secret_answer'] = 'Secret answer is required';
-        }
-        
         if (empty($errors)) {
             try {
                         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email OR username = :username");
@@ -124,10 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $_SESSION['message_type'] = 'error';
                         } else {
                             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-                            $secretHash = password_hash($secret_answer, PASSWORD_BCRYPT);
                             $stmt = $pdo->prepare("
-                                INSERT INTO users (first_name, last_name, email, username, password, role, phone, address, secret_question, secret_answer_hash, active)
-                                VALUES (:first_name, :last_name, :email, :username, :password, :role, :phone, :address, :secret_question, :secret_answer_hash, 1)
+                                INSERT INTO users (first_name, last_name, email, username, password, role, phone, address, active)
+                                VALUES (:first_name, :last_name, :email, :username, :password, :role, :phone, :address, 1)
                             ");
                             $stmt->execute([
                                 ':first_name' => $first_name,
@@ -138,8 +127,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 ':role' => $role,
                                 ':phone' => $phone,
                                 ':address' => $address,
-                                ':secret_question' => $secret_question,
-                                ':secret_answer_hash' => $secretHash
                             ]);
                     $_SESSION['message'] = 'User created successfully!';
                     $_SESSION['message_type'] = 'success';
@@ -331,18 +318,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch users
 $filter = $_GET['role'] ?? '';
-$query = "
-    SELECT id, username, first_name, last_name, email, role, active, created_at, email_verified
-    FROM users
-";
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 20;
+$offset = ($page - 1) * $perPage;
+
+$baseWhere = '';
 $params = [];
 if ($filter && in_array($filter, ['admin', 'staff', 'student'])) {
-    $query .= " WHERE role = :filter";
+    $baseWhere = " WHERE role = :filter";
     $params[':filter'] = $filter;
 }
 
-$query .= " ORDER BY created_at DESC";
+// Count total
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM users" . $baseWhere);
+$countStmt->execute($params);
+$totalUsers_filtered = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalUsers_filtered / $perPage));
 
+$query = "SELECT id, username, first_name, last_name, email, role, active, created_at, email_verified FROM users" . $baseWhere . " ORDER BY created_at DESC LIMIT $perPage OFFSET $offset";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -455,19 +448,21 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td><?= $user['email_verified'] ? '✓ Yes' : '✗ No' ?></td>
             <td><?= date('M d, Y', strtotime($user['created_at'])) ?></td>
             <td>
-              <button class="btn btn-ghost btn-sm" onclick="openEditModal(<?= $user['id'] ?>, '<?= sanitizeString($user['first_name']) ?>', '<?= sanitizeString($user['last_name']) ?>', '<?= sanitizeString($user['email']) ?>')">Edit</button>
-              <?php if ($user['id'] != $_SESSION['user_id']): ?>
-                <form method="POST" style="display: inline;">
-                  <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-                  <input type="hidden" name="action" value="activate_deactivate">
-                  <input type="hidden" name="id" value="<?= $user['id'] ?>">
-                  <input type="hidden" name="current_status" value="<?= $user['active'] ?>">
-                  <button type="submit" class="btn btn-ghost btn-sm">
-                    <?= $user['active'] ? 'Deactivate' : 'Activate' ?>
-                  </button>
-                </form>
-                <button class="btn btn-ghost btn-sm" onclick="openDeleteModal(<?= $user['id'] ?>, '<?= sanitizeString($user['first_name']) ?> <?= sanitizeString($user['last_name']) ?>')">Delete</button>
-              <?php endif; ?>
+              <div style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center">
+                <button class="btn btn-primary btn-sm" onclick="openEditModal(<?= $user['id'] ?>, '<?= sanitizeString($user['first_name']) ?>', '<?= sanitizeString($user['last_name']) ?>', '<?= sanitizeString($user['email']) ?>')">Edit</button>
+                <?php if ($user['id'] != $_SESSION['user_id']): ?>
+                  <form method="POST" style="display:contents">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                    <input type="hidden" name="action" value="activate_deactivate">
+                    <input type="hidden" name="id" value="<?= $user['id'] ?>">
+                    <input type="hidden" name="current_status" value="<?= $user['active'] ?>">
+                    <button type="submit" class="btn btn-primary btn-sm" style="background:<?= $user['active'] ? '#f59e0b' : '#10b981' ?>">
+                      <?= $user['active'] ? 'Deactivate' : 'Activate' ?>
+                    </button>
+                  </form>
+                  <button class="btn btn-primary btn-sm" style="background:#dc2626" onclick="openDeleteModal(<?= $user['id'] ?>, '<?= sanitizeString($user['first_name']) ?> <?= sanitizeString($user['last_name']) ?>')">Delete</button>
+                <?php endif; ?>
+              </div>
             </td>
           </tr>
         <?php endforeach; ?>
@@ -478,6 +473,18 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <div class="empty-state-icon">👥</div>
       <h3 class="empty-state-title">No Users Found</h3>
       <p class="empty-state-description">No users match the selected filter.</p>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($totalPages > 1): ?>
+    <div style="display:flex;justify-content:center;align-items:center;gap:var(--space-md);margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--gray-200);">
+      <?php if ($page > 1): ?>
+        <a href="?page=<?= $page-1 ?>&role=<?= urlencode($filter) ?>" class="btn btn-ghost">← Previous</a>
+      <?php endif; ?>
+      <span class="text-muted">Page <?= $page ?> of <?= $totalPages ?> (<?= $totalUsers_filtered ?> total)</span>
+      <?php if ($page < $totalPages): ?>
+        <a href="?page=<?= $page+1 ?>&role=<?= urlencode($filter) ?>" class="btn btn-ghost">Next →</a>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 </div>
@@ -573,30 +580,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <?php if ($error = getFieldError('role')): ?>
                         <div class="field-error-message"><?= sanitizeString($error) ?></div>
                     <?php endif; ?>
-                </div>
-                
-                <div class="form-group <?= getFieldErrorClass('secret_question') ?>">
-                    <label>Secret Question</label>
-                    <select name="secret_question" required>
-                        <option value="">Select a question</option>
-                        <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
-                        <option value="What is the name of your first pet?">What is the name of your first pet?</option>
-                        <option value="What city were you born in?">What city were you born in?</option>
-                        <option value="What is your favorite teacher's name?">What is your favorite teacher's name?</option>
-                        <option value="What is your favorite food?">What is your favorite food?</option>
-                    </select>
-                    <?php if ($error = getFieldError('secret_question')): ?>
-                        <div class="field-error-message"><?= sanitizeString($error) ?></div>
-                    <?php endif; ?>
-                </div>
-
-                <div class="form-group <?= getFieldErrorClass('secret_answer') ?>">
-                    <label>Secret Answer</label>
-                    <input type="text" name="secret_answer" required placeholder="Enter your answer">
-                    <?php if ($error = getFieldError('secret_answer')): ?>
-                        <div class="field-error-message"><?= sanitizeString($error) ?></div>
-                    <?php endif; ?>
-                    <small>Keep it memorable. Do not share it with anyone.</small>
                 </div>
                 
                 <button type="submit" class="btn btn-success">Create User</button>

@@ -1,6 +1,10 @@
 <?php
+session_start();
 require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../auth/helpers.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+requireLogin();
+requireRole('student', 'Student access required');
 
 $q = trim($_GET['q'] ?? '');
 try {

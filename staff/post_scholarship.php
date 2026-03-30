@@ -1,12 +1,21 @@
 <?php
-// Scholarship Posting Form
-require_once __DIR__ . '/../auth/helpers.php';
-require_role(['admin', 'staff']);
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+requireLogin();
+requireAnyRole(['admin','staff'], 'Staff access required');
 
 $pdo = getPDO();
+$errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request. Please try again.';
+        header('Location: post_scholarship.php');
+        exit;
+    }
+
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $organization = trim($_POST['organization'] ?? '');
@@ -16,7 +25,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $deadline = trim($_POST['deadline'] ?? '');
     $amount = trim($_POST['amount'] ?? '');
 
-    $errors = [];
     if (!$title || !$organization) {
         $errors[] = 'Title and organization are required.';
     }
@@ -27,11 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Scholarship amount is required and must be a number.';
     }
 
-    // Prevent duplicate scholarship entries
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM scholarships WHERE title = :title AND organization = :organization AND deadline = :deadline AND amount = :amount');
-    $stmt->execute(['title' => $title, 'organization' => $organization, 'deadline' => $deadline, 'amount' => $amount]);
-    if ($stmt->fetchColumn() > 0) {
-        $errors[] = 'Scholarship with this title, organization, deadline, and amount already exists.';
+    if (!$errors) {
+        // Prevent duplicate scholarship entries
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM scholarships WHERE title = :title AND organization = :organization AND deadline = :deadline AND amount = :amount');
+        $stmt->execute(['title' => $title, 'organization' => $organization, 'deadline' => $deadline, 'amount' => $amount]);
+        if ($stmt->fetchColumn() > 0) {
+            $errors[] = 'Scholarship with this title, organization, deadline, and amount already exists.';
+        }
     }
 
     if (!$errors) {
@@ -46,13 +56,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'deadline' => $deadline,
             'amount' => $amount
         ]);
-        $scholarship_id = $pdo->lastInsertId();
+        $scholarship_id = (int)$pdo->lastInsertId();
+        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_CREATED', 'scholarship', $scholarship_id, null, $title);
         header('Location: ../staff/scholarships.php?posted=1');
         exit;
     }
 }
-?>
-<?php
+
+$csrf_token = generateCSRFToken();
 $page_title = 'Post Scholarship - ScholarHub';
 $base_path = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
@@ -63,86 +74,69 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <h1>➕ Post Scholarship</h1>
   <p class="text-muted">Create a new scholarship opportunity</p>
 </div>
-        <link rel="stylesheet" href="../assets/style.css">
-        <style>
-            body { background: #f7f7fa; }
-            .main { max-width: 650px; margin: 40px auto; background: #fff; padding: 32px; border-radius: 10px; box-shadow: 0 2px 16px #e0e0e0; }
-            h2 { text-align: center; margin-bottom: 30px; font-size: 2.2rem; }
-            .form-group { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
-            .form-group label { flex: 0 0 180px; margin-bottom: 0; font-weight: 500; color: #222; font-size: 1rem; }
-            .form-group input, .form-group select, .form-group textarea {
-                flex: 1 1 320px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem;
-                background: #fff; margin-left: 10px; min-width: 0;
-            }
-            .form-group textarea { resize: vertical; min-height: 38px; }
-            .btn { display: block; width: 100%; background: #4CAF50; color: #fff; border: none; padding: 13px 0; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 18px; transition: background 0.2s; }
-            .btn:hover { background: #388e3c; }
-            .flash.error-flash { background: #ffeaea; color: #b71c1c; border: 1px solid #ffcdd2; padding: 10px 18px; border-radius: 6px; margin-bottom: 18px; }
-            #requirements-container { margin-top: 8px; }
-            .requirement-item { display: flex; align-items: center; margin-bottom: 8px; }
-            .requirement-item input { flex: 1 1 220px; margin-left: 0; margin-right: 10px; }
-            .requirement-item button { background: #e53935; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-size: 0.95rem; cursor: pointer; transition: background 0.2s; }
-            .requirement-item button:hover { background: #b71c1c; }
-            .form-group > button[type="button"] { background: #1976d2; color: #fff; border: none; border-radius: 4px; padding: 7px 16px; font-size: 0.98rem; margin-top: 6px; cursor: pointer; transition: background 0.2s; }
-            .form-group > button[type="button"]:hover { background: #0d47a1; }
-            @media (max-width: 700px) {
-                .main { padding: 10px; }
-                .form-group { flex-direction: column; align-items: stretch; }
-                .form-group label { margin-bottom: 6px; }
-                .form-group input, .form-group select, .form-group textarea { margin-left: 0; }
-                .requirement-item { flex-direction: column; align-items: stretch; }
-                .requirement-item input { margin-right: 0; margin-bottom: 6px; }
-            }
-        </style>
-</head>
-<body>
-    <div class="main">
-        <h2>Post Scholarship</h2>
-        <?php if (!empty($errors)): ?>
-            <div class="flash error-flash">
-                <?php foreach ($errors as $e): ?>
-                    <div><?= htmlspecialchars($e) ?></div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-        <form method="POST">
-            <div class="form-group">
-                <label>Title *</label>
-                <input type="text" name="title" required value="<?= htmlspecialchars($_POST['title'] ?? '') ?>">
-            </div>
-            <div class="form-group">
-                <label>Organization *</label>
-                <input type="text" name="organization" required value="<?= htmlspecialchars($_POST['organization'] ?? '') ?>">
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea name="description" rows="3"><?= htmlspecialchars($_POST['description'] ?? '') ?></textarea>
-            </div>
-            <div class="form-group">
-                <label>Eligibility Requirements</label>
-                <textarea name="eligibility_requirements" rows="4"><?= htmlspecialchars($_POST['eligibility_requirements'] ?? '') ?></textarea>
-            </div>
-            <div class="form-group">
-                <label>Renewal Requirements</label>
-                <textarea name="renewal_requirements" rows="4"><?= htmlspecialchars($_POST['renewal_requirements'] ?? '') ?></textarea>
-            </div>
-            <div class="form-group">
-                <label>Scholarship Amount *</label>
-                <input type="number" name="amount" step="0.01" min="0" required value="<?= htmlspecialchars($_POST['amount'] ?? '') ?>">
-            </div>
-            <div class="form-group">
-                <label>Application Deadline *</label>
-                <input type="date" name="deadline" required value="<?= htmlspecialchars($_POST['deadline'] ?? '') ?>">
-            </div>
-            <div class="form-group">
-                <label>Status</label>
-                <select name="status">
-                    <option value="open" <?= ($_POST['status'] ?? 'open') == 'open' ? 'selected' : '' ?>>Open</option>
-                    <option value="closed" <?= ($_POST['status'] ?? '') == 'closed' ? 'selected' : '' ?>>Closed</option>
-                </select>
-            </div>
-            <button type="submit" class="btn">Post Scholarship</button>
-        </form>
+
+<?php if (!empty($errors)): ?>
+  <div class="alert alert-error">
+    <?php foreach ($errors as $e): ?>
+      <div><?= htmlspecialchars($e) ?></div>
+    <?php endforeach; ?>
+  </div>
+<?php endif; ?>
+
+<div class="content-card">
+  <a href="scholarships.php" class="btn btn-secondary" style="margin-bottom:var(--space-xl)">← Back to Scholarships</a>
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+
+    <div class="form-group">
+      <label class="form-label">Title *</label>
+      <input type="text" name="title" class="form-input" required value="<?= htmlspecialchars($_POST['title'] ?? '') ?>">
     </div>
-</body>
-</html>
+
+    <div class="form-group">
+      <label class="form-label">Organization *</label>
+      <input type="text" name="organization" class="form-input" required value="<?= htmlspecialchars($_POST['organization'] ?? '') ?>">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea name="description" class="form-input" rows="4"><?= htmlspecialchars($_POST['description'] ?? '') ?></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Eligibility Requirements</label>
+      <textarea name="eligibility_requirements" class="form-input" rows="4"><?= htmlspecialchars($_POST['eligibility_requirements'] ?? '') ?></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Renewal Requirements</label>
+      <textarea name="renewal_requirements" class="form-input" rows="4"><?= htmlspecialchars($_POST['renewal_requirements'] ?? '') ?></textarea>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">Scholarship Amount *</label>
+        <input type="number" name="amount" class="form-input" step="0.01" min="0" required value="<?= htmlspecialchars($_POST['amount'] ?? '') ?>">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Application Deadline *</label>
+        <input type="date" name="deadline" class="form-input" required value="<?= htmlspecialchars($_POST['deadline'] ?? '') ?>">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select name="status" class="form-select">
+        <option value="open" <?= ($_POST['status'] ?? 'open') === 'open' ? 'selected' : '' ?>>Open</option>
+        <option value="closed" <?= ($_POST['status'] ?? '') === 'closed' ? 'selected' : '' ?>>Closed</option>
+      </select>
+    </div>
+
+    <div style="margin-top:var(--space-xl)">
+      <button type="submit" class="btn btn-primary">➕ Post Scholarship</button>
+    </div>
+  </form>
+</div>
+
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

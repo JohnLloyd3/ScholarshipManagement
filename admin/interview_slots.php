@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuditHelper.php';
 
 requireLogin();
 requireAnyRole(['admin', 'staff'], 'Admin or Staff access required');
@@ -29,6 +30,11 @@ if ($prefilledAppId) {
 
 // Handle POST actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request token.';
+        header('Location: interview_slots.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     
     if ($action === 'create_slot') {
@@ -62,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             
             $slotId = $pdo->lastInsertId();
+            logAudit($pdo, $_SESSION['user_id'], 'INTERVIEW_SLOT_CREATED', 'interview_slot', $slotId, null, json_encode(['scholarship_id' => $scholarshipId, 'date' => $date, 'time' => $time]));
             
             // If specific application, auto-book them
             if ($applicationId) {
@@ -87,6 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':app_id' => $applicationId,
                         ':user_id' => $userInfo['user_id']
                     ]);
+                    $bookingId = $pdo->lastInsertId();
+                    logAudit($pdo, $_SESSION['user_id'], 'INTERVIEW_BOOKING_CREATED', 'interview_booking', $bookingId, null, json_encode(['slot_id' => $slotId, 'application_id' => $applicationId]));
                     
                     // Send in-app notification
                     $notifStmt = $pdo->prepare('
@@ -159,6 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($slotId) {
             $stmt = $pdo->prepare('DELETE FROM interview_slots WHERE id = :id');
             $stmt->execute([':id' => $slotId]);
+            logAudit($pdo, $_SESSION['user_id'], 'INTERVIEW_SLOT_DELETED', 'interview_slot', $slotId, null, null);
             $_SESSION['success'] = 'Interview slot deleted.';
         }
     }
@@ -175,6 +185,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $maxApplicants = (int)($_POST['max_applicants'] ?? 1);
         
         if ($slotId && $scholarshipId && $date && $time) {
+            // Fetch old values before update
+            $oldStmt = $pdo->prepare('SELECT scholarship_id, interview_date, interview_time, duration_minutes, location, interview_type, meeting_link, max_applicants FROM interview_slots WHERE id = :id');
+            $oldStmt->execute([':id' => $slotId]);
+            $oldValues = $oldStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
             $stmt = $pdo->prepare('
                 UPDATE interview_slots 
                 SET scholarship_id = :sid, interview_date = :date, interview_time = :time, 
@@ -193,6 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':max' => $maxApplicants,
                 ':id' => $slotId
             ]);
+            logAudit($pdo, $_SESSION['user_id'], 'INTERVIEW_SLOT_UPDATED', 'interview_slot', $slotId, json_encode($oldValues), json_encode(['scholarship_id' => $scholarshipId, 'date' => $date, 'time' => $time, 'duration' => $duration, 'location' => $location, 'type' => $type, 'link' => $meetingLink, 'max' => $maxApplicants]));
             
             $_SESSION['success'] = 'Interview slot updated successfully!';
         } else {
@@ -224,6 +240,7 @@ $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $scholarships = $pdo->query('SELECT id, title FROM scholarships WHERE status = "open" ORDER BY title')->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'Interview Slots - ScholarHub';
+$csrf_token = generateCSRFToken();
 $base_path = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
@@ -309,6 +326,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 <form method="POST" style="display: inline; margin: 0;" onsubmit="return confirm('Delete this interview slot? All bookings will be removed.')">
                   <input type="hidden" name="action" value="delete_slot">
                   <input type="hidden" name="slot_id" value="<?= (int)$slot['id'] ?>">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                   <button type="submit" class="btn btn-ghost btn-sm" title="Delete Slot" style="color: #dc2626;">🗑️</button>
                 </form>
               </div>
@@ -335,6 +353,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </div>
     <form method="POST">
       <input type="hidden" name="action" value="create_slot">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <?php if ($prefilledAppId): ?>
         <input type="hidden" name="application_id" value="<?= (int)$prefilledAppId ?>">
       <?php endif; ?>
@@ -419,6 +438,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </div>
     <form method="POST" id="editForm">
       <input type="hidden" name="action" value="update_slot">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <input type="hidden" name="slot_id" id="edit_slot_id">
       
       <div class="form-group">

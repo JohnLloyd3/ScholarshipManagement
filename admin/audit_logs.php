@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
-require_role('admin');
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+requireLogin();
+requireRole('admin', 'Admin access required');
 
 $pdo = getPDO();
 

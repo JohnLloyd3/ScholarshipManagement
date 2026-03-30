@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuditHelper.php';
 require_once __DIR__ . '/../config/email.php';
 
 requireLogin();
@@ -13,6 +14,11 @@ $userId = $_SESSION['user_id'];
 
 // Handle booking action
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request token.';
+        header('Location: interview_booking.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     
     if ($action === 'book_slot') {
@@ -54,6 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':app_id' => $appId,
                         ':user_id' => $userId
                     ]);
+                    $bookingId = $pdo->lastInsertId();
+                    logAudit($pdo, $userId, 'INTERVIEW_BOOKING_CREATED', 'interview_booking', $bookingId, null, json_encode(['slot_id' => $slotId, 'application_id' => $appId]));
                     
                     // Send notification
                     $notifStmt = $pdo->prepare('
@@ -108,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = :id AND user_id = :user_id
             ');
             $stmt->execute([':id' => $bookingId, ':user_id' => $userId]);
+            logAudit($pdo, $userId, 'INTERVIEW_BOOKING_CANCELLED', 'interview_booking', $bookingId, 'scheduled', 'cancelled');
             $_SESSION['success'] = 'Interview booking cancelled.';
         }
     }
@@ -178,6 +187,7 @@ foreach ($applications as $app) {
 }
 
 $page_title = 'Interview Booking - ScholarHub';
+$csrf_token = generateCSRFToken();
 $base_path = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
@@ -241,6 +251,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 <form method="POST" style="display: inline;" onsubmit="return confirm('Cancel this booking?')">
                   <input type="hidden" name="action" value="cancel_booking">
                   <input type="hidden" name="booking_id" value="<?= (int)$booking['id'] ?>">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                   <button type="submit" class="btn btn-ghost btn-sm">❌ Cancel</button>
                 </form>
               <?php endif; ?>
@@ -300,6 +311,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <input type="hidden" name="action" value="book_slot">
                     <input type="hidden" name="slot_id" value="<?= (int)$slot['id'] ?>">
                     <input type="hidden" name="application_id" value="<?= (int)$appId ?>">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                     <button type="submit" class="btn btn-primary btn-sm">📅 Book Slot</button>
                   </form>
                 </td>

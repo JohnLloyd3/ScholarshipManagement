@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
-require_role(['staff','admin']);
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+requireLogin();
+requireAnyRole(['staff','admin'], 'Staff access required');
 
 $pdo = getPDO();
 
@@ -113,6 +115,39 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <?php endforeach; ?>
     </tbody>
   </table>
+</div>
+
+<div class="content-card" style="margin-top:var(--space-xl);">
+  <h3 style="margin-bottom:var(--space-lg);">⏰ Automated Scheduling Setup</h3>
+  <p class="text-muted" style="margin-bottom:var(--space-lg);">To run these scripts automatically, set up a scheduled task on your server.</p>
+
+  <h4 style="margin-bottom:var(--space-md);">Linux / cPanel (crontab)</h4>
+  <pre style="background:var(--gray-900);color:#e2e8f0;padding:var(--space-lg);border-radius:var(--radius-lg);overflow-x:auto;font-size:0.85rem;margin-bottom:var(--space-xl);"># Run every hour
+0 * * * * /usr/bin/php <?= htmlspecialchars(realpath(__DIR__ . '/../cron/auto_close_scholarships.php')) ?> >> /tmp/cron_close.log 2>&1
+
+# Run daily at midnight
+0 0 * * * /usr/bin/php <?= htmlspecialchars(realpath(__DIR__ . '/../cron/auto_archive_scholarships.php')) ?> >> /tmp/cron_archive.log 2>&1
+
+# Send deadline reminders daily at 8am
+0 8 * * * /usr/bin/php <?= htmlspecialchars(realpath(__DIR__ . '/../cron/send_deadline_reminders.php')) ?> >> /tmp/cron_reminders.log 2>&1
+
+# Process email queue every 5 minutes
+*/5 * * * * /usr/bin/php <?= htmlspecialchars(realpath(__DIR__ . '/../cron/process_email_queue.php')) ?> >> /tmp/cron_email.log 2>&1</pre>
+
+  <h4 style="margin-bottom:var(--space-md);">Windows (Task Scheduler)</h4>
+  <pre style="background:var(--gray-900);color:#e2e8f0;padding:var(--space-lg);border-radius:var(--radius-lg);overflow-x:auto;font-size:0.85rem;"># Open PowerShell as Administrator and run:
+
+# Auto-close scholarships (every hour)
+schtasks /create /tn "ScholarHub_AutoClose" /tr "C:\xampp\php\php.exe <?= str_replace('/', '\\', realpath(__DIR__ . '/../cron/auto_close_scholarships.php')) ?>" /sc hourly /f
+
+# Archive scholarships (daily midnight)
+schtasks /create /tn "ScholarHub_Archive" /tr "C:\xampp\php\php.exe <?= str_replace('/', '\\', realpath(__DIR__ . '/../cron/auto_archive_scholarships.php')) ?>" /sc daily /st 00:00 /f
+
+# Deadline reminders (daily 8am)
+schtasks /create /tn "ScholarHub_Reminders" /tr "C:\xampp\php\php.exe <?= str_replace('/', '\\', realpath(__DIR__ . '/../cron/send_deadline_reminders.php')) ?>" /sc daily /st 08:00 /f
+
+# Email queue (every 5 minutes)
+schtasks /create /tn "ScholarHub_EmailQueue" /tr "C:\xampp\php\php.exe <?= str_replace('/', '\\', realpath(__DIR__ . '/../cron/process_email_queue.php')) ?>" /sc minute /mo 5 /f</pre>
 </div>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

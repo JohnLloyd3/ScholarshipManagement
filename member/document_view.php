@@ -1,8 +1,9 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
+session_start();
 require_once __DIR__ . '/../config/db.php';
-
-require_login();
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+if (!defined('APP_BASE')) define('APP_BASE', '');
+requireLogin();
 $pdo = getPDO();
 $user = $_SESSION['user'] ?? [];
 $user_id = $_SESSION['user_id'] ?? 0;

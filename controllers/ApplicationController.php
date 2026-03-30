@@ -15,6 +15,12 @@ $action = $_POST['action'] ?? '';
 $pdo = getPDO();
 $user_id = $_SESSION['user_id'];
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    $_SESSION['flash'] = 'Invalid request. Please try again.';
+    header('Location: ../member/apply_scholarship.php');
+    exit;
+}
+
 if ($action === 'create') {
     $scholarship_id = (int)($_POST['scholarship_id'] ?? 0);
 
@@ -233,6 +239,16 @@ if ($action === 'create') {
 
         // Commit after successful inserts and screening
         $pdo->commit();
+
+        // Run fraud detection non-blocking (only for final submissions)
+        if (!$is_draft) {
+            try {
+                require_once __DIR__ . '/../helpers/FraudDetectionHelper.php';
+                runFraudDetection($pdo, $application_id);
+            } catch (Exception $e) {
+                error_log('[ApplicationController] fraud detection error: ' . $e->getMessage());
+            }
+        }
 
         // Log audit trail
         logAuditTrail($pdo, $user_id, 'APPLICATION_SUBMITTED', 'applications', $application_id, 'Initial status: ' . $final_status);

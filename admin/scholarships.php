@@ -48,6 +48,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':deadline' => $deadline,
                     ':created_by' => $_SESSION['user_id']
                 ]);
+                $newId = (int)$pdo->lastInsertId();
+                // Sync to relational eligibility_requirements table
+                if ($eligibility_requirements && $newId) {
+                    try {
+                        $pdo->prepare("DELETE FROM eligibility_requirements WHERE scholarship_id = :sid")->execute([':sid' => $newId]);
+                        foreach (array_filter(array_map('trim', explode("\n", $eligibility_requirements))) as $req) {
+                            $pdo->prepare("INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)")->execute([':sid' => $newId, ':req' => $req]);
+                        }
+                    } catch (Exception $e) { /* table may not exist yet */ }
+                }
                 $_SESSION['message'] = 'Scholarship created successfully!';
             } catch (Exception $e) {
                 $_SESSION['message'] = 'Error: ' . $e->getMessage();
@@ -84,6 +94,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':deadline' => $deadline,
                     ':status' => $status
                 ]);
+                // Sync to relational eligibility_requirements table
+                try {
+                    $pdo->prepare("DELETE FROM eligibility_requirements WHERE scholarship_id = :sid")->execute([':sid' => $id]);
+                    foreach (array_filter(array_map('trim', explode("\n", $eligibility_requirements))) as $req) {
+                        $pdo->prepare("INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)")->execute([':sid' => $id, ':req' => $req]);
+                    }
+                } catch (Exception $e) { /* table may not exist yet */ }
                 $_SESSION['message'] = 'Scholarship updated successfully!';
                 header('Location: scholarships.php');
                 exit;
@@ -289,13 +306,15 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               <td><?= $sch['app_count'] ?? 0 ?></td>
               <td><span class="status-badge status-<?= $sch['status'] ?>"><?= $sch['status'] ?></span></td>
               <td>
-                <a href="?action=edit&id=<?= $sch['id'] ?>" class="btn btn-ghost btn-sm">Edit</a>
-                <form style="display: inline;" method="POST" onsubmit="return confirm('Delete this scholarship?');">
-                  <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-                  <input type="hidden" name="action" value="delete">
-                  <input type="hidden" name="id" value="<?= $sch['id'] ?>">
-                  <button type="submit" class="btn btn-ghost btn-sm">Delete</button>
-                </form>
+                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center">
+                  <a href="?action=edit&id=<?= $sch['id'] ?>" class="btn btn-primary btn-sm">Edit</a>
+                  <form style="display:contents" method="POST" onsubmit="return confirm('Delete this scholarship?');">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="id" value="<?= $sch['id'] ?>">
+                    <button type="submit" class="btn btn-primary btn-sm" style="background:#dc2626">Delete</button>
+                  </form>
+                </div>
               </td>
             </tr>
           <?php endforeach; ?>

@@ -1,3 +1,25 @@
+<?php
+session_start();
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/email.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+
+if (!isset($_SESSION['user_id']) || ($_SESSION['user']['role'] ?? '') !== 'admin') {
+    $_SESSION['flash'] = 'Admin access only.';
+    header('Location: ../auth/login.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    $_SESSION['flash'] = 'Invalid request. Please try again.';
+    header('Location: ../admin/dashboard.php');
+    exit;
+}
+
+$action = $_POST['action'] ?? '';
+$pdo = getPDO();
+
 if ($action === 'create_user') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -6,7 +28,6 @@ if ($action === 'create_user') {
     $email = trim($_POST['email'] ?? '');
     $role = trim($_POST['role'] ?? '');
 
-    // Only allow staff
     if (!in_array($role, ['staff'])) {
         $_SESSION['flash'] = 'Invalid role for user creation.';
         header('Location: ../admin/users.php');
@@ -17,7 +38,6 @@ if ($action === 'create_user') {
         header('Location: ../admin/users.php');
         exit;
     }
-    // Check username or email exists
     $stmt = $pdo->prepare('SELECT id FROM users WHERE username = :u OR email = :e LIMIT 1');
     $stmt->execute([':u' => $username, ':e' => $email]);
     if ($stmt->fetch()) {
@@ -27,33 +47,11 @@ if ($action === 'create_user') {
     }
     $pwHash = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, role, active, email_verified, created_at) VALUES (:u, :p, :f, :l, :e, :r, 1, 1, NOW())');
-    $stmt->execute([
-        ':u' => $username,
-        ':p' => $pwHash,
-        ':f' => $first,
-        ':l' => $last,
-        ':e' => $email,
-        ':r' => $role
-    ]);
+    $stmt->execute([':u'=>$username,':p'=>$pwHash,':f'=>$first,':l'=>$last,':e'=>$email,':r'=>$role]);
     $_SESSION['success'] = 'User created successfully.';
     header('Location: ../admin/users.php');
     exit;
 }
-<?php
-session_start();
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../config/email.php';
-
-if (!isset($_SESSION['user_id']) || ($_SESSION['user']['role'] ?? '') !== 'admin') {
-    $_SESSION['flash'] = 'Admin access only.';
-    header('Location: ../auth/login.php');
-    exit;
-}
-
-$action = $_POST['action'] ?? '';
-$pdo = getPDO();
-
-// Reviewer assignment removed: review workflow is no longer supported.
 
 if ($action === 'delete') {
     $id = (int)($_POST['id'] ?? 0);
@@ -70,7 +68,6 @@ if ($action === 'set_application_status') {
     $id = (int)($_POST['id'] ?? 0);
     $status = trim($_POST['status'] ?? '');
     if ($id && in_array($status, ['draft','submitted','pending','under_review','approved','rejected','waitlisted'], true)) {
-        // Fetch application for notification (before update)
         $appStmt = $pdo->prepare('SELECT a.user_id, a.email, a.title, a.scholarship_id, s.title AS scholarship_title FROM applications a LEFT JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id');
         $appStmt->execute([':id' => $id]);
         $appRow = $appStmt->fetch();
@@ -78,9 +75,6 @@ if ($action === 'set_application_status') {
         $stmt = $pdo->prepare('UPDATE applications SET status = :s WHERE id = :id');
         $stmt->execute([':s' => $status, ':id' => $id]);
 
-        // Review table removed; no review synchronization required.
-
-        // 3.6 Notify applicant when approved or rejected
         if ($appRow && in_array($status, ['approved', 'rejected'], true)) {
             $userId = $appRow['user_id'];
             $email = $appRow['email'];
@@ -95,20 +89,12 @@ if ($action === 'set_application_status') {
                     $applicantName = trim(($uRow['first_name'] ?? '') . ' ' . ($uRow['last_name'] ?? '')) ?: 'Applicant';
                 }
                 $ins = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type) VALUES (:uid, :title, :msg, :type)');
-                $ins->execute([
-                    ':uid' => $userId,
-                    ':title' => 'Application ' . ucfirst($status),
-                    ':msg' => 'Your application for "' . $scholarshipTitle . '" has been ' . $status . '.',
-                    ':type' => $status === 'approved' ? 'success' : 'warning'
-                ]);
+                $ins->execute([':uid'=>$userId,':title'=>'Application '.ucfirst($status),':msg'=>'Your application for "'.$scholarshipTitle.'" has been '.$status.'.',':type'=>$status==='approved'?'success':'warning']);
             }
             if ($email) {
-                $subject = 'Application ' . ucfirst($status);
-                $body = "<p>Dear $applicantName,</p><p>Your application for '<b>$scholarshipTitle</b>' has been <b>$status</b>.</p>";
-                queueEmail($email, $subject, $body, $userId);
+                queueEmail($email, 'Application '.ucfirst($status), "<p>Dear $applicantName,</p><p>Your application for '<b>$scholarshipTitle</b>' has been <b>$status</b>.</p>", $userId);
             }
         }
-
         $_SESSION['success'] = 'Application status updated.';
     }
     header('Location: ../admin/applications.php');
@@ -123,21 +109,14 @@ if ($action === 'update_application') {
     $reviewComments = trim($_POST['review_comments'] ?? '');
 
     if ($id && $title !== '' && in_array($status, ['draft','submitted','pending','under_review','approved','rejected','waitlisted'], true)) {
-        // Fetch current application for notification (before update)
         $oldStmt = $pdo->prepare('SELECT a.status, a.user_id, a.email, a.scholarship_id, s.title AS scholarship_title FROM applications a LEFT JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id');
         $oldStmt->execute([':id' => $id]);
         $oldApp = $oldStmt->fetch();
         $scholarshipTitle = $oldApp['scholarship_title'] ?? null;
 
         $stmt = $pdo->prepare('UPDATE applications SET title = :t, details = :d, status = :s WHERE id = :id');
-        $stmt->execute([
-            ':t' => $title,
-            ':d' => $details,
-            ':s' => $status,
-            ':id' => $id
-        ]);
+        $stmt->execute([':t'=>$title,':d'=>$details,':s'=>$status,':id'=>$id]);
 
-        // 3.6 Notify applicant when status changed to approved or rejected
         if ($oldApp && in_array($status, ['approved', 'rejected'], true)) {
             $userId = $oldApp['user_id'];
             $email = $oldApp['email'];
@@ -151,28 +130,17 @@ if ($action === 'update_application') {
                     $email = $email ?: $uRow['email'];
                     $applicantName = trim(($uRow['first_name'] ?? '') . ' ' . ($uRow['last_name'] ?? '')) ?: 'Applicant';
                 }
+                $msg = 'Your application for "'.$schTitle.'" has been '.$status.'.';
+                if ($reviewComments !== '') $msg .= "\n\nComment: ".$reviewComments;
                 $ins = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type) VALUES (:uid, :title, :msg, :type)');
-                $msg = 'Your application for "' . $schTitle . '" has been ' . $status . '.';
-                if ($reviewComments !== '') {
-                    $msg .= "\n\nComment: " . $reviewComments;
-                }
-                $ins->execute([
-                    ':uid' => $userId,
-                    ':title' => 'Application ' . ucfirst($status),
-                    ':msg' => $msg,
-                    ':type' => $status === 'approved' ? 'success' : 'warning'
-                ]);
+                $ins->execute([':uid'=>$userId,':title'=>'Application '.ucfirst($status),':msg'=>$msg,':type'=>$status==='approved'?'success':'warning']);
             }
             if ($email) {
-                $subject = 'Application ' . ucfirst($status);
                 $body = "<p>Dear $applicantName,</p><p>Your application for '<b>$schTitle</b>' has been <b>$status</b>.</p>";
-                if ($reviewComments !== '') {
-                    $body .= "<p><b>Staff comment:</b> " . nl2br(htmlspecialchars($reviewComments)) . "</p>";
-                }
-                queueEmail($email, $subject, $body, $userId);
+                if ($reviewComments !== '') $body .= "<p><b>Staff comment:</b> ".nl2br(htmlspecialchars($reviewComments))."</p>";
+                queueEmail($email, 'Application '.ucfirst($status), $body, $userId);
             }
         }
-
         $_SESSION['success'] = 'Application updated.';
     } else {
         $_SESSION['flash'] = 'Invalid application update.';
@@ -184,7 +152,6 @@ if ($action === 'update_application') {
 if ($action === 'activate_user' || $action === 'deactivate_user') {
     $user_id = (int)($_POST['user_id'] ?? 0);
     $active = $action === 'activate_user' ? 1 : 0;
-    
     if ($user_id && $user_id != $_SESSION['user_id']) {
         $stmt = $pdo->prepare('UPDATE users SET active = :a WHERE id = :id');
         $stmt->execute([':a' => $active, ':id' => $user_id]);
@@ -197,7 +164,6 @@ if ($action === 'activate_user' || $action === 'deactivate_user') {
 if ($action === 'update_role') {
     $user_id = (int)($_POST['user_id'] ?? 0);
     $role = trim($_POST['role'] ?? '');
-    
     if ($user_id && in_array($role, ['admin', 'student', 'staff']) && $user_id != $_SESSION['user_id']) {
         $stmt = $pdo->prepare('UPDATE users SET role = :r WHERE id = :id');
         $stmt->execute([':r' => $role, ':id' => $user_id]);
@@ -210,7 +176,6 @@ if ($action === 'update_role') {
 if ($action === 'delete_user') {
     $user_id = (int)($_POST['user_id'] ?? 0);
     if ($user_id && $user_id != $_SESSION['user_id']) {
-        // Deleting a user will also delete related reviews (via FK) and set application.user_id NULL (via FK)
         $stmt = $pdo->prepare('DELETE FROM users WHERE id = :id');
         $stmt->execute([':id' => $user_id]);
         $_SESSION['success'] = 'User deleted.';
@@ -236,56 +201,19 @@ if ($action === 'create_scholarship') {
     if ($title) {
         try {
             $stmt = $pdo->prepare('INSERT INTO scholarships (title, description, organization, category, status, gpa_requirement, income_requirement, max_scholars, deadline, auto_close) VALUES (:t, :d, :o, :c, :s, :gpa, :inc, :max, :dl, :ac)');
-            $stmt->execute([
-                ':t' => $title,
-                ':d' => $description,
-                ':o' => $organization,
-                ':c' => $category,
-                ':s' => $status,
-                ':gpa' => $gpa,
-                ':inc' => $income,
-                ':max' => $max_scholars,
-                ':dl' => $deadline,
-                ':ac' => $auto_close
-            ]);
+            $stmt->execute([':t'=>$title,':d'=>$description,':o'=>$organization,':c'=>$category,':s'=>$status,':gpa'=>$gpa,':inc'=>$income,':max'=>$max_scholars,':dl'=>$deadline,':ac'=>$auto_close]);
             $scholarship_id = $pdo->lastInsertId();
-            // Add requirements
             if (is_array($requirements)) {
                 $reqStmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)');
-                foreach ($requirements as $req) {
-                    $req = trim($req);
-                    if ($req) {
-                        $reqStmt->execute([':sid' => $scholarship_id, ':req' => $req]);
-                    }
-                }
+                foreach ($requirements as $req) { $req = trim($req); if ($req) $reqStmt->execute([':sid'=>$scholarship_id,':req'=>$req]); }
             }
-            // Add required documents
             if (is_array($documents)) {
                 $docStmt = $pdo->prepare('INSERT INTO scholarship_documents (scholarship_id, document_name) VALUES (:sid, :doc)');
-                foreach ($documents as $doc) {
-                    $doc = trim($doc);
-                    if ($doc) {
-                        $docStmt->execute([':sid' => $scholarship_id, ':doc' => $doc]);
-                    }
-                }
-            }
-            // Also store document requirements in eligibility_requirements for backward compatibility
-            if (is_array($documents)) {
-                $reqDocStmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement, requirement_type, value) VALUES (:sid, :req, :rtype, :val)');
-                foreach ($documents as $doc) {
-                    $doc = trim($doc);
-                    if ($doc) {
-                        $reqDocStmt->execute([':sid' => $scholarship_id, ':req' => $doc, ':rtype' => 'documents', ':val' => '']);
-                    }
-                }
+                foreach ($documents as $doc) { $doc = trim($doc); if ($doc) $docStmt->execute([':sid'=>$scholarship_id,':doc'=>$doc]); }
             }
             $_SESSION['success'] = 'Scholarship created successfully.';
         } catch (PDOException $e) {
-            if (strpos($e->getMessage(), 'unique_scholarship') !== false) {
-                $_SESSION['flash'] = 'A scholarship with this title and organization already exists.';
-            } else {
-                $_SESSION['flash'] = 'Failed to create scholarship.';
-            }
+            $_SESSION['flash'] = strpos($e->getMessage(), 'unique_scholarship') !== false ? 'A scholarship with this title and organization already exists.' : 'Failed to create scholarship.';
         }
     }
     header('Location: ../admin/scholarships.php');
@@ -309,63 +237,22 @@ if ($action === 'update_scholarship') {
 
     if ($id && $title) {
         try {
-            $stmt = $pdo->prepare('UPDATE scholarships SET title = :t, description = :d, organization = :o, category = :c, status = :s, gpa_requirement = :gpa, income_requirement = :inc, max_scholars = :max, deadline = :dl, auto_close = :ac WHERE id = :id');
-            $stmt->execute([
-                ':t' => $title,
-                ':d' => $description,
-                ':o' => $organization,
-                ':c' => $category,
-                ':s' => $status,
-                ':gpa' => $gpa,
-                ':inc' => $income,
-                ':max' => $max_scholars,
-                ':dl' => $deadline,
-                ':ac' => $auto_close,
-                ':id' => $id
-            ]);
+            $stmt = $pdo->prepare('UPDATE scholarships SET title=:t, description=:d, organization=:o, category=:c, status=:s, gpa_requirement=:gpa, income_requirement=:inc, max_scholars=:max, deadline=:dl, auto_close=:ac WHERE id=:id');
+            $stmt->execute([':t'=>$title,':d'=>$description,':o'=>$organization,':c'=>$category,':s'=>$status,':gpa'=>$gpa,':inc'=>$income,':max'=>$max_scholars,':dl'=>$deadline,':ac'=>$auto_close,':id'=>$id]);
 
-            // Remove old requirements and add new ones
             $pdo->prepare('DELETE FROM eligibility_requirements WHERE scholarship_id = :id')->execute([':id' => $id]);
             if (is_array($requirements)) {
                 $reqStmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)');
-                foreach ($requirements as $req) {
-                    $req = trim($req);
-                    if ($req) {
-                        $reqStmt->execute([':sid' => $id, ':req' => $req]);
-                    }
-                }
+                foreach ($requirements as $req) { $req = trim($req); if ($req) $reqStmt->execute([':sid'=>$id,':req'=>$req]); }
             }
-
-            // Remove old documents and add new ones
             $pdo->prepare('DELETE FROM scholarship_documents WHERE scholarship_id = :id')->execute([':id' => $id]);
             if (is_array($documents)) {
                 $docStmt = $pdo->prepare('INSERT INTO scholarship_documents (scholarship_id, document_name) VALUES (:sid, :doc)');
-                foreach ($documents as $doc) {
-                    $doc = trim($doc);
-                    if ($doc) {
-                        $docStmt->execute([':sid' => $id, ':doc' => $doc]);
-                    }
-                }
+                foreach ($documents as $doc) { $doc = trim($doc); if ($doc) $docStmt->execute([':sid'=>$id,':doc'=>$doc]); }
             }
-
-            // Also add document requirements into eligibility_requirements
-            if (is_array($documents)) {
-                $reqDocStmt = $pdo->prepare('INSERT INTO eligibility_requirements (scholarship_id, requirement, requirement_type, value) VALUES (:sid, :req, :rtype, :val)');
-                foreach ($documents as $doc) {
-                    $doc = trim($doc);
-                    if ($doc) {
-                        $reqDocStmt->execute([':sid' => $id, ':req' => $doc, ':rtype' => 'documents', ':val' => '']);
-                    }
-                }
-            }
-
             $_SESSION['success'] = 'Scholarship updated.';
         } catch (PDOException $e) {
-            if (strpos($e->getMessage(), 'unique_scholarship') !== false) {
-                $_SESSION['flash'] = 'A scholarship with this title and organization already exists.';
-            } else {
-                $_SESSION['flash'] = 'Failed to update scholarship.';
-            }
+            $_SESSION['flash'] = strpos($e->getMessage(), 'unique_scholarship') !== false ? 'A scholarship with this title and organization already exists.' : 'Failed to update scholarship.';
         }
     } else {
         $_SESSION['flash'] = 'Invalid scholarship update.';
@@ -373,7 +260,7 @@ if ($action === 'update_scholarship') {
     header('Location: ../admin/scholarships.php');
     exit;
 }
-// Unknown action
+
 $_SESSION['flash'] = 'Unknown action.';
 header('Location: ../admin/dashboard.php');
 exit;

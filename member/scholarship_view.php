@@ -1,10 +1,14 @@
 <?php
+session_start();
 require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../auth/helpers.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+requireLogin();
+requireRole('student', 'Student access required');
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) {
-    header('Location: ' . APP_BASE . '/member/scholarships.php');
+    header('Location: scholarships.php');
     exit;
 }
 try {
@@ -12,11 +16,32 @@ try {
     $stmt = $pdo->prepare('SELECT * FROM scholarships WHERE id = :id');
     $stmt->execute([':id' => $id]);
     $s = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Load requirements from the relational table
+    $reqs = [];
+    $reqDocs = [];
+    if ($s) {
+        $rStmt = $pdo->prepare('SELECT requirement, requirement_type FROM eligibility_requirements WHERE scholarship_id = :id ORDER BY id');
+        $rStmt->execute([':id' => $id]);
+        foreach ($rStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (($r['requirement_type'] ?? '') === 'documents') {
+                $reqDocs[] = $r['requirement'];
+            } else {
+                $reqs[] = $r['requirement'];
+            }
+        }
+        // Also load scholarship_documents table
+        $dStmt = $pdo->prepare('SELECT document_name FROM scholarship_documents WHERE scholarship_id = :id');
+        $dStmt->execute([':id' => $id]);
+        foreach ($dStmt->fetchAll(PDO::FETCH_COLUMN) as $d) {
+            if (!in_array($d, $reqDocs)) $reqDocs[] = $d;
+        }
+    }
 } catch (Exception $e) {
-    $s = false;
+    $s = false; $reqs = []; $reqDocs = [];
 }
 if (!$s) {
-    header('Location: ' . APP_BASE . '/member/scholarships.php');
+    header('Location: scholarships.php');
     exit;
 }
 ?>
@@ -58,7 +83,17 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <?= nl2br(htmlspecialchars($s['description'])) ?>
   </p>
 
-  <?php if (!empty($s['eligibility_requirements'])): ?>
+  <?php if (!empty($reqs)): ?>
+    <hr style="margin: var(--space-xl) 0; border: none; border-top: 1px solid var(--gray-200);">
+    <h3 style="margin-bottom: var(--space-lg);">Eligibility Requirements</h3>
+    <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--radius-lg); border-left: 4px solid var(--red-primary);">
+      <ul style="margin:0;padding-left:var(--space-xl);line-height:1.8;color:var(--gray-700);">
+        <?php foreach ($reqs as $req): ?>
+          <li><?= htmlspecialchars($req) ?></li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+  <?php elseif (!empty($s['eligibility_requirements'])): ?>
     <hr style="margin: var(--space-xl) 0; border: none; border-top: 1px solid var(--gray-200);">
     <h3 style="margin-bottom: var(--space-lg);">Eligibility Requirements</h3>
     <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--radius-lg); border-left: 4px solid var(--red-primary);">
@@ -67,6 +102,18 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </p>
     </div>
   <?php endif; ?>
+
+  <?php if (!empty($reqDocs)): ?>
+    <hr style="margin: var(--space-xl) 0; border: none; border-top: 1px solid var(--gray-200);">
+    <h3 style="margin-bottom: var(--space-lg);">Required Documents</h3>
+    <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--radius-lg); border-left: 4px solid var(--red-primary);">
+      <ul style="margin:0;padding-left:var(--space-xl);line-height:1.8;color:var(--gray-700);">
+        <?php foreach ($reqDocs as $d): ?>
+          <li><?= htmlspecialchars($d) ?></li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+  <?php endif ?>
 
   <div style="margin-top: var(--space-2xl); display: flex; gap: var(--space-md);">
     <a href="apply_scholarship.php?scholarship_id=<?= $s['id'] ?>" class="btn btn-primary">📝 Apply for this Scholarship</a>

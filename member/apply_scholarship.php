@@ -1,8 +1,10 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
-require_login();
+requireLogin();
+requireRole('student', 'Student access required');
 
 $pdo = getPDO();
 $user_id = $_SESSION['user_id'];
@@ -93,11 +95,11 @@ if ($scholarship_id) {
     }
 }
 
-// Default containers
-$required_documents = [];
-$days_remaining = null;
-$eligible = null;
-$eligibility_notes = [];
+// Default containers (only set if not already set inside the if block above)
+if (!isset($required_documents)) $required_documents = [];
+if (!isset($days_remaining)) $days_remaining = null;
+if (!isset($eligible)) $eligible = null;
+if (!isset($eligibility_notes)) $eligibility_notes = [];
 ?>
 <?php
 $page_title = 'Apply for Scholarship - ScholarHub';
@@ -205,6 +207,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <form id="appForm" method="POST" action="../controllers/ApplicationController.php" enctype="multipart/form-data">
             <input type="hidden" name="action" value="create">
             <input type="hidden" name="scholarship_id" value="<?= $selected_scholarship['id'] ?>">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCSRFToken()) ?>">
 
             <div id="stepProgress" style="display:flex;gap:.5rem;margin-bottom:12px;align-items:center">
               <?php $stepCount = 7; for($i=1;$i<=$stepCount;$i++): ?>

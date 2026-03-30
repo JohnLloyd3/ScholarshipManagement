@@ -1,14 +1,9 @@
-
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
+session_start();
 require_once __DIR__ . '/../config/db.php';
-
-$role = $_SESSION['user']['role'] ?? '';
-if ($role !== 'staff') {
-		$_SESSION['flash'] = 'Access denied.';
-		header('Location: ../auth/login.php');
-		exit;
-}
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+requireLogin();
+requireAnyRole(['staff','admin'], 'Staff access required');
 
 $pdo = getPDO();
 
@@ -34,6 +29,7 @@ if ($edit_id) {
 <?php
 $page_title = 'Scholarship Management - ScholarHub';
 $base_path = '../';
+$csrf_token = generateCSRFToken();
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
@@ -74,6 +70,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 				<div class="form-modal">
 					<form method="POST" action="../controllers/AdminController.php">
 						<input type="hidden" name="action" value="<?= $edit_scholarship ? 'update_scholarship' : 'create_scholarship' ?>">
+						<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
 						<?php if ($edit_scholarship): ?>
 							<input type="hidden" name="id" value="<?= $edit_scholarship['id'] ?>">
 						<?php endif; ?>
@@ -156,6 +153,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 									<form method="POST" action="../controllers/AdminController.php" style="display:inline">
 										<input type="hidden" name="action" value="update_status">
 										<input type="hidden" name="id" value="<?= $s['id'] ?>">
+										<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
 										<select name="status" onchange="this.form.submit()">
 											<option value="open" <?= $s['status']=='open'?'selected':'' ?>>Open</option>
 											<option value="closed" <?= $s['status']=='closed'?'selected':'' ?>>Closed</option>
@@ -169,6 +167,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 									<form style="display:inline" method="POST" action="../controllers/AdminController.php" onsubmit="return confirm('Delete this scholarship?')">
 										<input type="hidden" name="action" value="delete_scholarship">
 										<input type="hidden" name="id" value="<?= $s['id'] ?>">
+										<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
 										<button type="submit" style="background:none;border:none;color:red;cursor:pointer;text-decoration:underline">Delete</button>
 									</form>
 								</td>

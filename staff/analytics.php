@@ -1,8 +1,10 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
-require_role(['staff','admin']);
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
+requireLogin();
+requireAnyRole(['staff','admin'], 'Staff access required');
 
 $pdo = getPDO();
 

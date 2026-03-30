@@ -50,24 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $newId = $pdo->lastInsertId();
                     // Audit log: announcement created
                     try {
-                        $auditStmt = $pdo->prepare(
-                            "INSERT INTO audit_logs (user_id, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent)
-                             VALUES (:user_id, :action, :entity_type, :entity_id, :old_values, :new_values, :ip_address, :user_agent)"
-                        );
-                        $newValues = json_encode(['title' => $title, 'message' => $message_content, 'type' => $type, 'published' => 1, 'expires_at' => $expires_at]);
-                        $auditStmt->execute([
-                            ':user_id' => $_SESSION['user_id'],
-                            ':action' => 'ANNOUNCEMENT_CREATED',
-                            ':entity_type' => 'announcements',
-                            ':entity_id' => $newId,
-                            ':old_values' => null,
-                            ':new_values' => $newValues,
-                            ':ip_address' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
-                            ':user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
-                        ]);
-                    } catch (Exception $e) {
-                        // non-fatal: continue
-                    }
+                        require_once __DIR__ . '/../helpers/AuditHelper.php';
+                        logAudit($pdo, $_SESSION['user_id'], 'ANNOUNCEMENT_CREATED', 'announcements', $newId, null, json_encode(['title'=>$title,'type'=>$type]));
+                    } catch (Exception $e) { /* non-fatal */ }
                     $_SESSION['message'] = 'Announcement created successfully!';
             } catch (Exception $e) {
                 $_SESSION['message'] = 'Error: ' . $e->getMessage();
@@ -87,25 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // audit log: announcement unpublished
                         try {
-                            $auditStmt = $pdo->prepare(
-                                "INSERT INTO audit_logs (user_id, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent)
-                                 VALUES (:user_id, :action, :entity_type, :entity_id, :old_values, :new_values, :ip_address, :user_agent)"
-                            );
-                            $oldValues = $oldRow ? json_encode($oldRow) : null;
-                            $newValues = json_encode(['published' => 0]);
-                            $auditStmt->execute([
-                                ':user_id' => $_SESSION['user_id'],
-                                ':action' => 'ANNOUNCEMENT_UNPUBLISHED',
-                                ':entity_type' => 'announcements',
-                                ':entity_id' => $id,
-                                ':old_values' => $oldValues,
-                                ':new_values' => $newValues,
-                                ':ip_address' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
-                                ':user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
-                            ]);
-                        } catch (Exception $e) {
-                            // continue
-                        }
+                            require_once __DIR__ . '/../helpers/AuditHelper.php';
+                            logAudit($pdo, $_SESSION['user_id'], 'ANNOUNCEMENT_UNPUBLISHED', 'announcements', $id, json_encode($oldRow), json_encode(['published'=>0]));
+                        } catch (Exception $e) { /* continue */ }
                         $_SESSION['message'] = 'Announcement unpublished!';
             } catch (Exception $e) {
                 $_SESSION['message'] = 'Error: ' . $e->getMessage();
@@ -125,24 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // audit log: announcement deleted
                         try {
-                            $auditStmt = $pdo->prepare(
-                                "INSERT INTO audit_logs (user_id, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent)
-                                 VALUES (:user_id, :action, :entity_type, :entity_id, :old_values, :new_values, :ip_address, :user_agent)"
-                            );
-                            $oldValues = $oldRow ? json_encode($oldRow) : null;
-                            $auditStmt->execute([
-                                ':user_id' => $_SESSION['user_id'],
-                                ':action' => 'ANNOUNCEMENT_DELETED',
-                                ':entity_type' => 'announcements',
-                                ':entity_id' => $id,
-                                ':old_values' => $oldValues,
-                                ':new_values' => null,
-                                ':ip_address' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
-                                ':user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
-                            ]);
-                        } catch (Exception $e) {
-                            // continue
-                        }
+                            require_once __DIR__ . '/../helpers/AuditHelper.php';
+                            logAudit($pdo, $_SESSION['user_id'], 'ANNOUNCEMENT_DELETED', 'announcements', $id, json_encode($oldRow), null);
+                        } catch (Exception $e) { /* continue */ }
                         $_SESSION['message'] = 'Announcement deleted!';
             } catch (Exception $e) {
                 $_SESSION['message'] = 'Error: ' . $e->getMessage();

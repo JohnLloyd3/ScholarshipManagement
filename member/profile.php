@@ -9,6 +9,11 @@ $user_id = $_SESSION['user_id'];
 
 // Handle profile picture upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request. Please try again.';
+        header('Location: profile.php');
+        exit;
+    }
     $file = $_FILES['profile_picture'];
     
     if ($file['error'] === UPLOAD_ERR_OK) {
@@ -45,6 +50,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
 
 // Handle update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request. Please try again.';
+        header('Location: profile.php');
+        exit;
+    }
+    // Password change
+    if (!empty($_POST['current_password'])) {
+        $stmt = $pdo->prepare('SELECT password FROM users WHERE id = :id');
+        $stmt->execute([':id' => $user_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!password_verify($_POST['current_password'], $row['password'] ?? '')) {
+            $_SESSION['flash'] = 'Current password is incorrect.';
+            header('Location: profile.php'); exit;
+        }
+        $new_pw = $_POST['new_password'] ?? '';
+        if (strlen($new_pw) < 8) {
+            $_SESSION['flash'] = 'New password must be at least 8 characters.';
+            header('Location: profile.php'); exit;
+        }
+        if ($new_pw !== ($_POST['confirm_new_password'] ?? '')) {
+            $_SESSION['flash'] = 'New passwords do not match.';
+            header('Location: profile.php'); exit;
+        }
+        $pdo->prepare('UPDATE users SET password = :pw WHERE id = :id')
+            ->execute([':pw' => password_hash($new_pw, PASSWORD_BCRYPT), ':id' => $user_id]);
+        $_SESSION['success'] = 'Password changed successfully!';
+        header('Location: profile.php'); exit;
+    }
+
     $name = sanitizeString($_POST['first_name'] ?? '');
     $last = sanitizeString($_POST['last_name'] ?? '');
     $email = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ? trim($_POST['email']) : null;
@@ -94,6 +128,7 @@ $profile = $ps->fetch(PDO::FETCH_ASSOC) ?: [];
 <?php
 $page_title = 'My Profile - ScholarHub';
 $base_path = '../';
+$csrf_token = generateCSRFToken();
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
@@ -133,6 +168,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         </span>
       </p>
       <form method="POST" enctype="multipart/form-data" style="margin-top: var(--space-md);">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
         <input type="file" name="profile_picture" accept="image/*" id="profilePicInput" style="display: none;" onchange="this.form.submit()">
         <label for="profilePicInput" class="btn btn-primary btn-sm" style="cursor: pointer;">
           📷 Change Photo
@@ -147,6 +183,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <h3 style="margin-bottom: var(--space-xl);">Personal Information</h3>
   
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
     <div class="grid-2" style="margin-bottom: var(--space-lg);">
       <div class="form-group">
         <label class="form-label">First Name *</label>
@@ -201,6 +238,26 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <button type="submit" class="btn btn-primary">💾 Save Changes</button>
       <a href="dashboard.php" class="btn btn-secondary">Cancel</a>
     </div>
+  </form>
+</div>
+
+<div class="content-card" style="margin-top: var(--space-xl);">
+  <h3 style="margin-bottom: var(--space-xl);">Change Password</h3>
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+    <div class="form-group">
+      <label class="form-label">Current Password *</label>
+      <input type="password" name="current_password" class="form-input" required placeholder="Enter current password">
+    </div>
+    <div class="form-group">
+      <label class="form-label">New Password * <small>(min 8 characters)</small></label>
+      <input type="password" name="new_password" class="form-input" required minlength="8" placeholder="Enter new password">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Confirm New Password *</label>
+      <input type="password" name="confirm_new_password" class="form-input" required minlength="8" placeholder="Repeat new password">
+    </div>
+    <button type="submit" class="btn btn-primary">🔒 Update Password</button>
   </form>
 </div>
 

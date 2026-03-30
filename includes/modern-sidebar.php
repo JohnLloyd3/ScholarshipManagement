@@ -13,24 +13,31 @@ $role = $_SESSION['user']['role'] ?? 'student';
   }
   
   .sidebar {
-    width: 280px;
+    width: 220px;
     background: var(--white);
     border-right: 1px solid var(--gray-200);
-    padding: var(--space-xl);
+    padding: var(--space-md) var(--space-sm);
     position: fixed;
     height: 100vh;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-200) transparent;
   }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
   
   .sidebar-logo {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: var(--red-primary);
-    margin-bottom: var(--space-2xl);
+    margin-bottom: var(--space-md);
     text-decoration: none;
+    padding: 0 var(--space-sm);
   }
   
   .sidebar-menu {
@@ -38,19 +45,22 @@ $role = $_SESSION['user']['role'] ?? 'student';
   }
   
   .sidebar-item {
-    margin-bottom: var(--space-sm);
+    margin-bottom: 2px;
   }
   
   .sidebar-link {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
-    padding: var(--space-md);
-    border-radius: var(--radius-lg);
+    gap: var(--space-sm);
+    padding: 0.4rem var(--space-sm);
+    border-radius: var(--radius-md);
     color: var(--gray-700);
     text-decoration: none;
     font-weight: 500;
-    transition: all 0.2s ease;
+    font-size: 0.8rem;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
   }
   
   .sidebar-link:hover,
@@ -60,27 +70,34 @@ $role = $_SESSION['user']['role'] ?? 'student';
   }
   
   .sidebar-icon {
-    font-size: 1.25rem;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
   }
   
   .main-content {
     flex: 1;
-    margin-left: 280px;
-    padding: var(--space-xl);
+    margin-left: 220px;
+    padding: var(--space-lg);
   }
   
   .page-header {
     background: var(--white);
     border-radius: var(--radius-xl);
-    padding: var(--space-xl);
-    margin-bottom: var(--space-xl);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
     box-shadow: var(--shadow-sm);
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
   }
   
   .content-card {
     background: var(--white);
     border-radius: var(--radius-xl);
-    padding: var(--space-xl);
+    padding: var(--space-lg);
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--gray-200);
   }
@@ -136,6 +153,24 @@ $role = $_SESSION['user']['role'] ?? 'student';
           </a>
         </li>
         <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>member/payouts.php" class="sidebar-link <?= $current_page === 'payouts.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">💰</span>
+            <span>My Payouts</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>member/surveys.php" class="sidebar-link <?= $current_page === 'surveys.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">📋</span>
+            <span>Surveys</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>member/feedback.php" class="sidebar-link <?= $current_page === 'feedback.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">⭐</span>
+            <span>Feedback</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
           <a href="<?= $base_path ?? '../' ?>member/profile.php" class="sidebar-link <?= $current_page === 'profile.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">👤</span>
             <span>Profile</span>
@@ -170,6 +205,24 @@ $role = $_SESSION['user']['role'] ?? 'student';
           <a href="<?= $base_path ?? '../' ?>staff/analytics.php" class="sidebar-link <?= $current_page === 'analytics.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">📈</span>
             <span>Analytics</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>staff/disbursements.php" class="sidebar-link <?= $current_page === 'disbursements.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">💰</span>
+            <span>Disbursements</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>staff/feedback.php" class="sidebar-link <?= $current_page === 'feedback.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">⭐</span>
+            <span>Feedback</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>staff/survey_results.php" class="sidebar-link <?= $current_page === 'survey_results.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">📋</span>
+            <span>Survey Results</span>
           </a>
         </li>
         <li class="sidebar-item">
@@ -252,9 +305,45 @@ $role = $_SESSION['user']['role'] ?? 'student';
           </a>
         </li>
         <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>admin/interview_bookings.php" class="sidebar-link <?= $current_page === 'interview_bookings.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">🗓️</span>
+            <span>Interview Bookings</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>admin/disbursements.php" class="sidebar-link <?= $current_page === 'disbursements.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">💰</span>
+            <span>Disbursements</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>admin/surveys.php" class="sidebar-link <?= $current_page === 'surveys.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">📋</span>
+            <span>Surveys</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>admin/feedback.php" class="sidebar-link <?= $current_page === 'feedback.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">⭐</span>
+            <span>Feedback</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
           <a href="<?= $base_path ?? '../' ?>admin/fraud_detection.php" class="sidebar-link <?= $current_page === 'fraud_detection.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">🛡️</span>
             <span>Fraud Detection</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>admin/activity_logs.php" class="sidebar-link <?= $current_page === 'activity_logs.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">📜</span>
+            <span>Activity Logs</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a href="<?= $base_path ?? '../' ?>admin/scholarship_archive.php" class="sidebar-link <?= $current_page === 'scholarship_archive.php' ? 'active' : '' ?>">
+            <span class="sidebar-icon">🗃️</span>
+            <span>Scholarship Archive</span>
           </a>
         </li>
         <li class="sidebar-item">
@@ -265,7 +354,7 @@ $role = $_SESSION['user']['role'] ?? 'student';
         </li>
       <?php endif; ?>
       
-      <li class="sidebar-item" style="margin-top: var(--space-xl); padding-top: var(--space-xl); border-top: 1px solid var(--gray-200);">
+      <li class="sidebar-item" style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--gray-200);">
         <a href="<?= $base_path ?? '../' ?>auth/logout.php" class="sidebar-link">
           <span class="sidebar-icon">🚪</span>
           <span>Logout</span>

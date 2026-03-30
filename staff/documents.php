@@ -1,8 +1,11 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
+session_start();
 require_once __DIR__ . '/../config/db.php';
-require_role(['staff','admin']);
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+requireLogin();
+requireAnyRole(['staff','admin'], 'Staff access required');
 $pdo = getPDO();
+$csrf_token = generateCSRFToken();
 
 // Fetch pending documents
 $stmt = $pdo->query("SELECT d.id, d.file_name, d.file_path, d.document_type, d.verification_status, d.uploaded_at, u.username, a.id as application_id, s.title as scholarship_title
@@ -44,6 +47,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php else: ?>
     <form method="POST" action="../controllers/DocumentController.php">
       <input type="hidden" name="action" value="verify_documents_bulk">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <table class="modern-table">
         <thead><tr><th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th><th>File</th><th>Applicant</th><th>Scholarship</th><th>Uploaded</th></tr></thead>
         <tbody>

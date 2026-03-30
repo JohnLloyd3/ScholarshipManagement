@@ -101,6 +101,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <a class="btn btn-primary" href="applications.php">📝 Manage Applications</a>
     <a class="btn btn-primary" href="analytics.php">📊 Analytics</a>
     <a class="btn btn-primary" href="activity_logs.php">📋 Activity Logs</a>
+    <a class="btn btn-primary" href="email_queue.php">📧 Email Queue</a>
+    <a class="btn btn-primary" href="disbursements.php">💰 Disbursements</a>
+    <a class="btn btn-primary" href="fraud_detection.php">🔍 Fraud Detection</a>
+    <a class="btn btn-primary" href="interview_slots.php">📅 Interview Slots</a>
+    <a class="btn btn-primary" href="interview_bookings.php">📆 Interview Bookings</a>
+    <a class="btn btn-primary" href="surveys.php">📋 Surveys</a>
+    <a class="btn btn-primary" href="announcements.php">📢 Announcements</a>
   </div>
 </div>
 
@@ -136,6 +143,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               <form style="display:inline" method="POST" action="../controllers/AdminController.php" onsubmit="return confirm('Delete this application?');">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" value="<?= $r['id'] ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCSRFToken()) ?>">
                 <button type="submit" class="btn btn-ghost btn-sm">🗑️ Delete</button>
               </form>
             </td>

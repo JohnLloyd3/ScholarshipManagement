@@ -1,7 +1,8 @@
 <?php
 // Shared role-aware navigation include
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-require_once __DIR__ . '/../auth/helpers.php';
+if (!defined('APP_BASE')) define('APP_BASE', '');
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 $user = $_SESSION['user'] ?? ['username' => 'Guest', 'first_name' => '', 'role' => 'student'];
 $role = $user['role'] ?? 'student';

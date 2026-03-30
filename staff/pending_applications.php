@@ -1,8 +1,11 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
+session_start();
 require_once __DIR__ . '/../config/db.php';
-require_role(['staff','admin']);
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+requireLogin();
+requireAnyRole(['staff','admin'], 'Staff access required');
 $pdo = getPDO();
+$csrf_token = generateCSRFToken();
 
 // Fetch pending/submitted/under_review applications
 $stmt = $pdo->query("SELECT a.id, a.title, a.status, a.created_at, u.username, u.first_name, u.last_name, s.title as scholarship_title
@@ -43,6 +46,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php else: ?>
     <form method="POST" action="applications.php">
       <input type="hidden" name="action" value="bulk_change_status">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <table class="modern-table">
         <thead><tr><th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th><th>#</th><th>Applicant</th><th>Title</th><th>Scholarship</th><th>Status</th><th>Submitted</th></tr></thead>
         <tbody>

@@ -56,8 +56,15 @@ $totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status
       </ul>
       
       <div class="navbar-actions">
-        <?php if (isLoggedIn()): ?>
-          <a href="member/dashboard.php" class="btn btn-ghost">Dashboard</a>
+        <?php if (isLoggedIn()):
+          $role = $_SESSION['user']['role'] ?? $_SESSION['role'] ?? 'student';
+          $dashUrl = match($role) {
+            'admin' => 'admin/dashboard.php',
+            'staff' => 'staff/dashboard.php',
+            default => 'member/dashboard.php',
+          };
+        ?>
+          <a href="<?= $dashUrl ?>" class="btn btn-ghost">Dashboard</a>
           <a href="auth/logout.php" class="btn btn-primary">Logout</a>
         <?php else: ?>
           <a href="auth/login.php" class="btn btn-ghost">Login</a>

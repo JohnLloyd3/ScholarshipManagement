@@ -56,15 +56,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':app_id' => $app_id
             ]);
             
-            // Send email
+            // Queue email
             $emailSubject = 'Application Approved - ' . $app['scholarship_title'];
-            $emailBody = "
-                <h2>Application Approved</h2>
-                <p>Dear " . htmlspecialchars($app['first_name']) . ",</p>
-                <p>Congratulations! Your application for <strong>" . htmlspecialchars($app['scholarship_title']) . "</strong> has been approved.</p>
-                <p>Please log in to your account for more details.</p>
-            ";
-            sendEmail($app['email'], $emailSubject, $emailBody, true);
+            $emailBody = "<h2>Application Approved</h2><p>Dear " . htmlspecialchars($app['first_name']) . ",</p><p>Congratulations! Your application for <strong>" . htmlspecialchars($app['scholarship_title']) . "</strong> has been approved.</p><p>Please log in to your account for more details.</p>";
+            queueEmail($app['email'], $emailSubject, $emailBody, $app['user_id']);
+            
+            // Auto-create pending disbursement
+            try {
+                $schStmt = $pdo->prepare("SELECT amount FROM scholarships WHERE id = :id");
+                $schStmt->execute([':id' => $app['scholarship_id']]);
+                $sch = $schStmt->fetch(PDO::FETCH_ASSOC);
+                $amount = $sch['amount'] ?? 0;
+                $disbStmt = $pdo->prepare("INSERT IGNORE INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, status, created_at) VALUES (:app_id, :user_id, :sch_id, :amount, CURDATE(), 'pending', NOW())");
+                $disbStmt->execute([':app_id' => $app_id, ':user_id' => $app['user_id'], ':sch_id' => $app['scholarship_id'], ':amount' => $amount]);
+            } catch (Exception $e) { error_log('[Disbursement] ' . $e->getMessage()); }
             
             $_SESSION['message'] = 'Application approved!';
         } catch (Exception $e) {
@@ -101,10 +106,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':app_id' => $app_id
             ]);
             
-            // Send email
+            // Queue email
             $emailSubject = 'Application Update - ' . $app['scholarship_title'];
-            sendEmail($app['email'], $emailSubject, 
-                "<h2>Application Status</h2><p>Dear " . htmlspecialchars($app['first_name']) . ",</p><p>Unfortunately, your application was not selected this round. Keep trying!</p>", true);
+            queueEmail($app['email'], $emailSubject,
+                "<h2>Application Status</h2><p>Dear " . htmlspecialchars($app['first_name']) . ",</p><p>Unfortunately, your application was not selected this round. Keep trying!</p>", $app['user_id']);
             
             $_SESSION['message'] = 'Application rejected!';
         } catch (Exception $e) {
@@ -113,26 +118,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch applications based on user role
-if (hasRole('admin')) {
-    $query = "
-        SELECT a.*, u.first_name, u.last_name, u.email, s.title as scholarship_title
-        FROM applications a
-        JOIN users u ON a.user_id = u.id
-        JOIN scholarships s ON a.scholarship_id = s.id
-        WHERE a.status != 'draft'
-        ORDER BY a.status ASC, a.submitted_at DESC
-    ";
-} else {
-    $query = "
-        SELECT a.*, u.first_name, u.last_name, u.email, s.title as scholarship_title
-        FROM applications a
-        JOIN users u ON a.user_id = u.id
-        JOIN scholarships s ON a.scholarship_id = s.id
-        WHERE a.status != 'draft'
-        ORDER BY a.status ASC, a.submitted_at DESC
-    ";
+function fraudScoreBadge(int $score): string {
+    if ($score <= 0) return '';
+    if ($score <= 25) {
+        $color = '#16a34a'; $bg = '#dcfce7'; $label = 'Low';
+    } elseif ($score <= 50) {
+        $color = '#ca8a04'; $bg = '#fef9c3'; $label = 'Med';
+    } elseif ($score <= 75) {
+        $color = '#ea580c'; $bg = '#ffedd5'; $label = 'High';
+    } else {
+        $color = '#dc2626'; $bg = '#fee2e2'; $label = 'Critical';
+    }
+    return '<span title="Fraud Score: ' . $score . '" style="display:inline-block;padding:2px 7px;border-radius:9999px;font-size:0.75rem;font-weight:600;background:' . $bg . ';color:' . $color . ';">' . $score . ' ' . $label . '</span>';
 }
+
+// Fetch applications based on user role
+$query = "
+    SELECT a.*, u.first_name, u.last_name, u.email, s.title as scholarship_title,
+           COALESCE(a.fraud_score, 0) as fraud_score
+    FROM applications a
+    JOIN users u ON a.user_id = u.id
+    JOIN scholarships s ON a.scholarship_id = s.id
+    WHERE a.status != 'draft'
+    ORDER BY a.status ASC, a.submitted_at DESC
+";
 
 $applications = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
@@ -273,6 +282,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <th>Applicant</th>
           <th>Scholarship</th>
           <th>Status</th>
+          <th>Fraud</th>
           <th>Submitted</th>
           <th>Actions</th>
         </tr>
@@ -284,15 +294,16 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               <td><?= sanitizeString($app['first_name'] . ' ' . $app['last_name']) ?></td>
               <td><?= sanitizeString($app['scholarship_title']) ?></td>
               <td><span class="status-badge status-<?= $app['status'] ?>"><?= $app['status'] ?></span></td>
+              <td><?= fraudScoreBadge((int)($app['fraud_score'] ?? 0)) ?></td>
               <td><?= date('M d, Y', strtotime($app['submitted_at'] ?? $app['created_at'])) ?></td>
               <td>
-                <a href="?action=view&id=<?= $app['id'] ?>" class="btn btn-primary btn-sm">View & Review</a>
+                <a href="../staff/application_view.php?id=<?= $app['id'] ?>" class="btn btn-primary btn-sm">View & Review</a>
               </td>
             </tr>
           <?php endforeach; ?>
         <?php else: ?>
           <tr>
-            <td colspan="5">
+            <td colspan="6">
               <div class="empty-state">
                 <div class="empty-state-icon">📝</div>
                 <h3 class="empty-state-title">No Applications</h3>

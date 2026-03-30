@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuditHelper.php';
 
 requireLogin();
 requireAnyRole(['admin', 'staff'], 'Admin or Staff access required');
@@ -11,6 +12,11 @@ $slotId = isset($_GET['slot_id']) ? (int)$_GET['slot_id'] : null;
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request token.';
+        header('Location: interview_bookings.php' . ($slotId ? '?slot_id=' . $slotId : ''));
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     
     if ($action === 'update_booking_status') {
@@ -18,15 +24,136 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = trim($_POST['status'] ?? '');
         
         if ($bookingId && in_array($status, ['confirmed', 'completed', 'cancelled', 'no-show'])) {
+            // Fetch old status before update
+            $oldStmt = $pdo->prepare('SELECT status FROM interview_bookings WHERE id = :id');
+            $oldStmt->execute([':id' => $bookingId]);
+            $oldStatus = $oldStmt->fetchColumn() ?: '';
+
             $stmt = $pdo->prepare('UPDATE interview_bookings SET status = :status WHERE id = :id');
             $stmt->execute([':status' => $status, ':id' => $bookingId]);
+            logAudit($pdo, $_SESSION['user_id'] ?? null, 'INTERVIEW_BOOKING_STATUS_CHANGED', 'interview_booking', $bookingId, $oldStatus, $status);
             
             if ($status === 'confirmed') {
                 $confirmStmt = $pdo->prepare('UPDATE interview_bookings SET confirmed_at = NOW() WHERE id = :id');
                 $confirmStmt->execute([':id' => $bookingId]);
+
+                // Send confirmation email to applicant
+                require_once __DIR__ . '/../config/email.php';
+                $infoStmt = $pdo->prepare('
+                    SELECT u.email, u.first_name, sch.title AS scholarship_title,
+                           sl.interview_date, sl.interview_time, sl.duration_minutes,
+                           sl.interview_type, sl.location, sl.meeting_link
+                    FROM interview_bookings b
+                    JOIN users u ON b.user_id = u.id
+                    JOIN applications a ON b.application_id = a.id
+                    JOIN scholarships sch ON a.scholarship_id = sch.id
+                    JOIN interview_slots sl ON b.slot_id = sl.id
+                    WHERE b.id = :id
+                ');
+                $infoStmt->execute([':id' => $bookingId]);
+                $info = $infoStmt->fetch(PDO::FETCH_ASSOC);
+                if ($info && !empty($info['email'])) {
+                    $body  = '<h2>Interview Confirmed</h2>';
+                    $body .= '<p>Dear ' . htmlspecialchars($info['first_name']) . ',</p>';
+                    $body .= '<p>Your interview for <strong>' . htmlspecialchars($info['scholarship_title']) . '</strong> has been <strong>confirmed</strong>.</p>';
+                    $body .= '<p><strong>Date:</strong> ' . date('F d, Y', strtotime($info['interview_date'])) . '</p>';
+                    $body .= '<p><strong>Time:</strong> ' . date('g:i A', strtotime($info['interview_time'])) . '</p>';
+                    $body .= '<p><strong>Duration:</strong> ' . (int)$info['duration_minutes'] . ' minutes</p>';
+                    if ($info['interview_type'] === 'online' && $info['meeting_link']) {
+                        $body .= '<p><strong>Meeting Link:</strong> <a href="' . htmlspecialchars($info['meeting_link']) . '">' . htmlspecialchars($info['meeting_link']) . '</a></p>';
+                    } elseif ($info['location']) {
+                        $body .= '<p><strong>Location:</strong> ' . htmlspecialchars($info['location']) . '</p>';
+                    }
+                    $body .= '<p>Please be on time. Good luck!</p><p>Best regards,<br>ScholarHub Team</p>';
+                    queueEmail($info['email'], 'Interview Confirmed – ' . $info['scholarship_title'], $body);
+                }
+            }
+
+            if ($status === 'cancelled') {
+                // Notify applicant of cancellation
+                require_once __DIR__ . '/../config/email.php';
+                $infoStmt = $pdo->prepare('
+                    SELECT u.email, u.first_name, sch.title AS scholarship_title, b.user_id
+                    FROM interview_bookings b
+                    JOIN users u ON b.user_id = u.id
+                    JOIN applications a ON b.application_id = a.id
+                    JOIN scholarships sch ON a.scholarship_id = sch.id
+                    WHERE b.id = :id
+                ');
+                $infoStmt->execute([':id' => $bookingId]);
+                $info = $infoStmt->fetch(PDO::FETCH_ASSOC);
+                if ($info && !empty($info['email'])) {
+                    // In-app notification
+                    try {
+                        $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, created_at) VALUES (:uid, :title, :msg, "warning", NOW())')
+                            ->execute([':uid' => $info['user_id'], ':title' => 'Interview Cancelled', ':msg' => 'Your interview booking for "' . $info['scholarship_title'] . '" has been cancelled. Please rebook if slots are available.']);
+                    } catch (Exception $e) {}
+                    $body  = '<h2>Interview Booking Cancelled</h2>';
+                    $body .= '<p>Dear ' . htmlspecialchars($info['first_name']) . ',</p>';
+                    $body .= '<p>Your interview booking for <strong>' . htmlspecialchars($info['scholarship_title']) . '</strong> has been cancelled.</p>';
+                    $body .= '<p>Please log in to rebook if other slots are available.</p>';
+                    $body .= '<p>Best regards,<br>ScholarHub Team</p>';
+                    queueEmail($info['email'], 'Interview Cancelled – ' . $info['scholarship_title'], $body);
+                }
             }
             
             $_SESSION['success'] = 'Booking status updated.';
+        }
+    }
+
+    if ($action === 'complete_interview') {
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
+        $applicationId = (int)($_POST['application_id'] ?? 0);
+
+        if ($bookingId && $applicationId) {
+            // Mark booking as completed
+            $pdo->prepare('UPDATE interview_bookings SET status = "completed" WHERE id = :id')
+                ->execute([':id' => $bookingId]);
+
+            // Advance application to under_review (next step after interview)
+            $pdo->prepare('UPDATE applications SET status = "under_review", reviewed_at = NOW() WHERE id = :id AND status NOT IN ("rejected","approved")')
+                ->execute([':id' => $applicationId]);
+
+            logAudit($pdo, $_SESSION['user_id'] ?? null, 'INTERVIEW_COMPLETED', 'interview_booking', $bookingId, null, json_encode(['application_id' => $applicationId]));
+
+            // Fetch applicant info for notification
+            $appStmt = $pdo->prepare('
+                SELECT a.user_id, a.scholarship_id, u.email, u.first_name, s.title as scholarship_title
+                FROM applications a
+                JOIN users u ON a.user_id = u.id
+                JOIN scholarships s ON a.scholarship_id = s.id
+                WHERE a.id = :id
+            ');
+            $appStmt->execute([':id' => $applicationId]);
+            $appInfo = $appStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($appInfo) {
+                // In-app notification
+                try {
+                    $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, related_scholarship_id, created_at)
+                                   VALUES (:uid, :title, :msg, "application", :aid, :sid, NOW())')
+                        ->execute([
+                            ':uid'   => $appInfo['user_id'],
+                            ':title' => 'Interview Completed',
+                            ':msg'   => 'Your interview for "' . $appInfo['scholarship_title'] . '" has been completed. Your application is now under review.',
+                            ':aid'   => $applicationId,
+                            ':sid'   => $appInfo['scholarship_id'],
+                        ]);
+                } catch (Exception $e) { /* ignore */ }
+
+                // Email notification
+                require_once __DIR__ . '/../config/email.php';
+                if (!empty($appInfo['email'])) {
+                    $emailBody  = '<h2>Interview Completed</h2>';
+                    $emailBody .= '<p>Dear ' . htmlspecialchars($appInfo['first_name']) . ',</p>';
+                    $emailBody .= '<p>Your interview for <strong>' . htmlspecialchars($appInfo['scholarship_title']) . '</strong> has been completed.</p>';
+                    $emailBody .= '<p>Your application is now <strong>under review</strong>. You will be notified of the final decision soon.</p>';
+                    $emailBody .= '<p>Best regards,<br>ScholarHub Team</p>';
+                    queueEmail($appInfo['email'], 'Interview Completed – ' . $appInfo['scholarship_title'], $emailBody, $appInfo['user_id']);
+                }
+            }
+
+            $_SESSION['success'] = 'Interview marked as completed and application moved to Under Review.';
         }
     }
     
@@ -94,6 +221,7 @@ if ($slotId) {
 }
 
 $page_title = 'Interview Bookings - ScholarHub';
+$csrf_token = generateCSRFToken();
 $base_path = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
@@ -185,10 +313,20 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               </span>
             </td>
             <td><small><?= date('M d, Y g:i A', strtotime($booking['booked_at'])) ?></small></td>
-            <td>
+            <td style="white-space: nowrap;">
+              <?php if (!in_array($booking['status'], ['completed', 'cancelled', 'no-show'])): ?>
+                <form method="POST" style="display: inline-block; margin-bottom: 4px;" onsubmit="return confirm('Mark this interview as completed and advance the application to Under Review?')">
+                  <input type="hidden" name="action" value="complete_interview">
+                  <input type="hidden" name="booking_id" value="<?= (int)$booking['id'] ?>">
+                  <input type="hidden" name="application_id" value="<?= (int)$booking['application_id'] ?>">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                  <button type="submit" class="btn btn-primary btn-sm">✅ Complete</button>
+                </form>
+              <?php endif; ?>
               <form method="POST" style="display: inline-block;">
                 <input type="hidden" name="action" value="update_booking_status">
                 <input type="hidden" name="booking_id" value="<?= (int)$booking['id'] ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                 <select name="status" class="form-input" style="display: inline-block; width: auto; padding: 4px 8px; font-size: 0.875rem;">
                   <option value="scheduled" <?= $booking['status'] === 'scheduled' ? 'selected' : '' ?>>Scheduled</option>
                   <option value="confirmed" <?= $booking['status'] === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
@@ -196,7 +334,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                   <option value="cancelled" <?= $booking['status'] === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
                   <option value="no-show" <?= $booking['status'] === 'no-show' ? 'selected' : '' ?>>No-Show</option>
                 </select>
-                <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                <button type="submit" class="btn btn-ghost btn-sm">Update</button>
               </form>
             </td>
           </tr>

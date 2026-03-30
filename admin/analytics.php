@@ -1,57 +1,57 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
-
-require_role('admin');
-
-$pdo = getPDO();
-$stats = getDashboardStats($pdo);
-
-// Export handlers (CSV/Excel/PDF)
+// Export must run before ANY output — no session_start yet
 if (!empty($_GET['export'])) {
-  $what = $_GET['export'];
+  session_start();
+  require_once __DIR__ . '/../config/db.php';
+  require_once __DIR__ . '/../helpers/SecurityHelper.php';
+  require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
+  requireLogin();
+  requireRole('admin', 'Admin access required');
+
+  $pdo    = getPDO();
+  $what   = $_GET['export'];
   $format = strtolower($_GET['format'] ?? 'csv');
 
-  // Ensure only admins can trigger exports (redundant with require_role but explicit here)
-  if (!is_role('admin')) {
-    http_response_code(403);
-    echo 'Forbidden';
-    exit;
-  }
-
-  // Determine dataset
   if ($what === 'applications') {
-    $data = getApplicationsReport($pdo, []);
+    $data  = getApplicationsReport($pdo, []);
     $label = 'applications';
   } elseif ($what === 'top_scholarships') {
-    $data = $stats['top_scholarships'];
-    $label = 'top_scholarships';
+    $stats = getDashboardStats($pdo);
+    $data  = $stats['top_scholarships'];
+    $label = 'scholarships';
   } elseif ($what === 'users_by_role') {
-    $data = $stats['users_by_role'];
+    $stats = getDashboardStats($pdo);
+    $data  = $stats['users_by_role'];
     $label = 'users_by_role';
   } else {
-    $data = [];
+    $data  = [];
     $label = 'export';
   }
 
-  // Log the export action
   if (function_exists('logAuditTrail')) {
     logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'EXPORT', $label, 0, 'format: ' . $format);
   }
 
-  // Choose export format
   if ($format === 'pdf') {
     exportDataToPDF($data, $label . '.pdf', ucfirst(str_replace('_', ' ', $label)));
   } elseif ($format === 'excel' || $format === 'xlsx') {
-    // Prefer real XLSX if PhpSpreadsheet available
-    $outName = $label . '.xlsx';
-    exportToXLSX($data, $outName);
+    exportToXLSX($data, $label . '.xlsx');
   } else {
-    // default CSV
     exportToCSV($data, $label . '.csv');
   }
+  exit; // exportTo* functions call exit, but be safe
 }
+
+session_start();
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
+require_once __DIR__ . '/../helpers/ScreeningHelper.php';
+requireLogin();
+requireRole('admin', 'Admin access required');
+
+$pdo   = getPDO();
+$stats = getDashboardStats($pdo);
 ?>
 <?php
 $page_title = 'Analytics & Reports - Admin';
@@ -124,13 +124,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   </div>
   <div class="export-buttons">
     <a class="btn btn-primary" href="?export=applications&format=csv">📊 Applications CSV</a>
-    <a class="btn btn-primary" href="?export=applications&format=excel">📊 Applications Excel</a>
+    <a class="btn btn-primary" href="?export=applications&format=xlsx">📊 Applications Excel</a>
     <a class="btn btn-primary" href="?export=applications&format=pdf">📊 Applications PDF</a>
     <a class="btn btn-primary" href="?export=top_scholarships&format=csv">🎓 Scholarships CSV</a>
-    <a class="btn btn-primary" href="?export=top_scholarships&format=excel">🎓 Scholarships Excel</a>
+    <a class="btn btn-primary" href="?export=top_scholarships&format=xlsx">🎓 Scholarships Excel</a>
     <a class="btn btn-primary" href="?export=top_scholarships&format=pdf">🎓 Scholarships PDF</a>
     <a class="btn btn-primary" href="?export=users_by_role&format=csv">👥 Users CSV</a>
-    <a class="btn btn-primary" href="?export=users_by_role&format=excel">👥 Users Excel</a>
+    <a class="btn btn-primary" href="?export=users_by_role&format=xlsx">👥 Users Excel</a>
     <a class="btn btn-primary" href="?export=users_by_role&format=pdf">👥 Users PDF</a>
   </div>
   

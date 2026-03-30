@@ -1,12 +1,19 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
+session_start();
 require_once __DIR__ . '/../config/db.php';
-
-require_role('admin');
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/ScreeningHelper.php';
+requireLogin();
+requireRole('admin', 'Admin access required');
 $pdo = getPDO();
 
 // Handle restore or delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request. Please try again.';
+        header('Location: scholarship_archive.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     $id = (int)($_POST['id'] ?? 0);
     if ($action === 'restore' && $id > 0) {
@@ -21,13 +28,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: scholarship_archive.php'); exit;
 }
 
-$stmt = $pdo->prepare("SELECT * FROM scholarships WHERE status = 'archived' OR is_archived = 1 ORDER BY updated_at DESC");
+$stmt = $pdo->prepare("SELECT * FROM scholarships WHERE status = 'archived' ORDER BY updated_at DESC");
 $stmt->execute();
 $archived = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <?php
 $page_title = 'Scholarship Archive - Admin';
 $base_path = '../';
+$csrf_token = generateCSRFToken();
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
@@ -63,10 +71,12 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td>
               <form method="post" style="display:inline">
                 <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                 <button name="action" value="restore" class="btn btn-primary btn-sm">Restore</button>
               </form>
               <form method="post" style="display:inline" onsubmit="return confirm('Delete permanently?');">
                 <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                 <button name="action" value="delete" class="btn btn-ghost btn-sm">Delete</button>
               </form>
             </td>

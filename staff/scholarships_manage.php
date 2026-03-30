@@ -1,20 +1,30 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
-require_role(['staff','admin']);
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+requireLogin();
+requireAnyRole(['staff','admin'], 'Staff access required');
 
 $pdo = getPDO();
 
 // Handle actions: publish/unpublish/delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request. Please try again.';
+        header('Location: scholarships_manage.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
     if ($action === 'delete' && $id) {
         $pdo->prepare('DELETE FROM scholarships WHERE id = :id')->execute([':id'=>$id]);
+        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_DELETED', 'scholarship', $id, null, null);
         $_SESSION['success'] = 'Scholarship deleted.';
     } elseif (($action === 'publish' || $action === 'unpublish') && $id) {
         $status = $action === 'publish' ? 'open' : 'closed';
         $pdo->prepare('UPDATE scholarships SET status = :status WHERE id = :id')->execute([':status'=>$status, ':id'=>$id]);
+        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_' . strtoupper($action) . 'ED', 'scholarship', $id, null, $status);
         $_SESSION['success'] = 'Scholarship updated.';
     }
     header('Location: scholarships_manage.php'); exit;
@@ -27,6 +37,7 @@ $schs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <?php
 $page_title = 'Manage Scholarships - ScholarHub';
 $base_path = '../';
+$csrf_token = generateCSRFToken();
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
@@ -59,6 +70,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <a class="btn btn-ghost btn-sm" href="scholarship_form.php?id=<?= (int)$s['id'] ?>">✏️ Edit</a>
             <form method="post" style="display:inline-block;margin-left:var(--space-sm)">
               <input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
               <?php if (($s['status'] ?? '')==='open'): ?>
                 <button class="btn btn-secondary btn-sm" name="action" value="unpublish">📴 Unpublish</button>
               <?php else: ?>
@@ -67,6 +79,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             </form>
             <form method="post" style="display:inline-block;margin-left:var(--space-sm)" onsubmit="return confirm('Delete this scholarship?');">
               <input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
               <button class="btn btn-ghost btn-sm" name="action" value="delete" style="color:var(--red-primary)">🗑️ Delete</button>
             </form>
           </td>

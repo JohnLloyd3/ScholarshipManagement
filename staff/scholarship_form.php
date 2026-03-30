@@ -1,7 +1,10 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
-require_role(['staff','admin']);
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+requireLogin();
+requireAnyRole(['staff','admin'], 'Staff access required');
 
 $pdo = getPDO();
 
@@ -14,6 +17,11 @@ if ($id) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request. Please try again.';
+        header('Location: scholarship_form.php' . ($id ? '?id='.$id : ''));
+        exit;
+    }
     $title = trim($_POST['title'] ?? '');
     $desc = trim($_POST['description'] ?? '');
     $org = trim($_POST['organization'] ?? '');
@@ -25,10 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($id) {
         $upd = $pdo->prepare('UPDATE scholarships SET title=:title, description=:desc, organization=:org, eligibility=:elig, amount=:amount, deadline=:deadline, status=:status, updated_at=NOW() WHERE id = :id');
         $upd->execute([':title'=>$title, ':desc'=>$desc, ':org'=>$org, ':elig'=>$elig, ':amount'=>$amount, ':deadline'=>$deadline, ':status'=>$status, ':id'=>$id]);
+        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_UPDATED', 'scholarship', $id, null, $title);
         $_SESSION['success'] = 'Scholarship updated.';
     } else {
         $ins = $pdo->prepare('INSERT INTO scholarships (title, description, organization, eligibility, amount, deadline, status, created_at) VALUES (:title, :desc, :org, :elig, :amount, :deadline, :status, NOW())');
         $ins->execute([':title'=>$title, ':desc'=>$desc, ':org'=>$org, ':elig'=>$elig, ':amount'=>$amount, ':deadline'=>$deadline, ':status'=>$status]);
+        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_CREATED', 'scholarship', (int)$pdo->lastInsertId(), null, $title);
         $_SESSION['success'] = 'Scholarship created.';
     }
     header('Location: scholarships_manage.php'); exit;
@@ -38,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php
 $page_title = ($sch ? 'Edit' : 'Create') . ' Scholarship - ScholarHub';
 $base_path = '../';
+$csrf_token = generateCSRFToken();
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
@@ -51,6 +62,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <a href="scholarships_manage.php" class="btn btn-secondary" style="margin-bottom:var(--space-xl)">← Back to List</a>
   
   <form method="post">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
     <div class="form-group">
       <label class="form-label">Title *</label>
       <input name="title" required value="<?= htmlspecialchars($sch['title'] ?? '') ?>" class="form-input">

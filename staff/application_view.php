@@ -1,7 +1,13 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
-require_role(['staff','admin']);
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/email.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+requireLogin();
+requireAnyRole(['staff', 'admin'], 'Staff or Admin access required');
 
 $pdo = getPDO();
 
@@ -36,6 +42,11 @@ $docs = $dstmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle POST: assign/remove/update status
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request. Please try again.';
+        header('Location: application_view.php?id=' . $id);
+        exit;
+    }
     $action = $_POST['action'] ?? '';
   if ($action === 'submit_review') {
     $score = isset($_POST['score']) ? (int)$_POST['score'] : null;
@@ -44,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $checkJson = json_encode(array_values($check));
     $ins = $pdo->prepare('INSERT INTO reviews (application_id, reviewer_id, score, checklist, comments) VALUES (:aid, :rid, :score, :check, :comments)');
     $ins->execute([':aid'=>$id, ':rid'=>$_SESSION['user_id'], ':score'=>$score, ':check'=>$checkJson, ':comments'=>$comments]);
+    logAudit($pdo, $_SESSION['user_id'], 'REVIEW_SUBMITTED', 'application', $id, null, json_encode(['score'=>$score,'comments'=>$comments]));
 
     // Create in-app notification for applicant
     try {
@@ -78,7 +90,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = trim($_POST['status'] ?? '');
         $allowed = ['submitted','under_review','pending','approved','rejected','waitlisted','draft'];
         if (in_array($status, $allowed, true)) {
+            $oldStatusStmt = $pdo->prepare('SELECT status FROM applications WHERE id = :id');
+            $oldStatusStmt->execute([':id' => $id]);
+            $oldStatus = $oldStatusStmt->fetchColumn();
             $pdo->prepare('UPDATE applications SET status = :status, reviewed_at = NOW() WHERE id = :id')->execute([':status'=>$status, ':id'=>$id]);
+            logAudit($pdo, $_SESSION['user_id'], 'APPLICATION_STATUS_UPDATED', 'application', $id, $oldStatus, $status);
+            
+            // Auto-create pending disbursement on approval
+            if ($status === 'approved') {
+                try {
+                    $schStmt = $pdo->prepare('SELECT scholarship_id, user_id FROM applications WHERE id = :id');
+                    $schStmt->execute([':id' => $id]);
+                    $appRow = $schStmt->fetch(PDO::FETCH_ASSOC);
+                    $amtStmt = $pdo->prepare('SELECT amount FROM scholarships WHERE id = :id');
+                    $amtStmt->execute([':id' => $appRow['scholarship_id']]);
+                    $sch = $amtStmt->fetch(PDO::FETCH_ASSOC);
+                    $disbStmt = $pdo->prepare("INSERT IGNORE INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, status, created_at) VALUES (:app_id, :user_id, :sch_id, :amount, CURDATE(), 'pending', NOW())");
+                    $disbStmt->execute([':app_id' => $id, ':user_id' => $appRow['user_id'], ':sch_id' => $appRow['scholarship_id'], ':amount' => $sch['amount'] ?? 0]);
+                } catch (Exception $e) { error_log('[Disbursement] ' . $e->getMessage()); }
+            }
+            
             $_SESSION['success'] = 'Status updated';
         }
     }
@@ -90,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php
 $page_title = 'Application #' . (int)$app['id'] . ' - ScholarHub';
 $base_path = '../';
+$csrf_token = generateCSRFToken();
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
@@ -138,6 +170,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <h3 style="margin-bottom:var(--space-lg)">Submit Review</h3>
   <form method="post">
     <input type="hidden" name="action" value="submit_review">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
     
     <div class="form-group">
       <label class="form-label">Score (0-100) *</label>
@@ -199,6 +232,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <h3 style="margin-bottom:var(--space-lg)">Update Application Status</h3>
   <form method="post" style="display:flex;gap:var(--space-md);align-items:end">
     <input type="hidden" name="action" value="update_status">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
     <div class="form-group" style="margin:0;flex:1">
       <label class="form-label">New Status</label>
       <select name="status" class="form-select">
@@ -243,7 +277,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <div style="margin-top: var(--space-lg); padding: var(--space-lg); background: #e8f5e9; border-radius: var(--radius-lg); border-left: 4px solid #4CAF50;">
         <h4 style="margin: 0 0 var(--space-md) 0; color: #2e7d32;">✅ Application Approved</h4>
         <p style="margin: 0 0 var(--space-md) 0; color: #555;">This applicant is ready for an interview. Schedule an interview slot now.</p>
-        <a href="../admin/interview_slots.php?app_id=<?= (int)$app['id'] ?>&scholarship_id=<?= (int)$app['scholarship_id'] ?>" class="btn btn-primary">
+        <a href="../staff/scholarships_manage.php?scholarship_id=<?= (int)$app['scholarship_id'] ?>" class="btn btn-primary">
           📅 Schedule Interview
         </a>
       </div>

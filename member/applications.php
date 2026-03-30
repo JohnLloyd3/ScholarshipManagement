@@ -1,51 +1,38 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    $_SESSION['flash'] = 'Please log in.';
-    header('Location: ../auth/login.php');
-    exit;
-}
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+requireLogin();
 $pdo = getPDO();
 $user_id = $_SESSION['user_id'];
 
-// Handle deletion by owner
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_application') {
-  // CSRF protection
-  if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
-    $_SESSION['flash'] = 'Invalid request (CSRF token missing or incorrect).';
-    header('Location: applications.php');
-    exit;
-  }
-  $delId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-  if ($delId > 0) {
-    try {
-      // Prevent students from deleting via crafted POST requests.
-      $role = $_SESSION['user']['role'] ?? 'student';
-      if ($role === 'student') {
-        $_SESSION['flash'] = 'You are not authorized to perform this action.';
-        header('Location: applications.php');
-        exit;
-      }
-      $stmt = $pdo->prepare('SELECT id, user_id FROM applications WHERE id = :id LIMIT 1');
-      $stmt->execute([':id' => $delId]);
-      $row = $stmt->fetch(PDO::FETCH_ASSOC);
-      if (!$row) {
-        $_SESSION['flash'] = 'Application not found.';
-      } else {
-        // Allow delete (admins/staff) — perform delete
-        $pdo->prepare('DELETE FROM applications WHERE id = :id')->execute([':id' => $delId]);
-        $_SESSION['success'] = 'Application deleted successfully.';
-      }
-    } catch (Exception $e) {
-      $_SESSION['flash'] = 'Failed to delete application.';
+// Handle POST actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['flash'] = 'Invalid request.';
+        header('Location: applications.php'); exit;
     }
-  } else {
-    $_SESSION['flash'] = 'Invalid application ID.';
-  }
-  header('Location: applications.php');
-  exit;
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'withdraw') {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id) {
+            $stmt = $pdo->prepare("UPDATE applications SET status = 'withdrawn' WHERE id = :id AND user_id = :uid AND status NOT IN ('approved','rejected','withdrawn')");
+            $stmt->execute([':id' => $id, ':uid' => $user_id]);
+            $_SESSION['success'] = $stmt->rowCount() ? 'Application withdrawn.' : 'Cannot withdraw this application.';
+        }
+        header('Location: applications.php'); exit;
+    }
+
+    if ($action === 'delete_draft') {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id) {
+            $stmt = $pdo->prepare("DELETE FROM applications WHERE id = :id AND user_id = :uid AND status = 'draft'");
+            $stmt->execute([':id' => $id, ':uid' => $user_id]);
+            $_SESSION['success'] = $stmt->rowCount() ? 'Draft deleted.' : 'Draft not found.';
+        }
+        header('Location: applications.php'); exit;
+    }
 }
 
 // Check if viewing details
@@ -144,12 +131,12 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <div class="content-card">
         
         <?php if ($viewingApp): ?>
-          <a href=\"applications.php\" style=\"color:#2196F3;text-decoration:none;margin-bottom:15px;display:inline-block\">← Back to Applications</a>
-          <div style=\"margin-top:20px;background:#f9f9f9;padding:20px;border-radius:8px\">
+          <a href="applications.php" style="color:#2196F3;text-decoration:none;margin-bottom:15px;display:inline-block">← Back to Applications</a>
+          <div style="margin-top:20px;background:#f9f9f9;padding:20px;border-radius:8px">
             <h2><?= htmlspecialchars($viewingApp['scholarship_title']) ?></h2>
-            <p style=\"color:#666;margin-bottom:20px\"><?= htmlspecialchars($viewingApp['scholarship_desc'] ?? '') ?></p>
+            <p style="color:#666;margin-bottom:20px"><?= htmlspecialchars($viewingApp['scholarship_desc'] ?? '') ?></p>
             
-            <div style=\"margin-bottom:20px\">
+            <div style="margin-bottom:20px">
               <strong>Status:</strong> 
               <?php
                 $status = $viewingApp['status'];
@@ -157,24 +144,24 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 $status_color = ['draft'=>'#999','submitted'=>'#2196F3','pending'=>'#FF9800','under_review'=>'#2196F3','approved'=>'#4CAF50','rejected'=>'#f44336','waitlisted'=>'#FFC107'];
                 $color = $status_color[$s] ?? '#999';
               ?>
-              <span style=\"color:<?= $color ?>;font-weight:bold\"><?= ucfirst(str_replace('_', ' ', htmlspecialchars($status))) ?></span>
+              <span style="color:<?= $color ?>;font-weight:bold"><?= ucfirst(str_replace('_', ' ', htmlspecialchars($status))) ?></span>
             </div>
             
-            <div style=\"margin-bottom:20px\">
+            <div style="margin-bottom:20px">
               <strong>Submitted:</strong> <?= htmlspecialchars($viewingApp['created_at']) ?>
             </div>
             
-            <hr style=\"margin:20px 0\">
+            <hr style="margin:20px 0">
             <h4>Application Details</h4>
             <?php if ($viewingApp['motivational_letter']): ?>
               <?php $formData = json_decode($viewingApp['motivational_letter'], true); ?>
               <?php if ($formData): ?>
-                <table style=\"width:100%;border-collapse:collapse\">
+                <table style="width:100%;border-collapse:collapse">
                   <?php foreach ($formData as $key => $value): ?>
                     <?php if (is_string($value) || is_numeric($value)): ?>
-                      <tr style=\"border-bottom:1px solid #eee\">
-                        <td style=\"padding:10px;font-weight:bold;width:30%\"><?= htmlspecialchars(str_replace('_', ' ', ucfirst($key))) ?></td>
-                        <td style=\"padding:10px\"><?= htmlspecialchars($value) ?></td>
+                      <tr style="border-bottom:1px solid #eee">
+                        <td style="padding:10px;font-weight:bold;width:30%"><?= htmlspecialchars(str_replace('_', ' ', ucfirst($key))) ?></td>
+                        <td style="padding:10px"><?= htmlspecialchars($value) ?></td>
                       </tr>
                     <?php endif; ?>
                   <?php endforeach; ?>
@@ -304,7 +291,23 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                   <td><?php if (!empty($a['document'])): ?><a href="../<?= htmlspecialchars($a['document']) ?>" target="_blank">View</a><?php else: ?>—<?php endif; ?></td>
                   <td><small><?= htmlspecialchars($a['created_at']) ?></small></td>
                   <td>
-                    <a href="applications.php?view=<?= $a['id'] ?>" style="color:#2196F3;text-decoration:none;margin-right:8px">View</a>
+                    <a href="applications.php?view=<?= $a['id'] ?>" class="btn btn-ghost btn-sm">View</a>
+                    <?php if ($a['status'] === 'draft'): ?>
+                      <a href="apply_scholarship.php?scholarship_id=<?= (int)$a['scholarship_id'] ?>" class="btn btn-ghost btn-sm">Edit</a>
+                      <form method="POST" style="display:inline" onsubmit="return confirm('Delete this draft?')">
+                        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                        <input type="hidden" name="action" value="delete_draft">
+                        <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                        <button class="btn btn-ghost btn-sm" style="color:var(--red-primary)">Delete</button>
+                      </form>
+                    <?php elseif (in_array($a['status'], ['submitted','pending','under_review'])): ?>
+                      <form method="POST" style="display:inline" onsubmit="return confirm('Withdraw this application?')">
+                        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                        <input type="hidden" name="action" value="withdraw">
+                        <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                        <button class="btn btn-ghost btn-sm" style="color:var(--red-primary)">Withdraw</button>
+                      </form>
+                    <?php endif; ?>
                   </td>
                 </tr>
               <?php endforeach; ?>
@@ -312,6 +315,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           </table>
         <?php endif; ?>
         <?php endif; ?>
-      </section>
+      </div>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

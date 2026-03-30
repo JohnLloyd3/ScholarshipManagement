@@ -88,6 +88,58 @@ function _save_users($users)
     return false;
 }
 
+function _get_client_ip(): string {
+    return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+}
+
+function _cleanup_login_attempts(PDO $pdo, int $seconds = 3600): void {
+    try {
+        $pdo->exec("DELETE FROM login_attempts WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+    } catch (PDOException $e) {
+        error_log('[RateLimit] cleanup error: ' . $e->getMessage());
+    }
+}
+
+function _count_recent_failures(PDO $pdo, string $field, string $value, int $window = 900): int {
+    try {
+        $allowed = ['username', 'ip_address'];
+        if (!in_array($field, $allowed, true)) return 0;
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM login_attempts WHERE $field = :val AND success = 0 AND created_at >= DATE_SUB(NOW(), INTERVAL :window SECOND)");
+        $stmt->bindValue(':val', $value, PDO::PARAM_STR);
+        $stmt->bindValue(':window', $window, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log('[RateLimit] count error: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+function _record_login_attempt(PDO $pdo, string $username, string $ip, int $success): void {
+    try {
+        $stmt = $pdo->prepare("INSERT INTO login_attempts (username, ip_address, success, created_at) VALUES (:u, :ip, :s, NOW())");
+        $stmt->execute([':u' => $username, ':ip' => $ip, ':s' => $success]);
+    } catch (PDOException $e) {
+        error_log('[RateLimit] record error: ' . $e->getMessage());
+    }
+}
+
+function _earliest_failure_ts(PDO $pdo, string $field, string $value, int $window = 900): ?int {
+    try {
+        $allowed = ['username', 'ip_address'];
+        if (!in_array($field, $allowed, true)) return null;
+        $stmt = $pdo->prepare("SELECT MIN(created_at) FROM login_attempts WHERE $field = :val AND success = 0 AND created_at >= DATE_SUB(NOW(), INTERVAL :window SECOND)");
+        $stmt->bindValue(':val', $value, PDO::PARAM_STR);
+        $stmt->bindValue(':window', $window, PDO::PARAM_INT);
+        $stmt->execute();
+        $ts = $stmt->fetchColumn();
+        return $ts ? (int)strtotime($ts) : null;
+    } catch (PDOException $e) {
+        error_log('[RateLimit] earliest_ts error: ' . $e->getMessage());
+        return null;
+    }
+}
+
 if ($action === 'register') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -203,11 +255,32 @@ if ($action === 'register') {
 
     if ($pdo) {
         try {
+            _cleanup_login_attempts($pdo);
+            $ip = _get_client_ip();
+            $userFailures = _count_recent_failures($pdo, 'username', $username);
+            $ipFailures   = _count_recent_failures($pdo, 'ip_address', $ip);
+
+            if ($userFailures >= 5 || $ipFailures >= 5) {
+                $userTs = _earliest_failure_ts($pdo, 'username', $username) ?? PHP_INT_MAX;
+                $ipTs   = _earliest_failure_ts($pdo, 'ip_address', $ip) ?? PHP_INT_MAX;
+                $ts = min($userTs, $ipTs);
+                $secondsRemaining = ($ts + 900) - time();
+                if ($secondsRemaining > 0) {
+                    $minutesRemaining = (int)ceil($secondsRemaining / 60);
+                    $_SESSION['flash'] = "Too many failed login attempts. Please try again in $minutesRemaining minute(s).";
+                } else {
+                    $_SESSION['flash'] = 'Too many failed login attempts. Please try again shortly.';
+                }
+                header("Location: ../auth/login.php");
+                exit;
+            }
+
             $stmt = $pdo->prepare('SELECT id, username, password, first_name, last_name, email, role, active FROM users WHERE username = :u LIMIT 1');
             $stmt->execute([':u' => $username]);
             $found = $stmt->fetch();
 
             if (!$found || !password_verify($password, $found['password'])) {
+                _record_login_attempt($pdo, $username, $ip, 0);
                 $_SESSION['flash'] = 'Invalid username or password.';
                 header("Location: ../auth/login.php");
                 exit;
@@ -219,6 +292,8 @@ if ($action === 'register') {
                 header("Location: ../auth/login.php");
                 exit;
             }
+
+            _record_login_attempt($pdo, $username, $ip, 1);
 
             // Direct login (no verify-login step, no email codes)
             $_SESSION['user_id'] = $found['id'];
@@ -281,7 +356,7 @@ if ($action === 'register') {
         try {
             // Match identifier against username or email in a case-insensitive, trimmed manner
             // Use two distinct placeholders to avoid PDO "invalid parameter number" when emulated prepares are disabled
-            $stmt = $pdo->prepare('SELECT id, email, secret_question FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(:id1)) OR LOWER(TRIM(username)) = LOWER(TRIM(:id2)) LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(:id1)) OR LOWER(TRIM(username)) = LOWER(TRIM(:id2)) LIMIT 1');
             $stmt->execute([':id1' => $identifier, ':id2' => $identifier]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -439,77 +514,6 @@ if ($action === 'register') {
     header("Location: ../auth/login.php");
     exit;
 
-} elseif ($action === 'reset_password') {
-    $secretAnswer = trim($_POST['secret_answer'] ?? '');
-    $pending = $_SESSION['pending_reset'] ?? null;
-    $new_password = $_POST['new_password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
-
-    if (!$pending || ($pending['reset_type'] ?? 'secret') !== 'secret' || !$secretAnswer || !$new_password) {
-        $_SESSION['flash'] = 'Please complete all fields.';
-        header("Location: ../auth/reset_password.php");
-        exit;
-    }
-
-    if ($new_password !== $confirm_password) {
-        $_SESSION['flash'] = 'Passwords do not match.';
-        header("Location: ../auth/reset_password.php");
-        exit;
-    }
-
-    if (strlen($new_password) < 6) {
-        $_SESSION['flash'] = 'Password must be at least 6 characters.';
-        header("Location: ../auth/reset_password.php");
-        exit;
-    }
-
-    if ($pdo) {
-        try {
-            $stmt = $pdo->prepare('SELECT id, secret_answer_hash FROM users WHERE id = :id LIMIT 1');
-            $stmt->execute([':id' => $pending['user_id']]);
-            $user = $stmt->fetch();
-
-            if (!$user || empty($user['secret_answer_hash']) || !password_verify($secretAnswer, $user['secret_answer_hash'])) {
-                $_SESSION['flash'] = 'Incorrect secret answer.';
-                header("Location: ../auth/reset_password.php");
-                exit;
-            }
-
-            // Update password
-            $pwHash = password_hash($new_password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare('UPDATE users SET password = :p WHERE id = :id');
-            $stmt->execute([':p' => $pwHash, ':id' => $pending['user_id']]);
-
-            unset($_SESSION['pending_reset']);
-            $_SESSION['success'] = 'Password reset successfully! Please login with your new password.';
-            header("Location: ../auth/login.php");
-            exit;
-        } catch (PDOException $e) {
-            $_SESSION['flash'] = 'Password reset failed. Try again.';
-            header("Location: ../auth/reset_password.php");
-            exit;
-        }
-    }
-    // Fallback (users.json) update password
-    $users = _load_users();
-    $idx = null;
-    foreach ($users as $i => $u) {
-        if ((string)($u['id'] ?? '') === (string)$pending['user_id']) {
-            $idx = $i;
-            break;
-        }
-    }
-    if ($idx === null || empty($users[$idx]['secret_answer_hash']) || !password_verify($secretAnswer, $users[$idx]['secret_answer_hash'])) {
-        $_SESSION['flash'] = 'Incorrect secret answer.';
-        header("Location: ../auth/reset_password.php");
-        exit;
-    }
-    $users[$idx]['password'] = password_hash($new_password, PASSWORD_DEFAULT);
-    _save_users($users);
-    unset($_SESSION['pending_reset']);
-    $_SESSION['success'] = 'Password reset successfully! Please login with your new password.';
-    header("Location: ../auth/login.php");
-    exit;
 } else {
     header("Location: ../auth/login.php");
     exit;

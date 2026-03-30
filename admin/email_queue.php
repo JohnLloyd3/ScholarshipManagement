@@ -5,11 +5,8 @@ require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 // Admin only
-if (!isset($_SESSION['user_id']) || ($_SESSION['user']['role'] ?? '') !== 'admin') {
-    $_SESSION['flash'] = 'Admin access only.';
-    header('Location: ../auth/login.php');
-    exit;
-}
+requireLogin();
+requireRole('admin', 'Admin access required');
 
 $pdo = getPDO();
 $message = '';
@@ -156,18 +153,20 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <td><small><?= htmlspecialchars($row['last_attempt_at']) ?></small></td>
           <td><small><?= htmlspecialchars($row['created_at']) ?></small></td>
           <td>
-            <form method="POST" style="display:inline">
-              <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-              <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
-              <input type="hidden" name="action" value="retry">
-              <button class="btn btn-ghost btn-sm" type="submit">Retry</button>
-            </form>
-            <form method="POST" style="display:inline;margin-left:6px">
-              <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-              <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
-              <input type="hidden" name="action" value="delete">
-              <button class="btn btn-ghost btn-sm" type="submit" onclick="return confirm('Delete this log?')">Delete</button>
-            </form>
+            <div style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center">
+              <form method="POST" style="display:contents">
+                <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
+                <input type="hidden" name="action" value="retry">
+                <button class="btn btn-primary btn-sm" type="submit">Retry</button>
+              </form>
+              <form method="POST" style="display:contents">
+                <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
+                <input type="hidden" name="action" value="delete">
+                <button class="btn btn-primary btn-sm" style="background:#dc2626" type="submit" onclick="return confirm('Delete this log?')">Delete</button>
+              </form>
+            </div>
           </td>
         </tr>
       <?php endforeach; ?>

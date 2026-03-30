@@ -22,6 +22,12 @@ if (!in_array($user_role, ['staff', 'admin'])) {
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    $_SESSION['flash'] = 'Invalid request. Please try again.';
+    header('Location: ../staff/documents.php');
+    exit;
+}
+
 if ($action === 'verify_documents_bulk') {
     $document_ids = $_POST['document_ids'] ?? [];
     $new_status = $_POST['new_status'] ?? 'verified';

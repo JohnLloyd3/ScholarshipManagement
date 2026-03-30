@@ -1,18 +1,40 @@
 <?php
-require_once __DIR__ . '/../auth/helpers.php';
+session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
-require_role(['staff', 'admin']);
+requireLogin();
+requireAnyRole(['admin', 'staff'], 'Staff access required');
 
 $pdo = getPDO();
 
-$totalOpenScholarships = $pdo->query('SELECT COUNT(*) FROM scholarships WHERE status = "open"')->fetchColumn();
-$totalApplications = $pdo->query('SELECT COUNT(*) FROM applications')->fetchColumn();
-$pendingApplications = $pdo->query("SELECT COUNT(*) FROM applications WHERE status IN ('submitted','pending')")->fetchColumn();
-?>
-<?php
+try {
+    $openScholarships   = (int)$pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn();
+    $totalApplications  = (int)$pdo->query("SELECT COUNT(*) FROM applications")->fetchColumn();
+    $pendingApplications = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status IN ('submitted','pending','under_review')")->fetchColumn();
+    $approvedApplications = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'approved'")->fetchColumn();
+
+    // Disbursements
+    $pendingDisbursements = (int)$pdo->query("SELECT COUNT(*) FROM disbursements WHERE status = 'pending' AND deleted_at IS NULL")->fetchColumn();
+    $totalDisbursed = (float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM disbursements WHERE status = 'completed' AND deleted_at IS NULL")->fetchColumn();
+
+    // Feedback
+    $totalFeedback = (int)$pdo->query("SELECT COUNT(*) FROM feedback")->fetchColumn();
+    $avgRating = round((float)$pdo->query("SELECT COALESCE(AVG(rating),0) FROM feedback")->fetchColumn(), 1);
+
+    // Recent applications
+    $stmt = $pdo->query("SELECT a.id, a.status, a.created_at, u.first_name, u.last_name, s.title AS scholarship_title FROM applications a JOIN users u ON a.user_id = u.id JOIN scholarships s ON a.scholarship_id = s.id WHERE a.status != 'draft' ORDER BY a.created_at DESC LIMIT 8");
+    $recentApps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (Exception $e) {
+    error_log('[staff/dashboard] ' . $e->getMessage());
+    $openScholarships = $totalApplications = $pendingApplications = $approvedApplications = 0;
+    $pendingDisbursements = $totalDisbursed = $totalFeedback = $avgRating = 0;
+    $recentApps = [];
+}
+
 $page_title = 'Staff Dashboard - ScholarHub';
-$base_path = '../';
+$base_path  = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
@@ -25,38 +47,89 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <?php if (!empty($_SESSION['success'])): ?>
   <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
 <?php endif; ?>
-
 <?php if (!empty($_SESSION['flash'])): ?>
-  <div class="alert alert-error"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
+  <div class="alert alert-danger"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
 <?php endif; ?>
 
-<div class="stats-grid">
+<div class="stats-grid" style="margin-bottom:var(--space-xl);">
   <div class="stat-card">
     <div class="stat-icon">🎓</div>
-    <div class="stat-value"><?= htmlspecialchars($totalOpenScholarships) ?></div>
+    <div class="stat-value"><?= $openScholarships ?></div>
     <div class="stat-label">Open Scholarships</div>
   </div>
   <div class="stat-card">
     <div class="stat-icon">📝</div>
-    <div class="stat-value"><?= htmlspecialchars($totalApplications) ?></div>
+    <div class="stat-value"><?= $totalApplications ?></div>
     <div class="stat-label">Total Applications</div>
   </div>
   <div class="stat-card">
     <div class="stat-icon">⏳</div>
-    <div class="stat-value"><?= htmlspecialchars($pendingApplications) ?></div>
-    <div class="stat-label">Pending/Submitted</div>
+    <div class="stat-value"><?= $pendingApplications ?></div>
+    <div class="stat-label">Pending Review</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value"><?= $approvedApplications ?></div>
+    <div class="stat-label">Approved</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">💰</div>
+    <div class="stat-value">₱<?= number_format($totalDisbursed, 0) ?></div>
+    <div class="stat-label">Total Disbursed</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">⚠️</div>
+    <div class="stat-value"><?= $pendingDisbursements ?></div>
+    <div class="stat-label">Pending Disbursements</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">⭐</div>
+    <div class="stat-value"><?= $avgRating > 0 ? $avgRating : '—' ?></div>
+    <div class="stat-label">Avg Feedback Rating</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">💬</div>
+    <div class="stat-value"><?= $totalFeedback ?></div>
+    <div class="stat-label">Feedback Received</div>
   </div>
 </div>
 
-<div class="content-card">
-  <h3 style="margin-bottom: var(--space-xl);">Quick Actions</h3>
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-md);">
-    <button class="btn btn-primary" onclick="location.href='../auth/applicant_register.php'">📝 Applicant Registration</button>
-    <button class="btn btn-primary" onclick="location.href='post_scholarship.php'">➕ Post Scholarship</button>
-    <button class="btn btn-primary" onclick="location.href='scholarships.php'">✏️ Manage Scholarships</button>
-    <button class="btn btn-primary" onclick="location.href='applications.php'">👀 View Applications</button>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--space-xl);margin-bottom:var(--space-xl);">
+
+  <!-- Recent Applications -->
+  <div class="content-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);">
+      <h2>📝 Recent Applications</h2>
+      <a href="applications.php" class="btn btn-ghost btn-sm">View All</a>
+    </div>
+    <?php if (!empty($recentApps)): ?>
+      <?php foreach ($recentApps as $a): ?>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-sm) 0;border-bottom:1px solid var(--gray-100);">
+          <div>
+            <div style="font-weight:600;font-size:0.875rem;"><?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?></div>
+            <small class="text-muted"><?= htmlspecialchars($a['scholarship_title']) ?></small>
+          </div>
+          <span class="status-badge status-<?= $a['status'] ?>"><?= ucfirst(str_replace('_', ' ', $a['status'])) ?></span>
+        </div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <p class="text-muted">No applications yet.</p>
+    <?php endif; ?>
   </div>
+
+  <!-- Quick Actions -->
+  <div class="content-card">
+    <h2 style="margin-bottom:var(--space-lg);">⚡ Quick Actions</h2>
+    <div style="display:flex;flex-direction:column;gap:var(--space-md);">
+      <a href="post_scholarship.php" class="btn btn-primary" style="text-align:center;">➕ Post Scholarship</a>
+      <a href="applications.php" class="btn btn-ghost" style="text-align:center;">📝 Review Applications</a>
+      <a href="disbursements.php" class="btn btn-ghost" style="text-align:center;">💰 Record Disbursement <?= $pendingDisbursements > 0 ? "<span style='background:var(--red-primary);color:white;border-radius:999px;padding:1px 7px;font-size:0.75rem;margin-left:4px;'>$pendingDisbursements</span>" : '' ?></a>
+      <a href="feedback.php" class="btn btn-ghost" style="text-align:center;">⭐ View Feedback</a>
+      <a href="survey_results.php" class="btn btn-ghost" style="text-align:center;">📋 Survey Results</a>
+      <a href="reports.php" class="btn btn-ghost" style="text-align:center;">📊 Reports</a>
+    </div>
+  </div>
+
 </div>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>
-
