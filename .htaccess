@@ -1,0 +1,20 @@
+Options -Indexes
+
+# Custom error pages
+ErrorDocument 404 /ScholarshipManagement/404.php
+ErrorDocument 403 /ScholarshipManagement/404.php
+
+# Protect sensitive directories
+<FilesMatch "\.(sql|json|log|env|bak|backup)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Prevent access to hidden files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Prevent directory browsing
+Options -Indexes

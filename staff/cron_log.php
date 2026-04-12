@@ -1,5 +1,5 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 requireLogin();
@@ -8,7 +8,8 @@ requireAnyRole(['staff','admin'], 'Staff access required');
 $pdo = getPDO();
 $script = isset($_GET['script']) ? basename($_GET['script']) : '';
 if (!$script) {
-    echo 'No script specified.'; exit;
+    header('Location: cron.php');
+    exit;
 }
 
 $stmt = $pdo->prepare('SELECT * FROM cron_runs WHERE script = :script ORDER BY ran_at DESC LIMIT 200');

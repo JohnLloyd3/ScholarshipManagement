@@ -3,29 +3,46 @@
  * Survey Helper — CRUD, questions, responses, analytics
  */
 
+function _surveys_table_exists(PDO $pdo): bool {
+    static $exists = null;
+    if ($exists !== null) return $exists;
+    try {
+        $pdo->query('SELECT 1 FROM surveys LIMIT 1');
+        $exists = true;
+    } catch (Exception $e) {
+        $exists = false;
+    }
+    return $exists;
+}
+
 function createSurvey(PDO $pdo, array $data): int {
+    if (!_surveys_table_exists($pdo)) throw new Exception('Surveys feature not available');
     $stmt = $pdo->prepare("INSERT INTO surveys (title, description, scholarship_id, cycle_label, status, created_by) VALUES (:title, :desc, :sch, :cycle, 'draft', :by)");
     $stmt->execute([':title' => $data['title'], ':desc' => $data['description'] ?? null, ':sch' => $data['scholarship_id'] ?: null, ':cycle' => $data['cycle_label'] ?? null, ':by' => $data['created_by']]);
     return (int)$pdo->lastInsertId();
 }
 
 function updateSurvey(PDO $pdo, int $id, array $data): bool {
+    if (!_surveys_table_exists($pdo)) return false;
     $stmt = $pdo->prepare("UPDATE surveys SET title=:title, description=:desc, scholarship_id=:sch, cycle_label=:cycle WHERE id=:id");
     return $stmt->execute([':title' => $data['title'], ':desc' => $data['description'] ?? null, ':sch' => $data['scholarship_id'] ?: null, ':cycle' => $data['cycle_label'] ?? null, ':id' => $id]);
 }
 
 function deleteSurvey(PDO $pdo, int $id): bool {
+    if (!_surveys_table_exists($pdo)) return false;
     $stmt = $pdo->prepare("DELETE FROM surveys WHERE id=:id AND status='draft'");
     return $stmt->execute([':id' => $id]) && $stmt->rowCount() > 0;
 }
 
 function getSurveyById(PDO $pdo, int $id): ?array {
+    if (!_surveys_table_exists($pdo)) return null;
     $stmt = $pdo->prepare("SELECT s.*, sch.title AS scholarship_title FROM surveys s LEFT JOIN scholarships sch ON s.scholarship_id = sch.id WHERE s.id=:id");
     $stmt->execute([':id' => $id]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
 function getAllSurveys(PDO $pdo, ?string $status = null): array {
+    if (!_surveys_table_exists($pdo)) return [];
     try {
         $where = $status ? 'WHERE s.status = :status' : '';
         $params = $status ? [':status' => $status] : [];
@@ -45,6 +62,7 @@ function getAllSurveys(PDO $pdo, ?string $status = null): array {
 }
 
 function saveQuestions(PDO $pdo, int $surveyId, array $questions): bool {
+    if (!_surveys_table_exists($pdo)) return false;
     $pdo->prepare("DELETE FROM survey_questions WHERE survey_id=:id")->execute([':id' => $surveyId]);
     $stmt = $pdo->prepare("INSERT INTO survey_questions (survey_id, question, type, options, sort_order, required) VALUES (:sid, :q, :type, :opts, :order, :req)");
     foreach ($questions as $i => $q) {
@@ -55,6 +73,7 @@ function saveQuestions(PDO $pdo, int $surveyId, array $questions): bool {
 }
 
 function getQuestions(PDO $pdo, int $surveyId): array {
+    if (!_surveys_table_exists($pdo)) return [];
     $stmt = $pdo->prepare("SELECT * FROM survey_questions WHERE survey_id=:id ORDER BY sort_order ASC");
     $stmt->execute([':id' => $surveyId]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -65,6 +84,7 @@ function getQuestions(PDO $pdo, int $surveyId): array {
 }
 
 function submitResponse(PDO $pdo, int $surveyId, int $userId, int $applicationId, array $answers): int {
+    if (!_surveys_table_exists($pdo)) throw new Exception('Surveys feature not available');
     $stmt = $pdo->prepare("INSERT INTO survey_responses (survey_id, user_id, application_id) VALUES (:sid, :uid, :aid)");
     $stmt->execute([':sid' => $surveyId, ':uid' => $userId, ':aid' => $applicationId]);
     $responseId = (int)$pdo->lastInsertId();
@@ -77,12 +97,14 @@ function submitResponse(PDO $pdo, int $surveyId, int $userId, int $applicationId
 }
 
 function hasResponded(PDO $pdo, int $surveyId, int $userId): bool {
+    if (!_surveys_table_exists($pdo)) return false;
     $stmt = $pdo->prepare("SELECT id FROM survey_responses WHERE survey_id=:sid AND user_id=:uid LIMIT 1");
     $stmt->execute([':sid' => $surveyId, ':uid' => $userId]);
     return (bool)$stmt->fetch();
 }
 
 function getResponses(PDO $pdo, int $surveyId): array {
+    if (!_surveys_table_exists($pdo)) return [];
     $stmt = $pdo->prepare("
         SELECT sr.*, u.first_name, u.last_name
         FROM survey_responses sr

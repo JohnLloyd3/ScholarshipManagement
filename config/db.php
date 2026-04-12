@@ -3,14 +3,15 @@
 // Default values assume XAMPP (localhost, root, no password)
 // Update these values to match your MySQL server configuration
 
-// MySQL Connection Settings
-define('DB_HOST', '127.0.0.1');        // MySQL host (use 'localhost' or '127.0.0.1')
-define('DB_NAME', 'scholarshipmanagement');  // Database name
-define('DB_USER', 'root');              // MySQL username
-define('DB_PASS', '');                  // MySQL password (empty for default XAMPP)
+// MySQL Connection Settings.
+// Environment variables may override these defaults for testing/deployment.
+if (!defined('DB_HOST')) define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
+if (!defined('DB_NAME')) define('DB_NAME', getenv('DB_NAME') ?: 'scholarshipmanagement');
+if (!defined('DB_USER')) define('DB_USER', getenv('DB_USER') ?: 'root');
+if (!defined('DB_PASS')) define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
 
 // MySQL DSN (Data Source Name) for PDO
-define('DB_DSN', 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4');
+if (!defined('DB_DSN')) define('DB_DSN', 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4');
 
 /**
  * Get PDO connection to MySQL database
@@ -296,35 +297,63 @@ function getPDO()
             INDEX idx_user_scholarship (user_id, scholarship_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Ensure audit_logs table exists
+        // Ensure audit_logs table exists.
+        // Keep a superset of legacy/current columns so older pages and newer helpers both work.
         $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT,
+            user_id INT DEFAULT NULL,
             action VARCHAR(255) NOT NULL,
-            entity_type VARCHAR(100) NOT NULL,
-            entity_id INT NOT NULL,
-            old_values JSON,
-            new_values JSON,
-            ip_address VARCHAR(45) NOT NULL,
-            user_agent VARCHAR(500),
+            entity_type VARCHAR(128) DEFAULT NULL,
+            entity_id INT DEFAULT NULL,
+            target_table VARCHAR(128) DEFAULT NULL,
+            target_id INT DEFAULT NULL,
+            description TEXT DEFAULT NULL,
+            old_value TEXT DEFAULT NULL,
+            new_value TEXT DEFAULT NULL,
+            old_values JSON DEFAULT NULL,
+            new_values JSON DEFAULT NULL,
+            ip VARCHAR(45) DEFAULT NULL,
+            ip_address VARCHAR(45) DEFAULT NULL,
+            user_agent TEXT DEFAULT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
             INDEX idx_user_id (user_id),
             INDEX idx_entity (entity_type, entity_id),
+            INDEX idx_target (target_table, target_id),
             INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Ensure login_attempts table exists
+        // Backfill missing audit log columns for existing installs.
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN target_table VARCHAR(128) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN target_id INT DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN description TEXT DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN old_value TEXT DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN new_value TEXT DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN old_values JSON DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN new_values JSON DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN ip VARCHAR(45) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN ip_address VARCHAR(45) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD COLUMN user_agent TEXT DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs MODIFY entity_type VARCHAR(128) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs MODIFY entity_id INT DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE audit_logs ADD INDEX idx_target (target_table, target_id)"); } catch (Exception $e) {}
+
+        // Ensure login_attempts table exists using the fields AuthController writes.
         $pdo->exec("CREATE TABLE IF NOT EXISTS login_attempts (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            email VARCHAR(150) NOT NULL,
+            username VARCHAR(150) NOT NULL,
+            email VARCHAR(150) DEFAULT NULL,
             ip_address VARCHAR(45) NOT NULL,
             success TINYINT(1) DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_username_created (username, created_at),
             INDEX idx_email_created (email, created_at),
             INDEX idx_ip_created (ip_address, created_at),
             INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        try { $pdo->exec("ALTER TABLE login_attempts ADD COLUMN username VARCHAR(150) NOT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE login_attempts ADD COLUMN email VARCHAR(150) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE login_attempts ADD INDEX idx_username_created (username, created_at)"); } catch (Exception $e) {}
 
         // Ensure fraud_alerts table exists
         $pdo->exec("CREATE TABLE IF NOT EXISTS fraud_alerts (

@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 $_SESSION = array();
 
 if (ini_get("session.use_cookies")) {
@@ -12,7 +13,7 @@ if (ini_get("session.use_cookies")) {
 
 session_destroy();
 
-session_start();
+startSecureSession();
 $_SESSION['success'] = "You have been successfully logged out.";
 header("Location: login.php");
 exit;

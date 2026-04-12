@@ -1,8 +1,9 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../config/email.php';
+
+startSecureSession();
 
 // Authentication
 requireLogin();
@@ -120,14 +121,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 function fraudScoreBadge(int $score): string {
     if ($score <= 0) return '';
-    if ($score <= 25) {
+    if ($score <= 30) {
         $color = '#16a34a'; $bg = '#dcfce7'; $label = 'Low';
-    } elseif ($score <= 50) {
-        $color = '#ca8a04'; $bg = '#fef9c3'; $label = 'Med';
-    } elseif ($score <= 75) {
-        $color = '#ea580c'; $bg = '#ffedd5'; $label = 'High';
+    } elseif ($score <= 60) {
+        $color = '#ca8a04'; $bg = '#fef9c3'; $label = 'Medium';
     } else {
-        $color = '#dc2626'; $bg = '#fee2e2'; $label = 'Critical';
+        $color = '#dc2626'; $bg = '#fee2e2'; $label = 'High';
     }
     return '<span title="Fraud Score: ' . $score . '" style="display:inline-block;padding:2px 7px;border-radius:9999px;font-size:0.75rem;font-weight:600;background:' . $bg . ';color:' . $color . ';">' . $score . ' ' . $label . '</span>';
 }

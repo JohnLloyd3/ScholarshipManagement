@@ -1,8 +1,7 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 require_once __DIR__ . '/../config/email.php';
 
 requireLogin();
@@ -61,7 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':user_id' => $userId
                     ]);
                     $bookingId = $pdo->lastInsertId();
-                    logAudit($pdo, $userId, 'INTERVIEW_BOOKING_CREATED', 'interview_booking', $bookingId, null, json_encode(['slot_id' => $slotId, 'application_id' => $appId]));
                     
                     // Send notification
                     $notifStmt = $pdo->prepare('
@@ -116,7 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = :id AND user_id = :user_id
             ');
             $stmt->execute([':id' => $bookingId, ':user_id' => $userId]);
-            logAudit($pdo, $userId, 'INTERVIEW_BOOKING_CANCELLED', 'interview_booking', $bookingId, 'scheduled', 'cancelled');
             $_SESSION['success'] = 'Interview booking cancelled.';
         }
     }

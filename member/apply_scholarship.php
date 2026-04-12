@@ -1,7 +1,8 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+startSecureSession();
 
 requireLogin();
 requireRole('student', 'Student access required');
@@ -374,7 +375,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               show(cur);
             })();
           </script>
-    </form>
   </div>
 <?php endif; ?>
 

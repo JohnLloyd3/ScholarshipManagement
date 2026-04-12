@@ -1,5 +1,5 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/DisbursementHelper.php';
@@ -45,7 +45,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <label>Status</label>
       <select name="status" class="form-input">
         <option value="">All</option>
-        <?php foreach(['pending','processed','completed','failed'] as $s): ?>
+        <?php foreach(['pending','processing','completed','failed'] as $s): ?>
           <option value="<?= $s ?>" <?= ($filters['status'] === $s) ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
         <?php endforeach; ?>
       </select>

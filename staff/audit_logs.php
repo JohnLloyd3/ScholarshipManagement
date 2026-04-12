@@ -1,109 +1,124 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
+
+startSecureSession();
 requireLogin();
-requireAnyRole(['staff','admin'], 'Staff access required');
+requireAnyRole(['admin', 'staff'], 'Staff access required');
 
 $pdo = getPDO();
 
-// Ensure audit_logs table exists (safe no-op if already present)
-try {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT DEFAULT NULL,
-        action VARCHAR(255) NOT NULL,
-        entity_type VARCHAR(128) DEFAULT NULL,
-        entity_id INT DEFAULT NULL,
-        old_value TEXT DEFAULT NULL,
-        new_value TEXT DEFAULT NULL,
-        ip VARCHAR(45) DEFAULT NULL,
-        user_agent TEXT DEFAULT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-} catch (Exception $e) {}
+// Filters
+$filterUser   = trim($_GET['user']      ?? '');
+$filterAction = trim($_GET['action']    ?? '');
+$filterFrom   = trim($_GET['date_from'] ?? '');
+$filterTo     = trim($_GET['date_to']   ?? '');
 
-$qUser = trim($_GET['user'] ?? '');
-$qEntity = trim($_GET['entity'] ?? '');
-$from = trim($_GET['from'] ?? '');
-$to = trim($_GET['to'] ?? '');
-
+$where  = ['1=1'];
 $params = [];
-$where = [];
-if ($qUser !== '') { $where[] = 'user_id = :uid'; $params[':uid'] = (int)$qUser; }
-if ($qEntity !== '') { $where[] = 'entity_type = :etype'; $params[':etype'] = $qEntity; }
-if ($from !== '') { $where[] = 'created_at >= :from'; $params[':from'] = $from . ' 00:00:00'; }
-if ($to !== '') { $where[] = 'created_at <= :to'; $params[':to'] = $to . ' 23:59:59'; }
 
-$sql = 'SELECT a.*, u.first_name, u.last_name, u.email FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id';
-if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
-$sql .= ' ORDER BY a.created_at DESC LIMIT 500';
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// CSV export
-if (!empty($_GET['export']) && $_GET['export'] === 'csv') {
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="audit_logs.csv"');
-    $out = fopen('php://output', 'w');
-    fputcsv($out, ['id','user','action','entity_type','entity_id','created_at','ip','user_agent']);
-    foreach ($rows as $r) {
-        fputcsv($out, [
-            $r['id'], 
-            ($r['first_name'] ? $r['first_name'].' '.$r['last_name'] : ''), 
-            $r['action'], 
-            $r['entity_type'] ?? '', 
-            $r['entity_id'] ?? '', 
-            $r['created_at'], 
-            $r['ip'] ?? '', 
-            $r['user_agent'] ?? ''
-        ]);
-    }
-    fclose($out);
-    exit;
+if ($filterUser) {
+    $where[] = '(u.username LIKE :user OR CONCAT(u.first_name," ",u.last_name) LIKE :user2)';
+    $params[':user']  = '%' . $filterUser . '%';
+    $params[':user2'] = '%' . $filterUser . '%';
+}
+if ($filterAction) {
+    $where[] = 'al.action LIKE :action';
+    $params[':action'] = '%' . $filterAction . '%';
+}
+if ($filterFrom) {
+    $where[] = 'al.created_at >= :date_from';
+    $params[':date_from'] = $filterFrom . ' 00:00:00';
+}
+if ($filterTo) {
+    $where[] = 'al.created_at <= :date_to';
+    $params[':date_to'] = $filterTo . ' 23:59:59';
 }
 
-?>
-<?php
+$logs = [];
+try {
+    $pdo->query('SELECT 1 FROM audit_logs LIMIT 1');
+    $stmt = $pdo->prepare('SELECT al.*, u.username, u.first_name, u.last_name
+        FROM audit_logs al
+        LEFT JOIN users u ON al.user_id = u.id
+        WHERE ' . implode(' AND ', $where) . '
+        ORDER BY al.created_at DESC LIMIT 100');
+    $stmt->execute($params);
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $logs = [];
+}
+
 $page_title = 'Audit Logs - ScholarHub';
-$base_path = '../';
+$base_path  = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>📋 Audit / Activity Logs</h1>
-  <p class="text-muted">Track system activities and user actions</p>
+  <h1>📋 Audit Logs</h1>
+  <p class="text-muted">View-only access to the system audit trail</p>
+</div>
+
+<!-- Filters -->
+<div class="content-card" style="margin-bottom:var(--space-lg);">
+  <form method="GET" style="display:flex;flex-wrap:wrap;gap:var(--space-md);align-items:flex-end;">
+    <div class="form-group" style="margin:0;flex:1;min-width:150px;">
+      <label>User</label>
+      <input type="text" name="user" class="form-input" placeholder="Name or username" value="<?= htmlspecialchars($filterUser) ?>">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:150px;">
+      <label>Action</label>
+      <input type="text" name="action" class="form-input" placeholder="e.g. approve" value="<?= htmlspecialchars($filterAction) ?>">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+      <label>Date From</label>
+      <input type="date" name="date_from" class="form-input" value="<?= htmlspecialchars($filterFrom) ?>">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+      <label>Date To</label>
+      <input type="date" name="date_to" class="form-input" value="<?= htmlspecialchars($filterTo) ?>">
+    </div>
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <a href="audit_logs.php" class="btn btn-ghost">Clear</a>
+  </form>
 </div>
 
 <div class="content-card">
-  <form method="get" style="display:flex;gap:var(--space-md);flex-wrap:wrap;margin-bottom:var(--space-xl)">
-    <input name="user" value="<?= htmlspecialchars($qUser) ?>" placeholder="User ID" class="form-input" style="width:120px">
-    <input name="entity" value="<?= htmlspecialchars($qEntity) ?>" placeholder="Entity type" class="form-input" style="flex:1;min-width:200px">
-    <input type="date" name="from" value="<?= htmlspecialchars($from) ?>" class="form-input">
-    <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" class="form-input">
-    <button class="btn btn-primary">🔍 Filter</button>
-    <a class="btn btn-secondary" href="?<?= http_build_query(array_merge($_GET, ['export'=>'csv'])) ?>">📥 Export CSV</a>
-  </form>
-
-  <table class="modern-table">
-    <thead><tr><th>#</th><th>User</th><th>Action</th><th>Entity</th><th>Entity ID</th><th>When</th><th>IP</th></tr></thead>
-    <tbody>
-      <?php foreach($rows as $r): ?>
-        <tr>
-          <td><?= (int)$r['id'] ?></td>
-          <td><?= htmlspecialchars($r['first_name'] ? $r['first_name'].' '.$r['last_name'] : $r['user_id']) ?><br><small class="text-muted"><?= htmlspecialchars($r['email'] ?? '') ?></small></td>
-          <td><?= htmlspecialchars($r['action']) ?></td>
-          <td><?= htmlspecialchars($r['entity_type'] ?? '') ?></td>
-          <td><?= htmlspecialchars($r['entity_id'] ?? '') ?></td>
-          <td><small><?= htmlspecialchars($r['created_at']) ?></small></td>
-          <td><?= htmlspecialchars($r['ip'] ?? '—') ?></td>
-        </tr>
-      <?php endforeach; ?>
-    </tbody>
-  </table>
+  <h2>Log Entries <small class="text-muted">(<?= count($logs) ?> shown)</small></h2>
+  <?php if (!empty($logs)): ?>
+    <table class="modern-table" style="margin-top:var(--space-lg);">
+      <thead>
+        <tr><th>#</th><th>User</th><th>Action</th><th>Entity</th><th>Description</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        <?php foreach ($logs as $l): ?>
+          <tr>
+            <td><small><?= (int)$l['id'] ?></small></td>
+            <td>
+              <?php if ($l['username']): ?>
+                <strong><?= htmlspecialchars(($l['first_name'] ?? '') . ' ' . ($l['last_name'] ?? '')) ?></strong><br>
+                <small class="text-muted"><?= htmlspecialchars($l['username']) ?></small>
+              <?php else: ?>
+                <span class="text-muted">System</span>
+              <?php endif; ?>
+            </td>
+            <td><span class="status-badge"><?= htmlspecialchars($l['action']) ?></span></td>
+            <td><small><?= htmlspecialchars($l['target_table'] ?? $l['entity_type'] ?? '—') ?></small></td>
+            <td style="max-width:300px;"><small><?= htmlspecialchars(mb_strimwidth($l['description'] ?? $l['new_value'] ?? '', 0, 100, '…')) ?></small></td>
+            <td><small><?= date('M d, Y H:i', strtotime($l['created_at'])) ?></small></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php else: ?>
+    <div class="empty-state">
+      <div class="empty-state-icon">📋</div>
+      <h3 class="empty-state-title">No Logs Found</h3>
+      <p class="empty-state-description">No audit log entries match your filters.</p>
+    </div>
+  <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

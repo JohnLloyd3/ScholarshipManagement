@@ -15,7 +15,7 @@ function runFraudDetection($pdo, $applicationId) {
     $stmt->execute([':id' => $applicationId]);
     $app = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (!$app) return $alerts;
+    if (!$app) return ['alerts' => [], 'fraud_score' => 0];
     
     // Check 1: Multiple applications from same student for same scholarship
     $alerts = array_merge($alerts, detectDuplicateApplications($pdo, $app));
@@ -255,7 +255,8 @@ function createFraudAlert($pdo, $type, $severity, $userId, $appId, $docId, $desc
     ]);
     
     if ($checkStmt->fetch()) {
-        return null; // Alert already exists
+        // Alert already exists — still return severity so score is counted
+        return ['severity' => $severity, 'type' => $type, 'existing' => true];
     }
     
     $stmt = $pdo->prepare('
@@ -274,7 +275,7 @@ function createFraudAlert($pdo, $type, $severity, $userId, $appId, $docId, $desc
         ':evidence' => json_encode($evidence)
     ]);
     
-    return $pdo->lastInsertId();
+    return ['severity' => $severity, 'type' => $type, 'id' => (int)$pdo->lastInsertId()];
 }
 
 /**
@@ -285,15 +286,16 @@ function calculateFraudScore($alerts) {
     
     $weights = [
         'critical' => 40,
-        'high' => 25,
-        'medium' => 15,
-        'low' => 5
+        'high'     => 25,
+        'medium'   => 15,
+        'low'      => 5
     ];
     
     foreach ($alerts as $alert) {
         if (is_array($alert) && isset($alert['severity'])) {
             $score += $weights[$alert['severity']] ?? 0;
         }
+        // skip nulls or ints (legacy)
     }
     
     return min($score, 100); // Cap at 100

@@ -24,7 +24,7 @@ $initial = strtoupper(substr($user['first_name'] ?? $user['username'] ?? 'U', 0,
       <a href="<?= APP_BASE ?>/admin/users.php">Users</a>
       <a href="<?= APP_BASE ?>/admin/analytics.php">Analytics</a>
       <a href="<?= APP_BASE ?>/admin/scholarships.php">Scholarships</a>
-      <a href="<?= APP_BASE ?>/admin/activity_logs.php">Activity Logs</a>
+      <!-- Activity Logs link removed -->
       <a href="<?= APP_BASE ?>/auth/logout.php">Logout</a>
     <?php elseif ($role === 'staff'): ?>
       <a href="<?= APP_BASE ?>/staff/dashboard.php">Staff Dashboard</a>

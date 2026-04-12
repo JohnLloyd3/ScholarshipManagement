@@ -1,9 +1,10 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 // Security helpers (verification code, tokens)
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+startSecureSession();
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method !== 'POST') {
@@ -12,6 +13,18 @@ if ($method !== 'POST') {
 }
 
 $action = $_POST['action'] ?? '';
+
+// CSRF protection for all POST actions handled here.
+if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    $_SESSION['flash'] = 'Invalid request. Please try again.';
+    $redirect = '../auth/login.php';
+    if ($action === 'register') $redirect = '../auth/register.php';
+    if ($action === 'request_password_reset') $redirect = '../auth/forgot_password.php';
+    if ($action === 'reset_password_by_code') $redirect = '../auth/reset_password.php';
+    header("Location: $redirect");
+    exit;
+}
+
 $pdo = null;
 try {
     $pdo = getPDO();
@@ -176,8 +189,8 @@ if ($action === 'register') {
             }
 
             $pwHash = password_hash($password, PASSWORD_DEFAULT);
-            // Email verification removed: accounts are created as verified immediately.
-            $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, phone, address, role, email_verified, active) VALUES (:u, :p, :f, :l, :e, :ph, :a, :r, 1, 1)');
+            // Insert account as inactive pending email verification
+            $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, phone, address, role, email_verified, active) VALUES (:u, :p, :f, :l, :e, :ph, :a, :r, 0, 0)');
             $stmt->execute([
                 ':u' => $username,
                 ':p' => $pwHash,
@@ -191,17 +204,43 @@ if ($action === 'register') {
 
             $id = $pdo->lastInsertId();
 
-            // Log user in immediately after registration
-            $_SESSION['user_id'] = $id;
-            $_SESSION['user'] = [
-                'username' => $username,
-                'first_name' => $first,
-                'last_name' => $last,
-                'email' => $email,
-                'role' => $role
-            ];
-            $_SESSION['success'] = 'Registration successful! Welcome, ' . $first . '.';
-            _redirect_dashboard_for_role($role);
+            // Generate a secure verification token and store it
+            $token = bin2hex(random_bytes(32));
+            $expires = date('Y-m-d H:i:s', time() + 86400); // 24 hours
+            try {
+                $pdo->prepare('INSERT INTO email_verifications (user_id, token, expires_at) VALUES (:uid, :token, :exp)
+                               ON DUPLICATE KEY UPDATE token = :token2, expires_at = :exp2')
+                    ->execute([':uid' => $id, ':token' => $token, ':exp' => $expires, ':token2' => $token, ':exp2' => $expires]);
+            } catch (Exception $e) {
+                // Fallback: store token in a simple column if table doesn't exist
+                try {
+                    $pdo->prepare('UPDATE users SET verification_token = :token WHERE id = :id')
+                        ->execute([':token' => $token, ':id' => $id]);
+                } catch (Exception $e2) { /* ignore */ }
+            }
+
+            // Send verification email
+            $verifyUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
+                . '://' . $_SERVER['HTTP_HOST']
+                . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\')
+                . '/../auth/verify_email.php?token=' . urlencode($token);
+
+            $emailBody = '
+            <h2>Verify Your Email Address</h2>
+            <p>Dear ' . htmlspecialchars($first) . ',</p>
+            <p>Thank you for registering with ScholarHub. Please click the link below to activate your account:</p>
+            <p style="margin:20px 0;">
+              <a href="' . htmlspecialchars($verifyUrl) . '" style="background:#c41e3a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Verify Email Address</a>
+            </p>
+            <p>Or copy this link into your browser:<br><small>' . htmlspecialchars($verifyUrl) . '</small></p>
+            <p>This link expires in 24 hours.</p>
+            <p>If you did not register, please ignore this email.</p>';
+
+            queueEmail($email, 'Verify your ScholarHub account', $emailBody, $id);
+
+            $_SESSION['success'] = 'Registration successful! Please check your email for a verification link to activate your account.';
+            header("Location: ../auth/login.php");
+            exit;
 
         } catch (PDOException $e) {
             _error_db($e);
@@ -275,7 +314,7 @@ if ($action === 'register') {
                 exit;
             }
 
-            $stmt = $pdo->prepare('SELECT id, username, password, first_name, last_name, email, role, active FROM users WHERE username = :u LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, username, password, first_name, last_name, email, role, active, email_verified, COALESCE(must_change_password, 0) AS must_change_password FROM users WHERE username = :u LIMIT 1');
             $stmt->execute([':u' => $username]);
             $found = $stmt->fetch();
 
@@ -288,7 +327,19 @@ if ($action === 'register') {
 
             // Check if account is active
             if (!$found['active']) {
-                $_SESSION['flash'] = 'Your account has been deactivated. Please contact administrator.';
+                // Check if it's pending email verification
+                $verifyPending = false;
+                try {
+                    $vStmt = $pdo->prepare('SELECT 1 FROM email_verifications WHERE user_id = :uid LIMIT 1');
+                    $vStmt->execute([':uid' => $found['id']]);
+                    $verifyPending = (bool)$vStmt->fetchColumn();
+                } catch (Exception $e) { /* table may not exist */ }
+
+                if ($verifyPending || !$found['email_verified']) {
+                    $_SESSION['flash'] = 'Please verify your email address first. Check your inbox for the verification link.';
+                } else {
+                    $_SESSION['flash'] = 'Your account has been deactivated. Please contact administrator.';
+                }
                 header("Location: ../auth/login.php");
                 exit;
             }
@@ -296,6 +347,7 @@ if ($action === 'register') {
             _record_login_attempt($pdo, $username, $ip, 1);
 
             // Direct login (no verify-login step, no email codes)
+            rotateSession();
             $_SESSION['user_id'] = $found['id'];
             $_SESSION['user'] = [
                 'username' => $found['username'],
@@ -304,6 +356,20 @@ if ($action === 'register') {
                 'email' => $found['email'],
                 'role' => $found['role'] ?? 'student'
             ];
+
+            // Force password change if flagged
+            try {
+                $mustChange = false;
+                $colCheck = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'must_change_password'")->fetch();
+                if ($colCheck) {
+                    $mustChange = (bool)$found['must_change_password'];
+                }
+                if ($mustChange) {
+                    header("Location: ../auth/change_password.php");
+                    exit;
+                }
+            } catch (Exception $e) { /* column may not exist */ }
+
             $_SESSION['success'] = 'Welcome back, ' . ($found['first_name'] ?? $found['username']);
             _redirect_dashboard_for_role($found['role'] ?? 'student');
 
@@ -331,6 +397,7 @@ if ($action === 'register') {
         }
 
         // Direct login (local fallback)
+        rotateSession();
         $_SESSION['user_id'] = $found['id'];
         $_SESSION['user'] = [
             'username' => $found['username'],

@@ -1,9 +1,10 @@
 <?php
 error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
+
+startSecureSession();
 
 // Authentication
 requireLogin();
@@ -33,9 +34,11 @@ try {
     error_log('Admin Dashboard Error: ' . $e->getMessage());
     $totalApplications = 0;
     $pendingApplications = 0;
-    $pendingReviews = 0;
     $totalUsers = 0;
+    $totalStudents = 0;
     $totalScholarships = 0;
+    $approvedCount = 0;
+    $rejectedCount = 0;
     $recent = [];
 }
 ?>
@@ -100,8 +103,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <a class="btn btn-primary" href="scholarships.php">🎓 Manage Scholarships</a>
     <a class="btn btn-primary" href="applications.php">📝 Manage Applications</a>
     <a class="btn btn-primary" href="analytics.php">📊 Analytics</a>
-    <a class="btn btn-primary" href="activity_logs.php">📋 Activity Logs</a>
-    <a class="btn btn-primary" href="email_queue.php">📧 Email Queue</a>
+    <!-- Activity Logs link removed -->
+    <!-- Email Queue link removed -->
     <a class="btn btn-primary" href="disbursements.php">💰 Disbursements</a>
     <a class="btn btn-primary" href="fraud_detection.php">🔍 Fraud Detection</a>
     <a class="btn btn-primary" href="interview_slots.php">📅 Interview Slots</a>

@@ -26,13 +26,13 @@ function validateFileUpload($file, $allowed_types = [], $max_size = 5242880) {
     $mime = finfo_file($finfo, $file['tmp_name']);
     finfo_close($finfo);
     
-    // Default allowed types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG
+    // Default allowed types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF
     if (empty($allowed_types)) {
         $allowed_types = ['application/pdf', 'application/msword', 
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'application/vnd.ms-excel',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'image/jpeg', 'image/png'];
+            'image/jpeg', 'image/png', 'image/gif'];
     }
     
     if (!in_array($mime, $allowed_types)) {
@@ -49,7 +49,8 @@ function validateFileUpload($file, $allowed_types = [], $max_size = 5242880) {
         'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'jpg' => 'image/jpeg',
         'jpeg' => 'image/jpeg',
-        'png' => 'image/png'
+        'png' => 'image/png',
+        'gif' => 'image/gif'
     ];
     
     if (!isset($ext_mime[$ext]) || $ext_mime[$ext] !== $mime) {
@@ -249,6 +250,51 @@ function setSecurityHeaders() {
     header('X-Frame-Options: SAMEORIGIN');
     header('X-XSS-Protection: 1; mode=block');
     header('Referrer-Policy: strict-origin-when-cross-origin');
+}
+
+/**
+ * Start a hardened session and apply security headers.
+ * Call this instead of session_start() in pages/controllers.
+ */
+function startSecureSession(): void {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    // Prefer strict mode to reduce session fixation risk.
+    @ini_set('session.use_strict_mode', '1');
+    @ini_set('session.use_only_cookies', '1');
+    @ini_set('session.cookie_httponly', '1');
+
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+
+    $cookieParams = session_get_cookie_params();
+    // PHP 7.3+ supports array options (includes samesite)
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => $cookieParams['path'] ?? '/',
+        'domain' => $cookieParams['domain'] ?? '',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+
+    session_start();
+    setSecurityHeaders();
+}
+
+/**
+ * Regenerate the session ID and rotate CSRF token.
+ */
+function rotateSession(): void {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        startSecureSession();
+    }
+
+    session_regenerate_id(true);
+    // Rotate CSRF token after privilege changes (login/register)
+    $_SESSION['csrf_token'] = generateSecureToken();
 }
 
 /**

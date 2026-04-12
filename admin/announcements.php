@@ -1,7 +1,8 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+startSecureSession();
 
 // Authentication
 requireLogin();
@@ -48,11 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':expires_at' => !empty($expires_at) ? $expires_at : null
                     ]);
                     $newId = $pdo->lastInsertId();
-                    // Audit log: announcement created
-                    try {
-                        require_once __DIR__ . '/../helpers/AuditHelper.php';
-                        logAudit($pdo, $_SESSION['user_id'], 'ANNOUNCEMENT_CREATED', 'announcements', $newId, null, json_encode(['title'=>$title,'type'=>$type]));
-                    } catch (Exception $e) { /* non-fatal */ }
+                    // Audit removed
                     $_SESSION['message'] = 'Announcement created successfully!';
             } catch (Exception $e) {
                 $_SESSION['message'] = 'Error: ' . $e->getMessage();
@@ -70,11 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $pdo->prepare("UPDATE announcements SET published = 0 WHERE id = :id")
                             ->execute([':id' => $id]);
 
-                        // audit log: announcement unpublished
-                        try {
-                            require_once __DIR__ . '/../helpers/AuditHelper.php';
-                            logAudit($pdo, $_SESSION['user_id'], 'ANNOUNCEMENT_UNPUBLISHED', 'announcements', $id, json_encode($oldRow), json_encode(['published'=>0]));
-                        } catch (Exception $e) { /* continue */ }
+                        // Audit removed
                         $_SESSION['message'] = 'Announcement unpublished!';
             } catch (Exception $e) {
                 $_SESSION['message'] = 'Error: ' . $e->getMessage();
@@ -92,11 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $pdo->prepare("DELETE FROM announcements WHERE id = :id")
                             ->execute([':id' => $id]);
 
-                        // audit log: announcement deleted
-                        try {
-                            require_once __DIR__ . '/../helpers/AuditHelper.php';
-                            logAudit($pdo, $_SESSION['user_id'], 'ANNOUNCEMENT_DELETED', 'announcements', $id, json_encode($oldRow), null);
-                        } catch (Exception $e) { /* continue */ }
+                        // Audit removed
                         $_SESSION['message'] = 'Announcement deleted!';
             } catch (Exception $e) {
                 $_SESSION['message'] = 'Error: ' . $e->getMessage();

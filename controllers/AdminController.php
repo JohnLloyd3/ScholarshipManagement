@@ -1,9 +1,10 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
+// Audit helper removed
+
+startSecureSession();
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['user']['role'] ?? '') !== 'admin') {
     $_SESSION['flash'] = 'Admin access only.';
@@ -46,7 +47,7 @@ if ($action === 'create_user') {
         exit;
     }
     $pwHash = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, role, active, email_verified, created_at) VALUES (:u, :p, :f, :l, :e, :r, 1, 1, NOW())');
+    $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, role, active, email_verified, must_change_password, created_at) VALUES (:u, :p, :f, :l, :e, :r, 1, 1, 1, NOW())');
     $stmt->execute([':u'=>$username,':p'=>$pwHash,':f'=>$first,':l'=>$last,':e'=>$email,':r'=>$role]);
     $_SESSION['success'] = 'User created successfully.';
     header('Location: ../admin/users.php');

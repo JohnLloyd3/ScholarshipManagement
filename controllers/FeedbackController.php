@@ -1,9 +1,9 @@
-<?php
-session_start();
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 require_once __DIR__ . '/../helpers/FeedbackHelper.php';
+
+startSecureSession();
 
 requireLogin();
 requireRole('student', 'Student access required');
@@ -53,7 +53,7 @@ if ($action === 'submit_feedback') {
 
     try {
         $id = submitFeedback($pdo, $userId, $applicationId, $rating, $comment ?: null);
-        logAudit($pdo, $userId, 'FEEDBACK_SUBMITTED', 'feedback', $id, null, "rating:$rating");
+        // audit removed
         $_SESSION['success'] = 'Thank you for your feedback!';
     } catch (Exception $e) {
         error_log('[FeedbackController] ' . $e->getMessage());

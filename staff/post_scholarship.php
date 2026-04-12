@@ -1,8 +1,8 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
+// Audit helper removed
+startSecureSession();
 requireLogin();
 requireAnyRole(['admin','staff'], 'Staff access required');
 
@@ -57,7 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'amount' => $amount
         ]);
         $scholarship_id = (int)$pdo->lastInsertId();
-        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_CREATED', 'scholarship', $scholarship_id, null, $title);
         header('Location: ../staff/scholarships.php?posted=1');
         exit;
     }

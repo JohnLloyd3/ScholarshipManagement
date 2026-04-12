@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 
 function redirectDashboardForRole()
 {
@@ -111,6 +112,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
     
     <form method="POST" action="../controllers/AuthController.php">
       <input type="hidden" name="action" value="request_password_reset">
+      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
       
       <div class="form-group">
         <label for="identifier" class="form-label">Username or Email</label>

@@ -1,198 +1,169 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
+
+startSecureSession();
 requireLogin();
 requireRole('admin', 'Admin access required');
 
 $pdo = getPDO();
+$csrf_token = generateCSRFToken();
 
-// Ensure audit_logs table exists
-try {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT DEFAULT NULL,
-        action VARCHAR(255) NOT NULL,
-        entity_type VARCHAR(128) DEFAULT NULL,
-        entity_id INT DEFAULT NULL,
-        old_value TEXT DEFAULT NULL,
-        new_value TEXT DEFAULT NULL,
-        ip VARCHAR(45) DEFAULT NULL,
-        user_agent TEXT DEFAULT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_user (user_id),
-        INDEX idx_entity (entity_type, entity_id),
-        INDEX idx_created (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-} catch (Exception $e) {}
+// Filters
+$filterUser   = trim($_GET['user']   ?? '');
+$filterAction = trim($_GET['action'] ?? '');
+$filterEntity = trim($_GET['entity'] ?? '');
+$filterFrom   = trim($_GET['date_from'] ?? '');
+$filterTo     = trim($_GET['date_to']   ?? '');
 
-$qUser = trim($_GET['user'] ?? '');
-$qAction = trim($_GET['action'] ?? '');
-$qEntity = trim($_GET['entity'] ?? '');
-$from = trim($_GET['from'] ?? '');
-$to = trim($_GET['to'] ?? '');
-
+// Build query
+$where  = ['1=1'];
 $params = [];
-$where = [];
-if ($qUser !== '') { $where[] = 'a.user_id = :uid'; $params[':uid'] = (int)$qUser; }
-if ($qAction !== '') { $where[] = 'a.action LIKE :action'; $params[':action'] = '%' . $qAction . '%'; }
-if ($qEntity !== '') { $where[] = 'a.entity_type = :etype'; $params[':etype'] = $qEntity; }
-if ($from !== '') { $where[] = 'a.created_at >= :from'; $params[':from'] = $from . ' 00:00:00'; }
-if ($to !== '') { $where[] = 'a.created_at <= :to'; $params[':to'] = $to . ' 23:59:59'; }
 
-$sql = 'SELECT a.*, u.first_name, u.last_name, u.email, u.role FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id';
-if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
-$sql .= ' ORDER BY a.created_at DESC LIMIT 1000';
+if ($filterUser) {
+    $where[] = '(u.username LIKE :user OR CONCAT(u.first_name," ",u.last_name) LIKE :user2)';
+    $params[':user']  = '%' . $filterUser . '%';
+    $params[':user2'] = '%' . $filterUser . '%';
+}
+if ($filterAction) {
+    $where[] = 'al.action LIKE :action';
+    $params[':action'] = '%' . $filterAction . '%';
+}
+if ($filterEntity) {
+    $where[] = 'COALESCE(al.target_table, al.entity_type) LIKE :entity';
+    $params[':entity'] = '%' . $filterEntity . '%';
+}
+if ($filterFrom) {
+    $where[] = 'al.created_at >= :date_from';
+    $params[':date_from'] = $filterFrom . ' 00:00:00';
+}
+if ($filterTo) {
+    $where[] = 'al.created_at <= :date_to';
+    $params[':date_to'] = $filterTo . ' 23:59:59';
+}
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$logs = [];
+$total = 0;
+try {
+    $pdo->query('SELECT 1 FROM audit_logs LIMIT 1'); // check table exists
+    $stmt = $pdo->prepare('SELECT al.*, u.username, u.first_name, u.last_name
+        FROM audit_logs al
+        LEFT JOIN users u ON al.user_id = u.id
+        WHERE ' . implode(' AND ', $where) . '
+        ORDER BY al.created_at DESC LIMIT 200');
+    $stmt->execute($params);
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $total = count($logs);
+} catch (Exception $e) {
+    $logs = [];
+}
 
 // CSV export
-if (!empty($_GET['export']) && $_GET['export'] === 'csv') {
-    header('Content-Type: text/csv; charset=utf-8');
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="audit_logs_' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['ID','User','Role','Action','Entity Type','Entity ID','IP','Created At']);
-    foreach ($rows as $r) {
+    fputcsv($out, ['ID', 'User', 'Action', 'Entity', 'Entity ID', 'Description', 'IP', 'Date']);
+    foreach ($logs as $l) {
         fputcsv($out, [
-            $r['id'], 
-            ($r['first_name'] ? $r['first_name'].' '.$r['last_name'] : 'User #'.$r['user_id']), 
-            $r['role'] ?? '',
-            $r['action'], 
-            $r['entity_type'], 
-            $r['entity_id'], 
-            $r['ip'], 
-            $r['created_at']
+            $l['id'],
+            ($l['first_name'] ?? '') . ' ' . ($l['last_name'] ?? '') . ' (' . ($l['username'] ?? 'system') . ')',
+            $l['action'],
+            $l['target_table'] ?? $l['entity_type'] ?? '',
+            $l['target_id'] ?? $l['entity_id'] ?? '',
+            $l['description'] ?? $l['new_value'] ?? '',
+            $l['ip'] ?? $l['ip_address'] ?? '',
+            $l['created_at'],
         ]);
     }
     fclose($out);
     exit;
 }
 
-// Get statistics
-$stats = [];
-$stats['total_logs'] = $pdo->query('SELECT COUNT(*) FROM audit_logs')->fetchColumn();
-$stats['today_logs'] = $pdo->query('SELECT COUNT(*) FROM audit_logs WHERE DATE(created_at) = CURDATE()')->fetchColumn();
-$stats['unique_users'] = $pdo->query('SELECT COUNT(DISTINCT user_id) FROM audit_logs WHERE user_id IS NOT NULL')->fetchColumn();
-
-// Top actions
-$topActions = $pdo->query('SELECT action, COUNT(*) as count FROM audit_logs GROUP BY action ORDER BY count DESC LIMIT 5')->fetchAll(PDO::FETCH_ASSOC);
-?>
-<?php
-$page_title = 'Audit Logs - Admin';
-$base_path = '../';
-$extra_css = '
-  .stats-mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin-bottom: var(--space-xl); }
-  .stat-mini { background: var(--white); padding: var(--space-md); border-radius: var(--radius-lg); text-align: center; box-shadow: var(--shadow-sm); }
-  .stat-mini-value { font-size: 1.5rem; font-weight: 700; color: var(--red-primary); }
-  .stat-mini-label { color: var(--gray-600); margin-top: var(--space-xs); font-size: 0.75rem; }
-';
+$page_title = 'Audit Logs - ScholarHub';
+$base_path  = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>📋 Audit & Activity Logs</h1>
-  <p class="text-muted">Complete system activity tracking and security monitoring</p>
+  <h1>📋 Audit Logs</h1>
+  <p class="text-muted">Every action in the system is recorded here</p>
 </div>
 
-<div class="stats-mini">
-  <div class="stat-mini">
-    <div class="stat-mini-value"><?= number_format($stats['total_logs']) ?></div>
-    <div class="stat-mini-label">Total Logs</div>
-  </div>
-  <div class="stat-mini">
-    <div class="stat-mini-value"><?= number_format($stats['today_logs']) ?></div>
-    <div class="stat-mini-label">Today's Activity</div>
-  </div>
-  <div class="stat-mini">
-    <div class="stat-mini-value"><?= number_format($stats['unique_users']) ?></div>
-    <div class="stat-mini-label">Active Users</div>
-  </div>
+<?php if (!empty($_SESSION['success'])): ?>
+  <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+<?php endif; ?>
+
+<!-- Filters -->
+<div class="content-card" style="margin-bottom:var(--space-lg);">
+  <form method="GET" style="display:flex;flex-wrap:wrap;gap:var(--space-md);align-items:flex-end;">
+    <div class="form-group" style="margin:0;flex:1;min-width:150px;">
+      <label>User</label>
+      <input type="text" name="user" class="form-input" placeholder="Name or username" value="<?= htmlspecialchars($filterUser) ?>">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:150px;">
+      <label>Action</label>
+      <input type="text" name="action" class="form-input" placeholder="e.g. approve, delete" value="<?= htmlspecialchars($filterAction) ?>">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:150px;">
+      <label>Entity</label>
+      <input type="text" name="entity" class="form-input" placeholder="e.g. applications" value="<?= htmlspecialchars($filterEntity) ?>">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+      <label>Date From</label>
+      <input type="date" name="date_from" class="form-input" value="<?= htmlspecialchars($filterFrom) ?>">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+      <label>Date To</label>
+      <input type="date" name="date_to" class="form-input" value="<?= htmlspecialchars($filterTo) ?>">
+    </div>
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <a href="audit_logs.php" class="btn btn-ghost">Clear</a>
+    <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-ghost">📥 Export CSV</a>
+  </form>
 </div>
 
 <div class="content-card">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg);">
-    <h3>Activity Logs</h3>
-    <a class="btn btn-secondary btn-sm" href="?<?= http_build_query(array_merge($_GET, ['export'=>'csv'])) ?>">📥 Export CSV</a>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);">
+    <h2>Log Entries <small class="text-muted">(<?= $total ?> shown)</small></h2>
   </div>
 
-  <form method="get" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-md);margin-bottom:var(--space-xl)">
-    <input name="user" value="<?= htmlspecialchars($qUser) ?>" placeholder="User ID" class="form-input">
-    <input name="action" value="<?= htmlspecialchars($qAction) ?>" placeholder="Action" class="form-input">
-    <input name="entity" value="<?= htmlspecialchars($qEntity) ?>" placeholder="Entity type" class="form-input">
-    <input type="date" name="from" value="<?= htmlspecialchars($from) ?>" placeholder="From" class="form-input">
-    <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" placeholder="To" class="form-input">
-    <button class="btn btn-primary">🔍 Filter</button>
-  </form>
-
-  <?php if (empty($rows)): ?>
+  <?php if (!empty($logs)): ?>
+    <table class="modern-table">
+      <thead>
+        <tr><th>#</th><th>User</th><th>Action</th><th>Entity</th><th>ID</th><th>Description</th><th>IP</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        <?php foreach ($logs as $l): ?>
+          <tr>
+            <td><small><?= (int)$l['id'] ?></small></td>
+            <td>
+              <?php if ($l['username']): ?>
+                <strong><?= htmlspecialchars(($l['first_name'] ?? '') . ' ' . ($l['last_name'] ?? '')) ?></strong><br>
+                <small class="text-muted"><?= htmlspecialchars($l['username']) ?></small>
+              <?php else: ?>
+                <span class="text-muted">System</span>
+              <?php endif; ?>
+            </td>
+            <td><span class="status-badge"><?= htmlspecialchars($l['action']) ?></span></td>
+            <td><small><?= htmlspecialchars($l['target_table'] ?? $l['entity_type'] ?? '—') ?></small></td>
+            <td><small><?= htmlspecialchars($l['target_id'] ?? $l['entity_id'] ?? '—') ?></small></td>
+            <td style="max-width:300px;"><small><?= htmlspecialchars(mb_strimwidth($l['description'] ?? $l['new_value'] ?? '', 0, 100, '…')) ?></small></td>
+            <td><small><?= htmlspecialchars($l['ip'] ?? $l['ip_address'] ?? '—') ?></small></td>
+            <td><small><?= date('M d, Y H:i', strtotime($l['created_at'])) ?></small></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php else: ?>
     <div class="empty-state">
       <div class="empty-state-icon">📋</div>
-      <h3 class="empty-state-title">No Audit Logs</h3>
-      <p class="empty-state-description">No activity logs match your filters</p>
-    </div>
-  <?php else: ?>
-    <div style="overflow-x: auto;">
-      <table class="modern-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>User</th>
-            <th>Action</th>
-            <th>Entity</th>
-            <th>Entity ID</th>
-            <th>IP Address</th>
-            <th>Timestamp</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach($rows as $r): ?>
-            <tr>
-              <td><?= (int)$r['id'] ?></td>
-              <td>
-                <?php if ($r['first_name']): ?>
-                  <strong><?= htmlspecialchars($r['first_name'].' '.$r['last_name']) ?></strong><br>
-                  <small class="text-muted"><?= htmlspecialchars($r['email']) ?></small><br>
-                  <span class="status-badge status-<?= strtolower($r['role']) ?>"><?= htmlspecialchars($r['role']) ?></span>
-                <?php else: ?>
-                  <span class="text-muted">User #<?= (int)$r['user_id'] ?></span>
-                <?php endif; ?>
-              </td>
-              <td><strong><?= htmlspecialchars($r['action']) ?></strong></td>
-              <td><?= htmlspecialchars($r['entity_type'] ?? '—') ?></td>
-              <td><?= htmlspecialchars($r['entity_id'] ?? '—') ?></td>
-              <td><small><?= htmlspecialchars($r['ip'] ?? '—') ?></small></td>
-              <td><small><?= htmlspecialchars($r['created_at']) ?></small></td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+      <h3 class="empty-state-title">No Logs Found</h3>
+      <p class="empty-state-description">No audit log entries match your filters.</p>
     </div>
   <?php endif; ?>
 </div>
-
-<?php if (!empty($topActions)): ?>
-<div class="content-card" style="margin-top: var(--space-xl);">
-  <h3 style="margin-bottom: var(--space-lg);">Top Actions</h3>
-  <table class="modern-table">
-    <thead>
-      <tr>
-        <th>Action</th>
-        <th>Count</th>
-      </tr>
-    </thead>
-    <tbody>
-      <?php foreach($topActions as $ta): ?>
-        <tr>
-          <td><?= htmlspecialchars($ta['action']) ?></td>
-          <td><strong><?= number_format($ta['count']) ?></strong></td>
-        </tr>
-      <?php endforeach; ?>
-    </tbody>
-  </table>
-</div>
-<?php endif; ?>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

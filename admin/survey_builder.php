@@ -1,5 +1,5 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/SurveyHelper.php';
@@ -75,6 +75,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <option value="text" <?= $q['type']==='text'?'selected':'' ?>>Text</option>
                     <option value="rating_scale" <?= $q['type']==='rating_scale'?'selected':'' ?>>Rating Scale (1–5)</option>
                     <option value="multiple_choice" <?= $q['type']==='multiple_choice'?'selected':'' ?>>Multiple Choice</option>
+                    <option value="yes_no" <?= $q['type']==='yes_no'?'selected':'' ?>>Yes/No</option>
                   </select>
                 </div>
                 <div class="form-group" style="display:flex;align-items:flex-end;gap:var(--space-sm);">
@@ -122,6 +123,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               <option value="text">Text</option>
               <option value="rating_scale">Rating Scale (1–5)</option>
               <option value="multiple_choice">Multiple Choice</option>
+              <option value="yes_no">Yes/No</option>
             </select>
           </div>
           <div class="form-group" style="display:flex;align-items:flex-end;gap:var(--space-sm);">

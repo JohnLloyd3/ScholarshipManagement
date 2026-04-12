@@ -109,8 +109,23 @@ function getScholarshipPerformance($pdo, $scholarship_id) {
  * Get audit log entries
  */
 function getAuditLogs($pdo, $filters = [], $limit = 100) {
-    $sql = 'SELECT al.id, al.user_id, al.action, al.target_table, al.target_id, al.description, al.created_at,
-            u.username FROM audit_logs al
+    // Defensive: return empty if audit_logs table missing
+    try {
+        $pdo->query('SELECT 1 FROM audit_logs LIMIT 1');
+    } catch (Exception $e) {
+        return [];
+    }
+
+    $sql = 'SELECT
+            al.id,
+            al.user_id,
+            al.action,
+            COALESCE(al.target_table, al.entity_type) AS target_table,
+            COALESCE(al.target_id, al.entity_id) AS target_id,
+            COALESCE(al.description, al.new_value, al.new_values) AS description,
+            al.created_at,
+            u.username
+            FROM audit_logs al
             LEFT JOIN users u ON al.user_id = u.id
             WHERE 1=1';
     $params = [];

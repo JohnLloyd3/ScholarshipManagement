@@ -48,15 +48,37 @@ function getDisbursements(PDO $pdo, array $filters = [], string $role = 'admin',
     }
     $dateCol = $hasDate ? 'd.disbursement_date' : 'd.created_at';
 
+    // Detect whether `disbursements` table has `scholarship_id` and/or `application_id` columns.
+    try {
+        $hasScholarshipId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'scholarship_id'")->fetch();
+    } catch (Exception $e) {
+        $hasScholarshipId = false;
+    }
+    try {
+        $hasApplicationId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'application_id'")->fetch();
+    } catch (Exception $e) {
+        $hasApplicationId = false;
+    }
+
+    // Build joins and scholarship select depending on available columns.
+    $scholarshipSelect = 'NULL AS scholarship_title';
+    if ($hasScholarshipId) {
+        $joins = "JOIN users u ON d.user_id = u.id\n            LEFT JOIN scholarships s ON d.scholarship_id = s.id";
+        $scholarshipSelect = 's.title AS scholarship_title';
+    } elseif ($hasApplicationId) {
+        // join applications first, then scholarships via application.scholarship_id
+        $joins = "JOIN users u ON d.user_id = u.id\n            LEFT JOIN applications a ON d.application_id = a.id\n            LEFT JOIN scholarships s ON s.id = a.scholarship_id";
+        $scholarshipSelect = 's.title AS scholarship_title';
+    } else {
+        // Minimal join: users only. scholarship_title will be NULL.
+        $joins = "JOIN users u ON d.user_id = u.id";
+    }
+
     $sql = "SELECT d.*,
                    u.first_name, u.last_name, u.email,
-                   s.title AS scholarship_title,
+                   {$scholarshipSelect},
                    {$dateCol} AS disbursement_date
-            FROM disbursements d
-            JOIN users u ON d.user_id = u.id
-            LEFT JOIN scholarships s ON d.scholarship_id = s.id
-            WHERE " . implode(' AND ', $where) . "
-            ORDER BY {$dateCol} DESC, d.id DESC";
+            FROM disbursements d\n            " . $joins . "\n            WHERE " . implode(' AND ', $where) . "\n            ORDER BY {$dateCol} DESC, d.id DESC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -67,15 +89,33 @@ function getDisbursements(PDO $pdo, array $filters = [], string $role = 'admin',
  * Fetch a single disbursement with full joined data.
  */
 function getDisbursement(PDO $pdo, int $id): array|false {
-    $stmt = $pdo->prepare("
-        SELECT d.*,
-               u.first_name, u.last_name, u.email,
-               s.title AS scholarship_title
-        FROM disbursements d
-        JOIN users u ON d.user_id = u.id
-        LEFT JOIN scholarships s ON d.scholarship_id = s.id
-        WHERE d.id = :id
-    ");
+    // Detect whether `disbursements` table has `scholarship_id` column.
+    try {
+        $hasScholarshipId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'scholarship_id'")->fetch();
+    } catch (Exception $e) {
+        $hasScholarshipId = false;
+    }
+
+    if ($hasScholarshipId) {
+        $sql = "SELECT d.*,
+                       u.first_name, u.last_name, u.email,
+                       s.title AS scholarship_title
+                FROM disbursements d
+                JOIN users u ON d.user_id = u.id
+                LEFT JOIN scholarships s ON d.scholarship_id = s.id
+                WHERE d.id = :id";
+    } else {
+        $sql = "SELECT d.*,
+                       u.first_name, u.last_name, u.email,
+                       s.title AS scholarship_title
+                FROM disbursements d
+                JOIN users u ON d.user_id = u.id
+                LEFT JOIN applications a ON d.application_id = a.id
+                LEFT JOIN scholarships s ON s.id = a.scholarship_id
+                WHERE d.id = :id";
+    }
+
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([':id' => $id]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
@@ -142,8 +182,8 @@ function createDisbursementNotification(PDO $pdo, int $userId, string $event, ar
  */
 function isValidDisbursementTransition(string $from, string $to): bool {
     $allowed = [
-        'pending'   => ['processed'],
-        'processed' => ['completed', 'failed'],
+        'pending'    => ['processing'],
+        'processing' => ['completed', 'failed'],
     ];
     return in_array($to, $allowed[$from] ?? [], true);
 }

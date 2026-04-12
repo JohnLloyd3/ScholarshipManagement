@@ -1,7 +1,8 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+startSecureSession();
 
 requireLogin();
 $pdo = getPDO();
@@ -16,33 +17,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
     }
     $file = $_FILES['profile_picture'];
     
-    if ($file['error'] === UPLOAD_ERR_OK) {
-        $allowed = ['jpg', 'jpeg', 'png', 'gif'];
-        $filename = $file['name'];
-        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        
-        if (in_array($ext, $allowed)) {
-            // Create uploads directory if it doesn't exist
-            $upload_dir = __DIR__ . '/../uploads/profiles/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-            
-            // Generate unique filename
-            $new_filename = 'profile_' . $user_id . '_' . time() . '.' . $ext;
-            $upload_path = $upload_dir . $new_filename;
-            
-            if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-                // Update database
-                $stmt = $pdo->prepare('UPDATE users SET profile_picture = :pic WHERE id = :id');
-                $stmt->execute([':pic' => 'uploads/profiles/' . $new_filename, ':id' => $user_id]);
-                $_SESSION['success'] = 'Profile picture updated successfully!';
-            } else {
-                $_SESSION['flash'] = 'Failed to upload profile picture.';
-            }
-        } else {
-            $_SESSION['flash'] = 'Invalid file type. Only JPG, PNG, and GIF allowed.';
-        }
+    $validation = validateFileUpload($file, ['image/jpeg', 'image/png', 'image/gif'], 2 * 1024 * 1024);
+    if (!$validation['valid']) {
+        $_SESSION['flash'] = $validation['error'] ?? 'Invalid file upload.';
+        header('Location: profile.php');
+        exit;
+    }
+
+    $upload_dir = __DIR__ . '/../uploads/profiles/';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+
+    $new_filename = 'profile_' . $user_id . '_' . time() . '_' . generateSafeFileName($file['name']);
+    $upload_path = $upload_dir . $new_filename;
+
+    if (move_uploaded_file($file['tmp_name'], $upload_path)) {
+        $stmt = $pdo->prepare('UPDATE users SET profile_picture = :pic WHERE id = :id');
+        $stmt->execute([':pic' => 'uploads/profiles/' . $new_filename, ':id' => $user_id]);
+        $_SESSION['success'] = 'Profile picture updated successfully!';
+    } else {
+        $_SESSION['flash'] = 'Failed to upload profile picture.';
     }
     header('Location: profile.php');
     exit;

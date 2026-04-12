@@ -21,5 +21,17 @@
         "address": "qweqweqwe",
         "created_at": "2026-02-02T05:54:40+01:00",
         "role": "student"
+    },
+    {
+        "id": "1775802369398",
+        "username": "smokeuser",
+        "password": "$2y$10$4t00yx.1Jf07OOfttJVQken6oOZgCFU7UyIsDeh5byXKHk6XRCRp6",
+        "first_name": "Smoke",
+        "last_name": "Tester",
+        "email": "smoke@example.com",
+        "phone": "09123456789",
+        "address": "Test Address",
+        "created_at": "2026-04-10T08:26:09+02:00",
+        "role": "student"
     }
 ]

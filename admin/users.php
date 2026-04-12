@@ -1,7 +1,8 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+startSecureSession();
 
 // Authentication
 requireLogin();
@@ -115,8 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         } else {
                             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
                             $stmt = $pdo->prepare("
-                                INSERT INTO users (first_name, last_name, email, username, password, role, phone, address, active)
-                                VALUES (:first_name, :last_name, :email, :username, :password, :role, :phone, :address, 1)
+                                INSERT INTO users (first_name, last_name, email, username, password, role, phone, address, active, email_verified, must_change_password)
+                                VALUES (:first_name, :last_name, :email, :username, :password, :role, :phone, :address, 1, 1, 1)
                             ");
                             $stmt->execute([
                                 ':first_name' => $first_name,

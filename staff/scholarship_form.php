@@ -1,8 +1,7 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 requireLogin();
 requireAnyRole(['staff','admin'], 'Staff access required');
 
@@ -33,12 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($id) {
         $upd = $pdo->prepare('UPDATE scholarships SET title=:title, description=:desc, organization=:org, eligibility=:elig, amount=:amount, deadline=:deadline, status=:status, updated_at=NOW() WHERE id = :id');
         $upd->execute([':title'=>$title, ':desc'=>$desc, ':org'=>$org, ':elig'=>$elig, ':amount'=>$amount, ':deadline'=>$deadline, ':status'=>$status, ':id'=>$id]);
-        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_UPDATED', 'scholarship', $id, null, $title);
         $_SESSION['success'] = 'Scholarship updated.';
     } else {
         $ins = $pdo->prepare('INSERT INTO scholarships (title, description, organization, eligibility, amount, deadline, status, created_at) VALUES (:title, :desc, :org, :elig, :amount, :deadline, :status, NOW())');
         $ins->execute([':title'=>$title, ':desc'=>$desc, ':org'=>$org, ':elig'=>$elig, ':amount'=>$amount, ':deadline'=>$deadline, ':status'=>$status]);
-        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_CREATED', 'scholarship', (int)$pdo->lastInsertId(), null, $title);
+        
         $_SESSION['success'] = 'Scholarship created.';
     }
     header('Location: scholarships_manage.php'); exit;

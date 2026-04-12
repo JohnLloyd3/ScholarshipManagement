@@ -4,22 +4,42 @@
  * Handles sending verification codes and other emails
  */
 
-// Email configuration - update these for your SMTP server
-// NOTE: `EMAIL_FROM` will be set to the authenticated SMTP user when SMTP is enabled
-define('EMAIL_FROM_NAME', 'Scholarship Management System');
-define('SMTP_ENABLED', true); // Set to true if using SMTP
-define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_PORT', 587);
-// IMPORTANT: Use the exact Gmail account that owns the app password.
-// For simplicity we read the values directly here instead of mixing with environment variables.
-define('SMTP_USER', 'johnlloydracaza09399561410@gmail.com'); // Gmail account used to SEND emails
-define('SMTP_PASS', 'uxsntfsjxnavlreb');                     // 16-character app password for that account
-
-// Use SMTP authenticated user as envelope From when SMTP is enabled to improve deliverability
-if (defined('SMTP_ENABLED') && SMTP_ENABLED && !empty(SMTP_USER)) {
-    define('EMAIL_FROM', SMTP_USER);
-} else {
-    define('EMAIL_FROM', 'noreply@scholarshipmanagement.com');
+// Email configuration.
+// Read secrets from environment variables so credentials are not stored in the repo.
+// Supported vars:
+//   SMTP_ENABLED=true|false
+//   SMTP_HOST=smtp.gmail.com
+//   SMTP_PORT=587
+//   SMTP_USER=you@example.com
+//   SMTP_PASS=app-password
+//   EMAIL_FROM=optional-from@example.com
+//   EMAIL_FROM_NAME=Scholarship Management System
+if (!defined('EMAIL_FROM_NAME')) {
+    define('EMAIL_FROM_NAME', getenv('EMAIL_FROM_NAME') ?: 'Scholarship Management System');
+}
+if (!defined('SMTP_ENABLED')) {
+    $smtpEnabled = getenv('SMTP_ENABLED');
+    define('SMTP_ENABLED', $smtpEnabled ? filter_var($smtpEnabled, FILTER_VALIDATE_BOOLEAN) : false);
+}
+if (!defined('SMTP_HOST')) {
+    define('SMTP_HOST', getenv('SMTP_HOST') ?: 'smtp.gmail.com');
+}
+if (!defined('SMTP_PORT')) {
+    define('SMTP_PORT', (int)(getenv('SMTP_PORT') ?: 587));
+}
+if (!defined('SMTP_USER')) {
+    define('SMTP_USER', getenv('SMTP_USER') ?: '');
+}
+if (!defined('SMTP_PASS')) {
+    define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
+}
+if (!defined('EMAIL_FROM')) {
+    $configuredFrom = getenv('EMAIL_FROM') ?: '';
+    if (SMTP_ENABLED && !empty(SMTP_USER)) {
+        define('EMAIL_FROM', $configuredFrom ?: SMTP_USER);
+    } else {
+        define('EMAIL_FROM', $configuredFrom ?: 'noreply@scholarshipmanagement.com');
+    }
 }
 
 /**
@@ -368,6 +388,13 @@ function queueEmail($to, $subject, $message, $user_id = null) {
         }
 
         $pdo = getPDO();
+
+        // Defensive: if `email_logs` table is not present, skip queueing and send immediately
+        try {
+            $pdo->query('SELECT 1 FROM email_logs LIMIT 1');
+        } catch (Exception $e) {
+            return sendEmail($to, $subject, $message, true);
+        }
 
         // First, record the email in the log as queued.
         $stmt = $pdo->prepare('INSERT INTO email_logs (user_id, email, subject, body, status, attempts, created_at) VALUES (:uid, :email, :subject, :body, "queued", 0, NOW())');

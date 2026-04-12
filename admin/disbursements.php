@@ -1,8 +1,9 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/DisbursementHelper.php';
+
+startSecureSession();
 
 requireLogin();
 requireAnyRole(['admin'], 'Admin access required');
@@ -59,6 +60,10 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <div class="stat-label">Pending</div>
   </div>
   <div class="stat-card">
+    <div class="stat-value"><?= $byStatus['processing'] ?? 0 ?></div>
+    <div class="stat-label">Processing</div>
+  </div>
+  <div class="stat-card">
     <div class="stat-value"><?= $byStatus['completed'] ?? 0 ?></div>
     <div class="stat-label">Completed</div>
   </div>
@@ -71,7 +76,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <label>Status</label>
       <select name="status" class="form-input">
         <option value="">All</option>
-        <?php foreach(['pending','processed','completed','failed'] as $s): ?>
+        <?php foreach(['pending','processing','completed','failed'] as $s): ?>
           <option value="<?= $s ?>" <?= ($filters['status'] === $s) ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
         <?php endforeach; ?>
       </select>
@@ -160,10 +165,10 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <input type="hidden" name="action" value="update_status">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                     <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="processed">
-                    <button type="submit" class="btn btn-ghost btn-sm" title="Mark Processed">⚙️</button>
+                    <input type="hidden" name="status" value="processing">
+                    <button type="submit" class="btn btn-ghost btn-sm" title="Mark Processing">⚙️</button>
                   </form>
-                <?php elseif ($d['status'] === 'processed'): ?>
+                <?php elseif ($d['status'] === 'processing'): ?>
                   <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
                     <input type="hidden" name="action" value="update_status">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">

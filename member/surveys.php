@@ -78,6 +78,15 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 <?= htmlspecialchars($opt) ?>
               </label>
             <?php endforeach; ?>
+          <?php elseif($q['type'] === 'yes_no'): ?>
+            <div style="display:flex;gap:var(--space-lg);margin-top:var(--space-sm);">
+              <label style="display:flex;align-items:center;gap:var(--space-sm);cursor:pointer;">
+                <input type="radio" name="answers[<?= $q['id'] ?>]" value="Yes" <?= $q['required']?'required':'' ?>> Yes
+              </label>
+              <label style="display:flex;align-items:center;gap:var(--space-sm);cursor:pointer;">
+                <input type="radio" name="answers[<?= $q['id'] ?>]" value="No" <?= $q['required']?'required':'' ?>> No
+              </label>
+            </div>
           <?php endif; ?>
         </div>
       <?php endforeach; ?>

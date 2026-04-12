@@ -1,9 +1,10 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
+// Audit helper removed
 require_once __DIR__ . '/../helpers/DisbursementHelper.php';
+
+startSecureSession();
 
 requireLogin();
 
@@ -89,8 +90,6 @@ if ($action === 'create') {
         ]);
         $disbId = (int)$pdo->lastInsertId();
 
-        logAudit($pdo, $userId, 'DISBURSEMENT_CREATED', 'disbursement', $disbId, null, json_encode(['amount' => $amount, 'application_id' => $awardId]));
-
         // Notify student
         $disbursement = getDisbursement($pdo, $disbId);
         if ($disbursement) {
@@ -142,7 +141,7 @@ if ($action === 'update') {
             ':id'     => $disbId,
         ]);
 
-        logAudit($pdo, $userId, 'DISBURSEMENT_UPDATED', 'disbursement', $disbId, json_encode($old), json_encode(['amount' => $amount, 'date' => $date]));
+        
         flashAndRedirect('Disbursement updated.', backUrl($role), 'success');
     } catch (Exception $e) {
         error_log('[DisbursementController] update: ' . $e->getMessage());
@@ -161,7 +160,6 @@ if ($action === 'delete') {
 
     try {
         $pdo->prepare("UPDATE disbursements SET deleted_at = NOW() WHERE id = :id")->execute([':id' => $disbId]);
-        logAudit($pdo, $userId, 'DISBURSEMENT_DELETED', 'disbursement', $disbId);
         flashAndRedirect('Disbursement deleted.', backUrl($role), 'success');
     } catch (Exception $e) {
         error_log('[DisbursementController] delete: ' . $e->getMessage());
@@ -187,13 +185,13 @@ if ($action === 'update_status') {
 
     try {
         $pdo->prepare("UPDATE disbursements SET status = :status WHERE id = :id")->execute([':status' => $newStatus, ':id' => $disbId]);
-        logAudit($pdo, $userId, 'DISBURSEMENT_STATUS_CHANGED', 'disbursement', $disbId, $disb['status'], $newStatus);
 
         if ($newStatus === 'completed') {
             createDisbursementNotification($pdo, $disb['user_id'], 'disbursement_completed', $disb);
         }
 
-        flashAndRedirect('Status updated to ' . $newStatus . '.', backUrl($role), 'success');
+        $label = ucfirst($newStatus);
+        flashAndRedirect("Status updated to {$label}.", backUrl($role), 'success');
     } catch (Exception $e) {
         error_log('[DisbursementController] update_status: ' . $e->getMessage());
         flashAndRedirect('An error occurred.', backUrl($role));
@@ -214,7 +212,7 @@ if ($action === 'export_csv') {
     ];
 
     $rows = getDisbursementsForExport($pdo, $filters);
-    logAudit($pdo, $userId, 'DISBURSEMENT_EXPORTED', 'disbursement', null, null, 'csv');
+    
 
     header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="disbursements_' . date('Y-m-d') . '.csv"');
@@ -253,7 +251,6 @@ if ($action === 'export_pdf') {
     ];
 
     $rows = getDisbursementsForExport($pdo, $filters);
-    logAudit($pdo, $userId, 'DISBURSEMENT_EXPORTED', 'disbursement', null, null, 'pdf');
 
     $autoload = __DIR__ . '/../vendor/autoload.php';
     if (!file_exists($autoload)) {

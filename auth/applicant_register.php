@@ -1,8 +1,15 @@
 <?php
 // Applicant Registration Form
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+startSecureSession();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $errors = ['Invalid request. Please refresh and try again.'];
+    }
+
     $username = trim($_POST['username'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -46,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $guardian_date = trim($_POST['guardian_date'] ?? '');
 
     // Basic validation
-    $errors = [];
+    $errors = $errors ?? [];
     if (!$username || !$email || !$password || !$first_name || !$last_name) {
         $errors[] = 'All fields are required.';
     }
@@ -165,6 +172,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
   <?php endif; ?>
   
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
     <fieldset>
       <legend>🔐 Account Information</legend>
       <div class="form-group">

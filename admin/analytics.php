@@ -1,10 +1,10 @@
 <?php
 // Export must run before ANY output — no session_start yet
 if (!empty($_GET['export'])) {
-  session_start();
   require_once __DIR__ . '/../config/db.php';
   require_once __DIR__ . '/../helpers/SecurityHelper.php';
   require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
+  startSecureSession();
   requireLogin();
   requireRole('admin', 'Admin access required');
 
@@ -42,11 +42,11 @@ if (!empty($_GET['export'])) {
   exit; // exportTo* functions call exit, but be safe
 }
 
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
 require_once __DIR__ . '/../helpers/ScreeningHelper.php';
+startSecureSession();
 requireLogin();
 requireRole('admin', 'Admin access required');
 

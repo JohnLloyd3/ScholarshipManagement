@@ -1,31 +1,28 @@
 <?php
-session_start();
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/helpers/SecurityHelper.php';
 
-$pdo = getPDO();
+startSecureSession();
 
-// Get open scholarships
-$stmt = $pdo->query("
-    SELECT * FROM scholarships
-    WHERE status = 'open' AND deadline > NOW()
-    ORDER BY deadline ASC
-    LIMIT 10
-");
-$scholarships = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+$scholarships = [];
+$announcements = [];
+$totalApps = 0;
+$totalScholarships = 0;
 
-// Get announcements
-$stmt = $pdo->query("
-    SELECT * FROM announcements
-    WHERE published = 1 AND (expires_at IS NULL OR expires_at > NOW())
-    ORDER BY published_at DESC
-    LIMIT 3
-");
-$announcements = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+try {
+    $pdo = getPDO();
 
-// Count applications
-$totalApps = $pdo->query("SELECT COUNT(*) FROM applications")->fetchColumn() ?: 0;
-$totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn() ?: 0;
+    $stmt = $pdo->query("SELECT * FROM scholarships WHERE status = 'open' AND (deadline IS NULL OR deadline > NOW()) ORDER BY deadline ASC LIMIT 10");
+    $scholarships = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $stmt = $pdo->query("SELECT * FROM announcements WHERE published = 1 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY published_at DESC LIMIT 3");
+    $announcements = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $totalApps = (int)$pdo->query("SELECT COUNT(*) FROM applications")->fetchColumn();
+    $totalScholarships = (int)$pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn();
+} catch (Exception $e) {
+    error_log('[index.php] ' . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -117,7 +114,7 @@ $totalScholarships = $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status
         
         <div class="stat-card slide-in" style="animation-delay: 0.1s;">
           <div class="stat-icon">👥</div>
-          <div class="stat-value"><?= $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn() ?: 0 ?></div>
+          <div class="stat-value"><?php try { echo (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn(); } catch(Exception $e){ echo 0; } ?></div>
           <div class="stat-label">Students Registered</div>
         </div>
         

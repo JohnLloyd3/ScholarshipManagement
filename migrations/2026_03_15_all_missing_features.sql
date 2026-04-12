@@ -113,11 +113,13 @@ CREATE TABLE IF NOT EXISTS `survey_answers` (
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `login_attempts` (
   `id`         INT AUTO_INCREMENT PRIMARY KEY,
-  `username`   VARCHAR(255) NOT NULL,
+  `username`   VARCHAR(150) NOT NULL,
+  `email`      VARCHAR(150) DEFAULT NULL,
   `ip_address` VARCHAR(45)  NOT NULL,
   `success`    TINYINT(1)   DEFAULT 0,
   `created_at` DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_username`   (`username`),
-  INDEX `idx_ip`         (`ip_address`),
+  INDEX `idx_username_created` (`username`, `created_at`),
+  INDEX `idx_email_created`    (`email`, `created_at`),
+  INDEX `idx_ip_created`       (`ip_address`, `created_at`),
   INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

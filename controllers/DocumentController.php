@@ -1,8 +1,8 @@
-<?php
-session_start();
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
+
+startSecureSession();
 
 if (!isset($_SESSION['user_id'])) {
     $_SESSION['flash'] = 'Please log in.';
@@ -65,8 +65,7 @@ if ($action === 'verify_documents_bulk') {
             
             if ($stmt->rowCount() > 0) {
                 $updated_count++;
-                // Log audit trail
-                logAudit($pdo, $user_id, 'DOCUMENT_VERIFIED', 'document', $doc_id, null, $new_status);
+                // audit removed
             }
         }
         
@@ -111,7 +110,7 @@ if ($action === 'verify_single') {
         ]);
         
         if ($stmt->rowCount() > 0) {
-            logAudit($pdo, $user_id, 'DOCUMENT_VERIFIED', 'document', $doc_id, null, $new_status);
+            // audit removed
             $_SESSION['success'] = 'Document status updated to: ' . ucfirst(str_replace('_', ' ', $new_status));
         } else {
             $_SESSION['flash'] = 'Document not found or already updated.';

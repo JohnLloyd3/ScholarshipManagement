@@ -164,6 +164,7 @@ $role = $_SESSION['user']['role'] ?? 'student';
             <span>Surveys</span>
           </a>
         </li>
+        <!-- Surveys removed -->
         <li class="sidebar-item">
           <a href="<?= $base_path ?? '../' ?>member/feedback.php" class="sidebar-link <?= $current_page === 'feedback.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">⭐</span>
@@ -225,6 +226,7 @@ $role = $_SESSION['user']['role'] ?? 'student';
             <span>Survey Results</span>
           </a>
         </li>
+        <!-- Survey Results removed -->
         <li class="sidebar-item">
           <a href="<?= $base_path ?? '../' ?>staff/documents.php" class="sidebar-link <?= $current_page === 'documents.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">📄</span>
@@ -237,6 +239,7 @@ $role = $_SESSION['user']['role'] ?? 'student';
             <span>Audit Logs</span>
           </a>
         </li>
+        <!-- Audit Logs removed -->
         <li class="sidebar-item">
           <a href="<?= $base_path ?? '../' ?>staff/cron.php" class="sidebar-link <?= $current_page === 'cron.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">⚙️</span>
@@ -298,6 +301,8 @@ $role = $_SESSION['user']['role'] ?? 'student';
             <span>Email Queue</span>
           </a>
         </li>
+        <!-- Admin Audit Logs removed -->
+        <!-- Email Queue sidebar item removed -->
         <li class="sidebar-item">
           <a href="<?= $base_path ?? '../' ?>admin/interview_slots.php" class="sidebar-link <?= $current_page === 'interview_slots.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">📅</span>
@@ -322,6 +327,7 @@ $role = $_SESSION['user']['role'] ?? 'student';
             <span>Surveys</span>
           </a>
         </li>
+        <!-- Surveys removed -->
         <li class="sidebar-item">
           <a href="<?= $base_path ?? '../' ?>admin/feedback.php" class="sidebar-link <?= $current_page === 'feedback.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">⭐</span>
@@ -332,12 +338,6 @@ $role = $_SESSION['user']['role'] ?? 'student';
           <a href="<?= $base_path ?? '../' ?>admin/fraud_detection.php" class="sidebar-link <?= $current_page === 'fraud_detection.php' ? 'active' : '' ?>">
             <span class="sidebar-icon">🛡️</span>
             <span>Fraud Detection</span>
-          </a>
-        </li>
-        <li class="sidebar-item">
-          <a href="<?= $base_path ?? '../' ?>admin/activity_logs.php" class="sidebar-link <?= $current_page === 'activity_logs.php' ? 'active' : '' ?>">
-            <span class="sidebar-icon">📜</span>
-            <span>Activity Logs</span>
           </a>
         </li>
         <li class="sidebar-item">

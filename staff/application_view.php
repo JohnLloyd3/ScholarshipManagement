@@ -1,9 +1,7 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
-require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 requireLogin();
@@ -55,7 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $checkJson = json_encode(array_values($check));
     $ins = $pdo->prepare('INSERT INTO reviews (application_id, reviewer_id, score, checklist, comments) VALUES (:aid, :rid, :score, :check, :comments)');
     $ins->execute([':aid'=>$id, ':rid'=>$_SESSION['user_id'], ':score'=>$score, ':check'=>$checkJson, ':comments'=>$comments]);
-    logAudit($pdo, $_SESSION['user_id'], 'REVIEW_SUBMITTED', 'application', $id, null, json_encode(['score'=>$score,'comments'=>$comments]));
 
     // Create in-app notification for applicant
     try {
@@ -94,7 +91,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $oldStatusStmt->execute([':id' => $id]);
             $oldStatus = $oldStatusStmt->fetchColumn();
             $pdo->prepare('UPDATE applications SET status = :status, reviewed_at = NOW() WHERE id = :id')->execute([':status'=>$status, ':id'=>$id]);
-            logAudit($pdo, $_SESSION['user_id'], 'APPLICATION_STATUS_UPDATED', 'application', $id, $oldStatus, $status);
             
             // Auto-create pending disbursement on approval
             if ($status === 'approved') {
@@ -277,7 +273,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <div style="margin-top: var(--space-lg); padding: var(--space-lg); background: #e8f5e9; border-radius: var(--radius-lg); border-left: 4px solid #4CAF50;">
         <h4 style="margin: 0 0 var(--space-md) 0; color: #2e7d32;">✅ Application Approved</h4>
         <p style="margin: 0 0 var(--space-md) 0; color: #555;">This applicant is ready for an interview. Schedule an interview slot now.</p>
-        <a href="../staff/scholarships_manage.php?scholarship_id=<?= (int)$app['scholarship_id'] ?>" class="btn btn-primary">
+        <a href="../admin/interview_slots.php?scholarship_id=<?= (int)$app['scholarship_id'] ?>&app_id=<?= (int)$app['id'] ?>" class="btn btn-primary">
           📅 Schedule Interview
         </a>
       </div>

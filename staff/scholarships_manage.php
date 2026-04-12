@@ -1,8 +1,7 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 requireLogin();
 requireAnyRole(['staff','admin'], 'Staff access required');
 
@@ -19,12 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
     if ($action === 'delete' && $id) {
         $pdo->prepare('DELETE FROM scholarships WHERE id = :id')->execute([':id'=>$id]);
-        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_DELETED', 'scholarship', $id, null, null);
         $_SESSION['success'] = 'Scholarship deleted.';
     } elseif (($action === 'publish' || $action === 'unpublish') && $id) {
         $status = $action === 'publish' ? 'open' : 'closed';
         $pdo->prepare('UPDATE scholarships SET status = :status WHERE id = :id')->execute([':status'=>$status, ':id'=>$id]);
-        logAudit($pdo, $_SESSION['user_id'], 'SCHOLARSHIP_' . strtoupper($action) . 'ED', 'scholarship', $id, null, $status);
         $_SESSION['success'] = 'Scholarship updated.';
     }
     header('Location: scholarships_manage.php'); exit;

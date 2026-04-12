@@ -98,24 +98,42 @@ function logAuditTrail($pdo, $user_id, $action, $target_table, $target_id, $desc
             action VARCHAR(255) NOT NULL,
             entity_type VARCHAR(128) DEFAULT NULL,
             entity_id INT DEFAULT NULL,
+            target_table VARCHAR(128) DEFAULT NULL,
+            target_id INT DEFAULT NULL,
+            description TEXT DEFAULT NULL,
             old_value TEXT DEFAULT NULL,
             new_value TEXT DEFAULT NULL,
+            old_values JSON DEFAULT NULL,
+            new_values JSON DEFAULT NULL,
             ip VARCHAR(45) DEFAULT NULL,
+            ip_address VARCHAR(45) DEFAULT NULL,
             user_agent TEXT DEFAULT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_user (user_id),
             INDEX idx_entity (entity_type, entity_id),
+            INDEX idx_target (target_table, target_id),
             INDEX idx_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
         
-        $stmt = $pdo->prepare('INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_value, ip, user_agent, created_at) VALUES (:uid, :action, :etype, :eid, :nvals, :ip, :ua, NOW())');
+        $stmt = $pdo->prepare('INSERT INTO audit_logs (
+                user_id, action, entity_type, entity_id, target_table, target_id, description,
+                new_value, new_values, ip, ip_address, user_agent, created_at
+            ) VALUES (
+                :uid, :action, :etype, :eid, :ttable, :tid, :descr,
+                :nvals, :nvals_json, :ip, :ip_address, :ua, NOW()
+            )');
         $stmt->execute([
             ':uid' => $user_id,
             ':action' => $action,
             ':etype' => $target_table,
             ':eid' => $target_id,
+            ':ttable' => $target_table,
+            ':tid' => $target_id,
+            ':descr' => $new_values,
             ':nvals' => $new_values,
+            ':nvals_json' => is_array($description) ? json_encode($description, JSON_UNESCAPED_UNICODE) : null,
             ':ip' => $ip,
+            ':ip_address' => $ip,
             ':ua' => $ua
         ]);
     } catch (Exception $e) {

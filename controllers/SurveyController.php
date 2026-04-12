@@ -1,9 +1,9 @@
-<?php
-session_start();
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 require_once __DIR__ . '/../helpers/SurveyHelper.php';
+
+startSecureSession();
 
 requireLogin();
 
@@ -41,7 +41,7 @@ if ($action === 'create_survey') {
     $title = trim($_POST['title'] ?? '');
     if (!$title) { $_SESSION['flash'] = 'Title is required.'; header('Location: ../admin/surveys.php'); exit; }
     $id = createSurvey($pdo, ['title' => $title, 'description' => $_POST['description'] ?? null, 'scholarship_id' => $_POST['scholarship_id'] ?? null, 'cycle_label' => $_POST['cycle_label'] ?? null, 'created_by' => $userId]);
-    logAudit($pdo, $userId, 'SURVEY_CREATED', 'survey', $id, null, $title);
+    // audit removed
     $_SESSION['success'] = 'Survey created.';
     header('Location: ../admin/survey_builder.php?id=' . $id);
     exit;
@@ -52,7 +52,7 @@ if ($action === 'update_survey') {
     $title = trim($_POST['title'] ?? '');
     if (!$id || !$title) { $_SESSION['flash'] = 'Invalid request.'; header('Location: ../admin/surveys.php'); exit; }
     updateSurvey($pdo, $id, ['title' => $title, 'description' => $_POST['description'] ?? null, 'scholarship_id' => $_POST['scholarship_id'] ?? null, 'cycle_label' => $_POST['cycle_label'] ?? null]);
-    logAudit($pdo, $userId, 'SURVEY_UPDATED', 'survey', $id);
+    // audit removed
     $_SESSION['success'] = 'Survey updated.';
     header('Location: ../admin/surveys.php');
     exit;
@@ -63,7 +63,7 @@ if ($action === 'delete_survey') {
     if (!deleteSurvey($pdo, $id)) {
         $_SESSION['flash'] = 'Cannot delete active or closed survey.';
     } else {
-        logAudit($pdo, $userId, 'SURVEY_DELETED', 'survey', $id);
+        // audit removed
         $_SESSION['success'] = 'Survey deleted.';
     }
     header('Location: ../admin/surveys.php');
@@ -92,7 +92,7 @@ if ($action === 'update_status') {
     }
 
     $pdo->prepare("UPDATE surveys SET status=:s WHERE id=:id")->execute([':s' => $newStatus, ':id' => $id]);
-    logAudit($pdo, $userId, 'SURVEY_STATUS_CHANGED', 'survey', $id, $survey['status'], $newStatus);
+    // audit removed
 
     // Notify eligible students when activating
     if ($newStatus === 'active') {
@@ -119,7 +119,7 @@ if ($action === 'save_questions') {
     if (!$surveyId) { $_SESSION['flash'] = 'Invalid survey.'; header('Location: ../admin/surveys.php'); exit; }
 
     saveQuestions($pdo, $surveyId, $questions);
-    logAudit($pdo, $userId, 'SURVEY_QUESTIONS_SAVED', 'survey', $surveyId);
+    // audit removed
     $_SESSION['success'] = 'Questions saved.';
     header('Location: ../admin/survey_builder.php?id=' . $surveyId);
     exit;
@@ -168,7 +168,7 @@ if ($action === 'submit_response') {
 
     try {
         $responseId = submitResponse($pdo, $surveyId, $userId, $app['id'], $answers);
-        logAudit($pdo, $userId, 'SURVEY_RESPONSE_SUBMITTED', 'survey_response', $responseId);
+        // audit removed
         $_SESSION['success'] = 'Survey submitted. Thank you!';
     } catch (Exception $e) {
         error_log('[SurveyController] ' . $e->getMessage());

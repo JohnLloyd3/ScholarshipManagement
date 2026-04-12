@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 
 function redirectDashboardForRole()
 {
@@ -147,6 +148,7 @@ if (isset($_SESSION['user_id'])) {
       
       <form method="POST" action="../controllers/AuthController.php">
         <input type="hidden" name="action" value="register">
+        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
         
         <div class="form-group">
           <label for="username" class="form-label">Username</label>

@@ -1,8 +1,9 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/DisbursementHelper.php';
+
+startSecureSession();
 
 requireLogin();
 requireRole('student', 'Student access required');
@@ -31,6 +32,14 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <div class="stat-card">
     <div class="stat-value">₱<?= number_format($total, 2) ?></div>
     <div class="stat-label">Total Received</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value"><?= count(array_filter($disbursements, fn($d) => $d['status'] === 'pending')) ?></div>
+    <div class="stat-label">Pending</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value"><?= count(array_filter($disbursements, fn($d) => $d['status'] === 'processing')) ?></div>
+    <div class="stat-label">Processing</div>
   </div>
   <div class="stat-card">
     <div class="stat-value"><?= count($disbursements) ?></div>

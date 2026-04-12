@@ -1,9 +1,10 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/ScreeningHelper.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
+startSecureSession();
 
 if (!isset($_SESSION['user_id'])) {
     $_SESSION['flash'] = 'Please log in to submit an application.';
@@ -289,6 +290,12 @@ if ($action === 'create') {
 
 // Update application status
 if ($action === 'update_status') {
+    $role = $_SESSION['user']['role'] ?? 'student';
+    if (!in_array($role, ['admin', 'staff'], true)) {
+        $_SESSION['flash'] = 'Access denied.';
+        header('Location: ../member/applications.php');
+        exit;
+    }
     $application_id = (int)($_POST['application_id'] ?? 0);
     $new_status = trim($_POST['status'] ?? '');
     

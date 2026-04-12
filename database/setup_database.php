@@ -126,7 +126,7 @@ require_once __DIR__ . '/config/db.php';
                 if ($adminCount > 0) {
                     echo '<div class="info">';
                     echo '<strong>Admin Account:</strong> An admin account exists in the database.<br>';
-                    echo 'Default credentials: username: <code>admin</code>, password: <code>admin123</code>';
+                    echo 'Use the admin credentials created during setup or by your database seed process.';
                     echo '</div>';
                 }
             } catch (Exception $e) {

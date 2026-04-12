@@ -1,9 +1,8 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 
 requireLogin();
 requireAnyRole(['admin', 'staff'], 'Admin or Staff access required');
@@ -68,7 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             
             $slotId = $pdo->lastInsertId();
-            logAudit($pdo, $_SESSION['user_id'], 'INTERVIEW_SLOT_CREATED', 'interview_slot', $slotId, null, json_encode(['scholarship_id' => $scholarshipId, 'date' => $date, 'time' => $time]));
             
             // If specific application, auto-book them
             if ($applicationId) {
@@ -95,7 +93,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':user_id' => $userInfo['user_id']
                     ]);
                     $bookingId = $pdo->lastInsertId();
-                    logAudit($pdo, $_SESSION['user_id'], 'INTERVIEW_BOOKING_CREATED', 'interview_booking', $bookingId, null, json_encode(['slot_id' => $slotId, 'application_id' => $applicationId]));
                     
                     // Send in-app notification
                     $notifStmt = $pdo->prepare('
@@ -168,7 +165,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($slotId) {
             $stmt = $pdo->prepare('DELETE FROM interview_slots WHERE id = :id');
             $stmt->execute([':id' => $slotId]);
-            logAudit($pdo, $_SESSION['user_id'], 'INTERVIEW_SLOT_DELETED', 'interview_slot', $slotId, null, null);
             $_SESSION['success'] = 'Interview slot deleted.';
         }
     }
@@ -208,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':max' => $maxApplicants,
                 ':id' => $slotId
             ]);
-            logAudit($pdo, $_SESSION['user_id'], 'INTERVIEW_SLOT_UPDATED', 'interview_slot', $slotId, json_encode($oldValues), json_encode(['scholarship_id' => $scholarshipId, 'date' => $date, 'time' => $time, 'duration' => $duration, 'location' => $location, 'type' => $type, 'link' => $meetingLink, 'max' => $maxApplicants]));
+            
             
             $_SESSION['success'] = 'Interview slot updated successfully!';
         } else {

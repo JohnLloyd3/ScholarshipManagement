@@ -1,8 +1,7 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 require_once __DIR__ . '/../helpers/SurveyHelper.php';
 
 requireLogin();
@@ -26,7 +25,6 @@ $analytics = $survey ? getSurveyAnalytics($pdo, $surveyId) : [];
 // ── CSV Export ────────────────────────────────────────────────────────────────
 if (isset($_GET['export']) && $_GET['export'] === 'csv' && $survey) {
     $questions = getQuestions($pdo, $surveyId);
-    logAudit($pdo, $userId, 'SURVEY_EXPORTED', 'survey', $surveyId, null, 'csv');
 
     header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="survey_' . $surveyId . '_results_' . date('Y-m-d') . '.csv"');

@@ -97,11 +97,7 @@ $updates = [
         'has_sidebar' => true,
         'base_path' => '../'
     ],
-    'staff/audit_logs.php' => [
-        'title' => 'Audit Logs - ScholarHub',
-        'has_sidebar' => true,
-        'base_path' => '../'
-    ],
+    // 'staff/audit_logs.php' removed
     'staff/cron.php' => [
         'title' => 'Cron Jobs - ScholarHub',
         'has_sidebar' => true,
@@ -149,16 +145,8 @@ $updates = [
         'has_sidebar' => true,
         'base_path' => '../'
     ],
-    'admin/activity_logs.php' => [
-        'title' => 'Activity Logs - ScholarHub',
-        'has_sidebar' => true,
-        'base_path' => '../'
-    ],
-    'admin/email_queue.php' => [
-        'title' => 'Email Queue - ScholarHub',
-        'has_sidebar' => true,
-        'base_path' => '../'
-    ],
+    // 'admin/activity_logs.php' removed
+    // 'admin/email_queue.php' removed
     'admin/scholarship_archive.php' => [
         'title' => 'Scholarship Archive - ScholarHub',
         'has_sidebar' => true,

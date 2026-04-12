@@ -1,8 +1,7 @@
-<?php
-session_start();
+﻿<?php
+startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/AuditHelper.php';
 require_once __DIR__ . '/../helpers/FraudDetectionHelper.php';
 
 requireLogin();
@@ -36,8 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $newStatus = ($action === 'review_alert') ? 'reviewed' : 'dismissed';
             $pdo->prepare('UPDATE fraud_alerts SET status = :s, reviewed_by = :by, reviewed_at = NOW() WHERE id = :id')
-                ->execute([':s' => $newStatus, ':by' => $userId, ':id' => $alertId]);
-            logAudit($pdo, $userId, 'FRAUD_ALERT_' . strtoupper($newStatus), 'fraud_alert', $alertId, $current, $newStatus);
+              ->execute([':s' => $newStatus, ':by' => $userId, ':id' => $alertId]);
             $_SESSION['success'] = 'Alert marked as ' . $newStatus . '.';
         }
     }
@@ -225,12 +223,16 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <div class="stat-label">Dismissed</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value"><?= (int)($stats['by_severity']['critical'] ?? 0) ?></div>
-    <div class="stat-label">Critical</div>
+    <div class="stat-value"><?= (int)($stats['by_severity']['low'] ?? 0) ?></div>
+    <div class="stat-label">Low (0–30)</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value"><?= (int)($stats['high_risk_apps'] ?? 0) ?></div>
-    <div class="stat-label">High-Risk Apps</div>
+    <div class="stat-value"><?= (int)($stats['by_severity']['medium'] ?? 0) ?></div>
+    <div class="stat-label">Medium (31–60)</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value"><?= (int)(($stats['by_severity']['high'] ?? 0) + ($stats['by_severity']['critical'] ?? 0)) ?></div>
+    <div class="stat-label">High (61–100)</div>
   </div>
 </div>
 
@@ -250,7 +252,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <label>Severity</label>
       <select name="severity" class="form-input">
         <option value="">All</option>
-        <?php foreach(['critical','high','medium','low'] as $sev): ?>
+        <?php foreach(['high','medium','low'] as $sev): ?>
           <option value="<?= $sev ?>" <?= $filterSeverity===$sev?'selected':'' ?>><?= ucfirst($sev) ?></option>
         <?php endforeach; ?>
       </select>
