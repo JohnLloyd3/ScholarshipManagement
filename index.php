@@ -41,7 +41,7 @@ try {
   <nav class="navbar">
     <div class="navbar-container">
       <a href="index.php" class="navbar-logo">
-        <span class="navbar-logo-icon">🎓</span>
+        <img src="assets/image/logo.svg" alt="ScholarHub" style="width:32px;height:32px;border-radius:50%;">
         <span>ScholarHub</span>
       </a>
       

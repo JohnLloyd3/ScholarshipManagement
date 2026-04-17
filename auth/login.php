@@ -121,7 +121,7 @@ if (isset($_SESSION['user_id'])) {
   <div class="auth-container">
     <div class="auth-card fade-in">
       <div class="auth-logo">
-        <div class="auth-logo-icon">🎓</div>
+        <img src="../assets/image/logo.svg" alt="ScholarHub" style="width:80px;height:80px;margin-bottom:var(--space-md);">
         <div class="auth-logo-text">ScholarHub</div>
       </div>
       

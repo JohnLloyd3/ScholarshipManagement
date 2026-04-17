@@ -150,6 +150,36 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <div style="margin-bottom:20px">
               <strong>Submitted:</strong> <?= htmlspecialchars($viewingApp['created_at']) ?>
             </div>
+
+            <?php
+              // Show rejection reason from latest notification
+              if (strtolower($viewingApp['status']) === 'rejected') {
+                try {
+                  $rejStmt = $pdo->prepare("SELECT message FROM notifications WHERE user_id = :uid AND related_application_id = :aid AND title LIKE '%Rejected%' ORDER BY created_at DESC LIMIT 1");
+                  $rejStmt->execute([':uid' => $user_id, ':aid' => $viewingApp['id']]);
+                  $rejMsg = $rejStmt->fetchColumn();
+                } catch (Exception $e) { $rejMsg = null; }
+                if ($rejMsg): ?>
+                  <div style="background:#fff5f5;border-left:4px solid #f44336;padding:16px;border-radius:8px;margin-bottom:20px;">
+                    <strong style="color:#c62828;">Rejection Notice:</strong>
+                    <p style="margin:8px 0 0;color:#555;"><?= htmlspecialchars($rejMsg) ?></p>
+                  </div>
+                <?php endif;
+              }
+              if (strtolower($viewingApp['status']) === 'waitlisted'): ?>
+                <div style="background:#fffde7;border-left:4px solid #FFC107;padding:16px;border-radius:8px;margin-bottom:20px;">
+                  <strong style="color:#e65100;">You are on the waitlist.</strong>
+                  <p style="margin:8px 0 0;color:#555;">You may be promoted if a scholarship slot becomes available. No action needed — we'll notify you.</p>
+                </div>
+              <?php endif; ?>
+
+            <?php if (in_array(strtolower($viewingApp['status']), ['rejected', 'waitlisted'])): ?>
+              <div style="background:#f0f4ff;border-left:4px solid #2196F3;padding:16px;border-radius:8px;margin-bottom:20px;">
+                <strong style="color:#1565c0;">Have a question or want to appeal?</strong>
+                <p style="margin:8px 0 8px;color:#555;font-size:0.9rem;">You can submit feedback about this decision through the Feedback page.</p>
+                <a href="feedback.php" class="btn btn-ghost btn-sm">Submit Feedback / Appeal</a>
+              </div>
+            <?php endif; ?>
             
             <hr style="margin:20px 0">
             <h4>Application Details</h4>
@@ -307,6 +337,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                         <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
                         <button class="btn btn-ghost btn-sm" style="color:var(--red-primary)">Withdraw</button>
                       </form>
+                    <?php elseif ($a['status'] === 'approved'): ?>
+                      <a href="award_letter.php?application_id=<?= (int)$a['id'] ?>" class="btn btn-primary btn-sm" target="_blank">📄 Award Letter</a>
                     <?php endif; ?>
                   </td>
                 </tr>

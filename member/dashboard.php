@@ -156,6 +156,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <small class="text-muted"><?= date('M d, Y', strtotime($ann['published_at'])) ?></small>
     </div>
   <?php endforeach; ?>
+  <div style="margin-top:var(--space-md);text-align:right;">
+    <a href="announcements.php" class="btn btn-ghost btn-sm">View All Announcements →</a>
+  </div>
 </div>
 <?php endif; ?>
 

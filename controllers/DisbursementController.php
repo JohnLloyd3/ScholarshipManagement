@@ -49,7 +49,7 @@ if ($action === 'create') {
     $awardId   = (int)($_POST['award_id'] ?? 0);
     $amount    = trim($_POST['amount'] ?? '');
     $date      = trim($_POST['disbursement_date'] ?? '');
-    $method    = trim($_POST['payment_method'] ?? '');
+    $method    = 'Cash';
     $reference = trim($_POST['transaction_reference'] ?? '');
     $notes     = trim($_POST['notes'] ?? '');
 
@@ -58,9 +58,6 @@ if ($action === 'create') {
     }
     if (!$date) {
         flashAndRedirect('Disbursement date is required.', backUrl($role));
-    }
-    if (!$method) {
-        flashAndRedirect('Payment method is required.', backUrl($role));
     }
 
     // Validate application exists and is approved
@@ -73,9 +70,34 @@ if ($action === 'create') {
     }
 
     try {
+        // Auto-add missing columns so the insert never fails due to schema gaps
+        $alterStatements = [
+            "ALTER TABLE `disbursements` ADD COLUMN `application_id` INT DEFAULT NULL",
+            "ALTER TABLE `disbursements` ADD COLUMN `scholarship_id` INT DEFAULT NULL",
+            "ALTER TABLE `disbursements` ADD COLUMN `transaction_reference` VARCHAR(255) DEFAULT NULL",
+            "ALTER TABLE `disbursements` ADD COLUMN `deleted_at` DATETIME DEFAULT NULL",
+            "ALTER TABLE `disbursements` ADD COLUMN `created_by` INT DEFAULT NULL",
+            "ALTER TABLE `disbursements` MODIFY COLUMN `payment_method` VARCHAR(100) NOT NULL DEFAULT 'Cash'",
+            "ALTER TABLE `disbursements` MODIFY COLUMN `award_id` INT DEFAULT NULL",
+        ];
+        foreach ($alterStatements as $sql) {
+            try { $pdo->exec($sql); } catch (Exception $e) { /* column already exists — ignore */ }
+        }
+        // Drop award_id FK constraint (old schema)
+        try {
+            $fkRow = $pdo->query("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'disbursements'
+                AND COLUMN_NAME = 'award_id' AND REFERENCED_TABLE_NAME IS NOT NULL LIMIT 1")->fetch();
+            if ($fkRow) { $pdo->exec("ALTER TABLE `disbursements` DROP FOREIGN KEY `{$fkRow['CONSTRAINT_NAME']}`"); }
+        } catch (Exception $e) { /* ignore */ }
+        // Fix status ENUM
+        try {
+            $pdo->exec("ALTER TABLE `disbursements` MODIFY COLUMN `status` ENUM('pending','processing','completed','failed') DEFAULT 'pending'");
+        } catch (Exception $e) { /* ignore */ }
+
         $stmt = $pdo->prepare("
-            INSERT INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, payment_method, transaction_reference, status, notes, created_by, created_at)
-            VALUES (:app_id, :user_id, :sch_id, :amount, :date, :method, :ref, 'pending', :notes, :created_by, NOW())
+            INSERT INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, payment_method, status, notes, created_by, created_at)
+            VALUES (:app_id, :user_id, :sch_id, :amount, :date, :method, 'pending', :notes, :created_by, NOW())
         ");
         $stmt->execute([
             ':app_id'     => $award['id'],
@@ -84,7 +106,6 @@ if ($action === 'create') {
             ':amount'     => (float)$amount,
             ':date'       => $date,
             ':method'     => $method,
-            ':ref'        => $reference ?: null,
             ':notes'      => $notes ?: null,
             ':created_by' => $userId,
         ]);
@@ -98,8 +119,8 @@ if ($action === 'create') {
 
         flashAndRedirect('Disbursement created successfully.', backUrl($role), 'success');
     } catch (Exception $e) {
-        error_log('[DisbursementController] create: ' . $e->getMessage());
-        flashAndRedirect('An error occurred. Please try again.', backUrl($role));
+        error_log('[DisbursementController] create error: ' . $e->getMessage());
+        flashAndRedirect('An error occurred: ' . $e->getMessage(), backUrl($role));
     }
 }
 
@@ -112,7 +133,7 @@ if ($action === 'update') {
     $disbId    = (int)($_POST['disbursement_id'] ?? 0);
     $amount    = trim($_POST['amount'] ?? '');
     $date      = trim($_POST['disbursement_date'] ?? '');
-    $method    = trim($_POST['payment_method'] ?? '');
+    $method    = 'Cash';
     $reference = trim($_POST['transaction_reference'] ?? '');
     $notes     = trim($_POST['notes'] ?? '');
 
@@ -120,7 +141,6 @@ if ($action === 'update') {
         flashAndRedirect('Amount must be a positive number.', backUrl($role));
     }
     if (!$date) flashAndRedirect('Disbursement date is required.', backUrl($role));
-    if (!$method) flashAndRedirect('Payment method is required.', backUrl($role));
 
     $old = getDisbursement($pdo, $disbId);
     if (!$old) flashAndRedirect('Disbursement not found.', backUrl($role));
@@ -129,14 +149,13 @@ if ($action === 'update') {
         $stmt = $pdo->prepare("
             UPDATE disbursements
             SET amount = :amount, disbursement_date = :date, payment_method = :method,
-                transaction_reference = :ref, notes = :notes
+                notes = :notes
             WHERE id = :id
         ");
         $stmt->execute([
             ':amount' => (float)$amount,
             ':date'   => $date,
             ':method' => $method,
-            ':ref'    => $reference ?: null,
             ':notes'  => $notes ?: null,
             ':id'     => $disbId,
         ]);
@@ -169,7 +188,7 @@ if ($action === 'delete') {
 
 // ── update_status ─────────────────────────────────────────────────────────────
 if ($action === 'update_status') {
-    if ($role !== 'admin') {
+    if (!in_array($role, ['admin', 'staff'])) {
         flashAndRedirect('Access denied.', backUrl($role));
     }
 
@@ -217,7 +236,7 @@ if ($action === 'export_csv') {
     header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="disbursements_' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['ID', 'Student', 'Email', 'Scholarship', 'Amount', 'Date', 'Method', 'Reference', 'Status', 'Notes', 'Created At']);
+    fputcsv($out, ['ID', 'Student', 'Email', 'Scholarship', 'Amount', 'Date', 'Status', 'Notes', 'Created At']);
     foreach ($rows as $r) {
         fputcsv($out, [
             $r['id'],
@@ -226,8 +245,6 @@ if ($action === 'export_csv') {
             $r['scholarship_title'],
             $r['amount'],
             $r['disbursement_date'],
-            $r['payment_method'],
-            $r['transaction_reference'] ?? '',
             $r['status'],
             $r['notes'] ?? '',
             $r['created_at'],

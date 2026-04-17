@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $schStmt->execute([':id' => $app['scholarship_id']]);
                 $sch = $schStmt->fetch(PDO::FETCH_ASSOC);
                 $amount = $sch['amount'] ?? 0;
-                $disbStmt = $pdo->prepare("INSERT IGNORE INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, status, created_at) VALUES (:app_id, :user_id, :sch_id, :amount, CURDATE(), 'pending', NOW())");
+                $disbStmt = $pdo->prepare("INSERT IGNORE INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, payment_method, status, created_at) VALUES (:app_id, :user_id, :sch_id, :amount, CURDATE(), 'Cash', 'pending', NOW())");
                 $disbStmt->execute([':app_id' => $app_id, ':user_id' => $app['user_id'], ':sch_id' => $app['scholarship_id'], ':amount' => $amount]);
             } catch (Exception $e) { error_log('[Disbursement] ' . $e->getMessage()); }
             
@@ -78,41 +78,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($post_action === 'reject') {
         try {
-            $stmt = $pdo->prepare(" 
-                UPDATE applications 
-                SET status = 'rejected', reviewed_at = NOW()
-                WHERE id = :id
-            ");
-            $stmt->execute([':id' => $app_id]);
-            
-            // Get application details
-            $appStmt = $pdo->prepare("
-                SELECT a.*, u.email, u.first_name, s.title as scholarship_title
-                FROM applications a
-                JOIN users u ON a.user_id = u.id
-                JOIN scholarships s ON a.scholarship_id = s.id
-                WHERE a.id = :id
-            ");
+            $rejectReason = trim($_POST['reject_reason'] ?? '');
+            $pdo->prepare("UPDATE applications SET status = 'rejected', reviewed_at = NOW() WHERE id = :id")
+                ->execute([':id' => $app_id]);
+
+            $appStmt = $pdo->prepare("SELECT a.*, u.email, u.first_name, s.title as scholarship_title FROM applications a JOIN users u ON a.user_id = u.id JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id");
             $appStmt->execute([':id' => $app_id]);
             $app = $appStmt->fetch(PDO::FETCH_ASSOC);
-            
-            // Create notification
-            $notifStmt = $pdo->prepare("
-                INSERT INTO notifications (user_id, title, message, type, related_application_id)
-                VALUES (:user_id, 'Application Rejected', :message, 'error', :app_id)
-            ");
-            $notifStmt->execute([
-                ':user_id' => $app['user_id'],
-                ':message' => 'Unfortunately, your application for ' . $app['scholarship_title'] . ' was not approved this time.',
-                ':app_id' => $app_id
-            ]);
-            
-            // Queue email
-            $emailSubject = 'Application Update - ' . $app['scholarship_title'];
-            queueEmail($app['email'], $emailSubject,
-                "<h2>Application Status</h2><p>Dear " . htmlspecialchars($app['first_name']) . ",</p><p>Unfortunately, your application was not selected this round. Keep trying!</p>", $app['user_id']);
-            
-            $_SESSION['message'] = 'Application rejected!';
+
+            $msg = 'Unfortunately, your application for "' . $app['scholarship_title'] . '" was not selected this time.';
+            if ($rejectReason) $msg .= ' Reason: ' . $rejectReason;
+
+            $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, related_application_id) VALUES (:user_id, 'Application Rejected', :message, 'error', :app_id)")
+                ->execute([':user_id' => $app['user_id'], ':message' => $msg, ':app_id' => $app_id]);
+
+            $emailBody = "<h2>Application Update</h2><p>Dear " . htmlspecialchars($app['first_name']) . ",</p><p>" . htmlspecialchars($msg) . "</p>";
+            if ($rejectReason) $emailBody .= "<p><strong>Reason:</strong> " . htmlspecialchars($rejectReason) . "</p>";
+            queueEmail($app['email'], 'Application Rejected — ' . $app['scholarship_title'], $emailBody, $app['user_id']);
+
+            $_SESSION['message'] = 'Application rejected.';
         } catch (Exception $e) {
             $_SESSION['message'] = 'Error: ' . $e->getMessage();
         }
@@ -254,27 +238,75 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <?php if ($viewing['status'] === 'under_review' || $viewing['status'] === 'submitted'): ?>
       <div style="margin-top: var(--space-2xl); padding-top: var(--space-xl); border-top: 1px solid var(--gray-200);">
         <h3 style="margin-bottom: var(--space-lg);">Decision</h3>
-        <div style="display: flex; gap: var(--space-md);">
+        <div style="display: flex; gap: var(--space-md); flex-wrap:wrap;">
           <form method="POST">
             <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <input type="hidden" name="action" value="approve">
             <input type="hidden" name="app_id" value="<?= $viewing['id'] ?>">
-            <button type="submit" class="btn btn-primary">✓ Approve</button>
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Approve and auto-create disbursement?')">✓ Approve</button>
           </form>
-          
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('rejectModal').style.display='block'">✗ Reject</button>
+          <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+            <input type="hidden" name="action" value="set_application_status">
+            <input type="hidden" name="id" value="<?= $viewing['id'] ?>">
+            <input type="hidden" name="status" value="waitlisted">
+            <button type="submit" class="btn btn-ghost" onclick="return confirm('Waitlist this application?')">⏸ Waitlist</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Reject modal -->
+      <div id="rejectModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:480px;">
+          <div class="modal-header">
+            <h2>✗ Reject Application</h2>
+            <span class="modal-close" onclick="document.getElementById('rejectModal').style.display='none'">&times;</span>
+          </div>
           <form method="POST">
             <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <input type="hidden" name="action" value="reject">
             <input type="hidden" name="app_id" value="<?= $viewing['id'] ?>">
-            <button type="submit" class="btn btn-ghost">✗ Reject</button>
+            <div class="form-group">
+              <label class="form-label">Reason for Rejection <small class="text-muted">(shown to student)</small></label>
+              <textarea name="reject_reason" class="form-textarea" rows="4" placeholder="e.g. Does not meet GPA requirement, incomplete documents..." required></textarea>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-ghost" onclick="document.getElementById('rejectModal').style.display='none'">Cancel</button>
+              <button type="submit" class="btn btn-primary" style="background:#dc2626;border-color:#dc2626;">Confirm Rejection</button>
+            </div>
           </form>
         </div>
+      </div>
+
+    <?php elseif ($viewing['status'] === 'waitlisted'): ?>
+      <div style="margin-top: var(--space-2xl); padding-top: var(--space-xl); border-top: 1px solid var(--gray-200);">
+        <h3 style="margin-bottom: var(--space-lg);">Waitlist Actions</h3>
+        <p class="text-muted" style="margin-bottom:var(--space-md);">Promote this applicant if a scholarship slot has opened.</p>
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+          <input type="hidden" name="action" value="approve">
+          <input type="hidden" name="app_id" value="<?= $viewing['id'] ?>">
+          <button type="submit" class="btn btn-primary" onclick="return confirm('Promote from waitlist and approve? A disbursement will be created.')">✅ Promote & Approve</button>
+        </form>
       </div>
     <?php endif; ?>
   </div>
 <?php else: ?>
   <div class="content-card">
     <h3 style="margin-bottom: var(--space-xl);">All Applications</h3>
+
+    <?php
+      // Waitlisted count for quick action
+      $waitlistCount = 0;
+      foreach ($applications as $a) { if ($a['status'] === 'waitlisted') $waitlistCount++; }
+    ?>
+    <?php if ($waitlistCount > 0): ?>
+      <div style="background:#fffde7;border-left:4px solid #FFC107;padding:var(--space-md);border-radius:var(--radius-md);margin-bottom:var(--space-lg);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md);">
+        <span><strong><?= $waitlistCount ?> waitlisted</strong> application<?= $waitlistCount > 1 ? 's' : '' ?> — promote when a slot opens.</span>
+        <a href="applications.php?filter=waitlisted" class="btn btn-ghost btn-sm">View Waitlisted</a>
+      </div>
+    <?php endif; ?>
     <table class="modern-table">
       <thead>
         <tr>

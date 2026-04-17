@@ -11,6 +11,18 @@ requireRole('student', 'Student access required');
 $pdo    = getPDO();
 $userId = $_SESSION['user_id'];
 
+// Auto-fix disbursements table schema
+foreach ([
+    "ALTER TABLE `disbursements` ADD COLUMN `application_id` INT DEFAULT NULL",
+    "ALTER TABLE `disbursements` ADD COLUMN `scholarship_id` INT DEFAULT NULL",
+    "ALTER TABLE `disbursements` ADD COLUMN `transaction_reference` VARCHAR(255) DEFAULT NULL",
+    "ALTER TABLE `disbursements` ADD COLUMN `deleted_at` DATETIME DEFAULT NULL",
+    "ALTER TABLE `disbursements` MODIFY COLUMN `status` ENUM('pending','processing','completed','failed') DEFAULT 'pending'",
+] as $_sql) {
+    try { $pdo->exec($_sql); } catch (Exception $_e) { /* skip */ }
+}
+unset($_sql, $_e);
+
 $disbursements = getDisbursements($pdo, [], 'student', $userId);
 $total = array_sum(array_column(
     array_filter($disbursements, fn($d) => $d['status'] === 'completed'),
@@ -53,7 +65,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php if (!empty($disbursements)): ?>
     <table class="modern-table" style="margin-top:var(--space-lg);">
       <thead>
-        <tr><th>Scholarship</th><th>Amount</th><th>Date</th><th>Method</th><th>Reference</th><th>Status</th></tr>
+        <tr><th>Scholarship</th><th>Amount</th><th>Date</th><th>Status</th><th>Award Letter</th></tr>
       </thead>
       <tbody>
         <?php foreach($disbursements as $d): ?>
@@ -61,9 +73,26 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td><strong><?= htmlspecialchars($d['scholarship_title']) ?></strong></td>
             <td>₱<?= number_format((float)$d['amount'], 2) ?></td>
             <td><?= !empty($d['disbursement_date']) ? date('M d, Y', strtotime($d['disbursement_date'])) : '—' ?></td>
-            <td><?= htmlspecialchars($d['payment_method']) ?></td>
-            <td><small><?= htmlspecialchars($d['transaction_reference'] ?? '—') ?></small></td>
-            <td><span class="status-badge status-<?= $d['status'] ?>"><?= ucfirst($d['status']) ?></span></td>
+            <td>
+              <?php
+                $step = ['pending'=>1,'processing'=>2,'completed'=>3,'failed'=>0][$d['status']] ?? 0;
+              ?>
+              <div style="display:flex;align-items:center;gap:3px;font-size:0.72rem;flex-wrap:wrap;">
+                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=1?'#fef3c7':'#f3f4f6' ?>;color:<?= $step>=1?'#92400e':'#9ca3af' ?>;font-weight:600;">Pending</span>
+                <span style="color:#d1d5db;">›</span>
+                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=2?'#dbeafe':'#f3f4f6' ?>;color:<?= $step>=2?'#1e40af':'#9ca3af' ?>;font-weight:600;">Processing</span>
+                <span style="color:#d1d5db;">›</span>
+                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=3?'#d1fae5':'#f3f4f6' ?>;color:<?= $step>=3?'#065f46':'#9ca3af' ?>;font-weight:600;">Completed</span>
+                <?php if ($d['status']==='failed'): ?><span style="padding:2px 7px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;">Failed</span><?php endif; ?>
+              </div>
+            </td>
+            <td>
+              <?php if (!empty($d['application_id'])): ?>
+                <a href="award_letter.php?application_id=<?= (int)$d['application_id'] ?>" class="btn btn-ghost btn-sm" target="_blank">📄 Download</a>
+              <?php else: ?>
+                <span class="text-muted">—</span>
+              <?php endif; ?>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>

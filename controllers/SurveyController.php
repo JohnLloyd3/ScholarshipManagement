@@ -101,9 +101,9 @@ if ($action === 'update_status') {
         $stmt = $pdo->prepare("SELECT DISTINCT a.user_id FROM applications a WHERE a.status IN ('approved','completed') $where");
         $stmt->execute($params);
         $uids = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        $notif = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, created_at) VALUES (:uid, :title, :msg, 'info', NOW())");
+        if (!function_exists('notifyStudent')) require_once __DIR__ . '/../helpers/NotificationHelper.php';
         foreach ($uids as $uid) {
-            $notif->execute([':uid' => $uid, ':title' => 'New Survey Available', ':msg' => 'A new survey "' . htmlspecialchars($survey['title']) . '" is available for you to complete.']);
+            notifyStudent($pdo, (int)$uid, 'New Survey Available', 'A new survey "' . $survey['title'] . '" is available for you to complete.', 'info');
         }
     }
 

@@ -88,16 +88,22 @@ function getFeedbackAnalytics(PDO $pdo, ?int $scholarshipId = null): array {
  * Get eligible applications for feedback (approved/completed, no feedback yet)
  */
 function getEligibleFeedbackApplications(PDO $pdo, int $userId): array {
-    $stmt = $pdo->prepare("
-        SELECT a.id, a.status, s.title AS scholarship_title
-        FROM applications a
-        JOIN scholarships s ON a.scholarship_id = s.id
-        LEFT JOIN feedback f ON f.application_id = a.id
-        WHERE a.user_id = :uid
-          AND a.status IN ('approved', 'completed')
-          AND f.id IS NULL
-        ORDER BY a.updated_at DESC
-    ");
-    $stmt->execute([':uid' => $userId]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->prepare("
+            SELECT a.id, a.status, s.title AS scholarship_title,
+                   CASE WHEN d.id IS NOT NULL THEN 1 ELSE 0 END AS disbursement_completed
+            FROM applications a
+            JOIN scholarships s ON a.scholarship_id = s.id
+            LEFT JOIN feedback f ON f.application_id = a.id
+            LEFT JOIN disbursements d ON d.application_id = a.id AND d.status = 'completed' AND d.deleted_at IS NULL
+            WHERE a.user_id = :uid
+              AND a.status IN ('approved', 'completed')
+              AND f.id IS NULL
+            ORDER BY a.updated_at DESC
+        ");
+        $stmt->execute([':uid' => $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        return [];
+    }
 }

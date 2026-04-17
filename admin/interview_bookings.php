@@ -1,7 +1,7 @@
 ﻿<?php
-startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 
 requireLogin();
 requireAnyRole(['admin', 'staff'], 'Admin or Staff access required');
@@ -58,58 +58,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'complete_interview') {
-        $bookingId = (int)($_POST['booking_id'] ?? 0);
+        $bookingId     = (int)($_POST['booking_id'] ?? 0);
         $applicationId = (int)($_POST['application_id'] ?? 0);
+        $interviewScore= isset($_POST['interview_score']) ? (int)$_POST['interview_score'] : null;
+        $interviewNotes= trim($_POST['interview_notes'] ?? '');
 
         if ($bookingId && $applicationId) {
-            // Mark booking as completed
-            $pdo->prepare('UPDATE interview_bookings SET status = "completed" WHERE id = :id')
-                ->execute([':id' => $bookingId]);
+            // Save notes/score on the booking
+            $pdo->prepare('UPDATE interview_bookings SET status = "completed", interview_score = :score, interview_notes = :notes WHERE id = :id')
+                ->execute([':score' => $interviewScore, ':notes' => $interviewNotes ?: null, ':id' => $bookingId]);
 
-            // Advance application to under_review (next step after interview)
+            // Advance application to under_review
             $pdo->prepare('UPDATE applications SET status = "under_review", reviewed_at = NOW() WHERE id = :id AND status NOT IN ("rejected","approved")')
                 ->execute([':id' => $applicationId]);
 
-            
+            // Save a review record too (reuse reviews table)
+            try {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS reviews (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    application_id INT NOT NULL,
+                    reviewer_id INT DEFAULT NULL,
+                    score INT DEFAULT NULL,
+                    checklist TEXT DEFAULT NULL,
+                    comments TEXT DEFAULT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_rev_app (application_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+                $pdo->prepare('INSERT INTO reviews (application_id, reviewer_id, score, checklist, comments) VALUES (:aid, :rid, :score, :check, :comments)')
+                    ->execute([':aid' => $applicationId, ':rid' => $_SESSION['user_id'], ':score' => $interviewScore, ':check' => '["Interview"]', ':comments' => $interviewNotes ?: null]);
+            } catch (Exception $e) { error_log('[complete_interview review] ' . $e->getMessage()); }
 
             // Fetch applicant info for notification
-            $appStmt = $pdo->prepare('
-                SELECT a.user_id, a.scholarship_id, u.email, u.first_name, s.title as scholarship_title
-                FROM applications a
-                JOIN users u ON a.user_id = u.id
-                JOIN scholarships s ON a.scholarship_id = s.id
-                WHERE a.id = :id
-            ');
+            $appStmt = $pdo->prepare('SELECT a.user_id, a.scholarship_id, u.email, u.first_name, s.title as scholarship_title FROM applications a JOIN users u ON a.user_id = u.id JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id');
             $appStmt->execute([':id' => $applicationId]);
             $appInfo = $appStmt->fetch(PDO::FETCH_ASSOC);
 
             if ($appInfo) {
-                // In-app notification
                 try {
-                    $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, related_scholarship_id, created_at)
-                                   VALUES (:uid, :title, :msg, "application", :aid, :sid, NOW())')
-                        ->execute([
-                            ':uid'   => $appInfo['user_id'],
-                            ':title' => 'Interview Completed',
-                            ':msg'   => 'Your interview for "' . $appInfo['scholarship_title'] . '" has been completed. Your application is now under review.',
-                            ':aid'   => $applicationId,
-                            ':sid'   => $appInfo['scholarship_id'],
-                        ]);
-                } catch (Exception $e) { /* ignore */ }
+                    $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, related_scholarship_id, created_at) VALUES (:uid, :title, :msg, "application", :aid, :sid, NOW())')
+                        ->execute([':uid' => $appInfo['user_id'], ':title' => 'Interview Completed', ':msg' => 'Your interview for "' . $appInfo['scholarship_title'] . '" has been completed. Your application is now under review.', ':aid' => $applicationId, ':sid' => $appInfo['scholarship_id']]);
+                } catch (Exception $e) {}
 
-                // Email notification
                 require_once __DIR__ . '/../config/email.php';
                 if (!empty($appInfo['email'])) {
                     $emailBody  = '<h2>Interview Completed</h2>';
                     $emailBody .= '<p>Dear ' . htmlspecialchars($appInfo['first_name']) . ',</p>';
-                    $emailBody .= '<p>Your interview for <strong>' . htmlspecialchars($appInfo['scholarship_title']) . '</strong> has been completed.</p>';
-                    $emailBody .= '<p>Your application is now <strong>under review</strong>. You will be notified of the final decision soon.</p>';
-                    $emailBody .= '<p>Best regards,<br>ScholarHub Team</p>';
+                    $emailBody .= '<p>Your interview for <strong>' . htmlspecialchars($appInfo['scholarship_title']) . '</strong> has been completed. Your application is now <strong>under review</strong>.</p>';
+                    $emailBody .= '<p>You will be notified of the final decision soon.</p><p>Best regards,<br>ScholarHub Team</p>';
                     queueEmail($appInfo['email'], 'Interview Completed – ' . $appInfo['scholarship_title'], $emailBody, $appInfo['user_id']);
                 }
             }
 
-            $_SESSION['success'] = 'Interview marked as completed and application moved to Under Review.';
+            $_SESSION['success'] = 'Interview completed and notes saved. Application moved to Under Review.';
         }
     }
     
@@ -271,15 +271,18 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td><small><?= date('M d, Y g:i A', strtotime($booking['booked_at'])) ?></small></td>
             <td style="white-space: nowrap;">
               <?php if (!in_array($booking['status'], ['completed', 'cancelled'])): ?>
-                <form method="POST" style="display: inline-block; margin-bottom: 4px;" onsubmit="return confirm('Mark this interview as completed and advance the application to Under Review?')">
-                  <input type="hidden" name="action" value="complete_interview">
-                  <input type="hidden" name="booking_id" value="<?= (int)$booking['id'] ?>">
-                  <input type="hidden" name="application_id" value="<?= (int)$booking['application_id'] ?>">
-                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                  <button type="submit" class="btn btn-primary btn-sm">✅ Complete</button>
-                </form>
+                <button type="button" class="btn btn-primary btn-sm"
+                  onclick="openCompleteModal(<?= (int)$booking['id'] ?>, <?= (int)$booking['application_id'] ?>)">
+                  ✅ Complete
+                </button>
+              <?php else: ?>
+                <?php if ($booking['status'] === 'completed' && !empty($booking['interview_notes'])): ?>
+                  <span class="text-muted" style="font-size:0.8rem;" title="<?= htmlspecialchars($booking['interview_notes']) ?>">
+                    📝 Notes saved
+                  </span>
+                <?php endif; ?>
               <?php endif; ?>
-              <form method="POST" style="display: inline-block;">
+              <form method="POST" style="display: inline-block; margin-left:4px;">
                 <input type="hidden" name="action" value="update_booking_status">
                 <input type="hidden" name="booking_id" value="<?= (int)$booking['id'] ?>">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
@@ -309,5 +312,46 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </div>
   <?php endif; ?>
 </div>
+
+<!-- Complete Interview Modal -->
+<div id="completeModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:480px;">
+    <div class="modal-header">
+      <h2>✅ Complete Interview</h2>
+      <span class="modal-close" onclick="document.getElementById('completeModal').style.display='none'">&times;</span>
+    </div>
+    <form method="POST">
+      <input type="hidden" name="action" value="complete_interview">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+      <input type="hidden" name="booking_id" id="modal_booking_id">
+      <input type="hidden" name="application_id" id="modal_application_id">
+      <div class="form-group">
+        <label class="form-label">Interview Score (0–100)</label>
+        <input type="number" name="interview_score" id="modal_score" class="form-input" min="0" max="100" placeholder="Optional">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Interview Notes</label>
+        <textarea name="interview_notes" id="modal_notes" class="form-textarea" rows="4" placeholder="Observations, strengths, concerns..."></textarea>
+      </div>
+      <p class="text-muted" style="font-size:0.85rem;margin-bottom:var(--space-lg);">
+        This will mark the interview as completed and move the application to <strong>Under Review</strong>.
+      </p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('completeModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">✅ Confirm Complete</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openCompleteModal(bookingId, applicationId) {
+  document.getElementById('modal_booking_id').value = bookingId;
+  document.getElementById('modal_application_id').value = applicationId;
+  document.getElementById('modal_score').value = '';
+  document.getElementById('modal_notes').value = '';
+  document.getElementById('completeModal').style.display = 'block';
+}
+</script>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="100" fill="#c41e3a"/>
+
+  <!-- Graduation cap base (mortarboard) -->
+  <!-- Board top -->
+  <polygon points="100,42 160,72 100,102 40,72" fill="white"/>
+  <!-- Cap top flat square rotated -->
+  <rect x="78" y="30" width="44" height="44" rx="4" fill="white" transform="rotate(45 100 52)"/>
+
+  <!-- Cap stem -->
+  <rect x="96" y="72" width="8" height="30" rx="4" fill="white"/>
+
+  <!-- Tassel -->
+  <circle cx="155" cy="72" r="5" fill="#ffd700"/>
+  <line x1="155" y1="77" x2="155" y2="105" stroke="#ffd700" stroke-width="3" stroke-linecap="round"/>
+  <line x1="155" y1="105" x2="148" y2="118" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="155" y1="105" x2="155" y2="120" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="155" y1="105" x2="162" y2="118" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Text: ScholarHub -->
+  <text x="100" y="148" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="white" text-anchor="middle" letter-spacing="1">Scholar</text>
+  <text x="100" y="170" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#ffd700" text-anchor="middle" letter-spacing="1">Hub</text>
+</svg>

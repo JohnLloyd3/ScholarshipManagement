@@ -95,6 +95,26 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   </div>
 </div>
 
+<?php
+$staffAlerts = [];
+if ($pendingApplications > 0) $staffAlerts[] = ['msg' => "$pendingApplications application(s) waiting for review", 'link' => 'applications.php', 'label' => 'Review Now'];
+if ($pendingDisbursements > 0) $staffAlerts[] = ['msg' => "$pendingDisbursements disbursement(s) pending processing", 'link' => 'disbursements.php', 'label' => 'Process Now'];
+try {
+    $underReview = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'under_review'")->fetchColumn();
+    if ($underReview > 0) $staffAlerts[] = ['msg' => "$underReview application(s) under review awaiting decision", 'link' => 'applications.php', 'label' => 'Decide Now'];
+} catch (Exception $e) {}
+?>
+<?php if (!empty($staffAlerts)): ?>
+<div style="display:flex;flex-direction:column;gap:var(--space-sm);margin-bottom:var(--space-xl);">
+  <?php foreach ($staffAlerts as $al): ?>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);background:#fffbeb;border-left:4px solid #f59e0b;border-radius:var(--radius-lg);">
+      <span style="color:#92400e;font-weight:500;">⚠️ <?= htmlspecialchars($al['msg']) ?></span>
+      <a href="<?= htmlspecialchars($al['link']) ?>" class="btn btn-primary btn-sm"><?= htmlspecialchars($al['label']) ?></a>
+    </div>
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--space-xl);margin-bottom:var(--space-xl);">
 
   <!-- Recent Applications -->

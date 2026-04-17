@@ -1,7 +1,7 @@
 ﻿<?php
-startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 require_once __DIR__ . '/../helpers/FraudDetectionHelper.php';
 
 requireLogin();

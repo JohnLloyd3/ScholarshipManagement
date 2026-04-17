@@ -133,7 +133,7 @@ if (isset($_SESSION['user_id'])) {
   <div class="auth-container">
     <div class="auth-card fade-in">
       <div class="auth-logo">
-        <div class="auth-logo-icon">🎓</div>
+        <img src="../assets/image/logo.svg" alt="ScholarHub" style="width:80px;height:80px;margin-bottom:var(--space-md);">
         <div class="auth-logo-text">ScholarHub</div>
       </div>
       
@@ -233,9 +233,9 @@ if (isset($_SESSION['user_id'])) {
             class="form-input" 
             placeholder="Create a strong password"
             required
-            minlength="6"
+            minlength="8"
           >
-          <p class="form-help">Must be at least 6 characters</p>
+          <p class="form-help">Must be at least 8 characters</p>
         </div>
         
         <input type="hidden" name="role" value="student">

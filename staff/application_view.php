@@ -1,8 +1,8 @@
 ﻿<?php
-startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 
 requireLogin();
 requireAnyRole(['staff', 'admin'], 'Staff or Admin access required');
@@ -23,15 +23,17 @@ try {
   $pdo->exec("CREATE TABLE IF NOT EXISTS reviews (
     id INT AUTO_INCREMENT PRIMARY KEY,
     application_id INT NOT NULL,
-    reviewer_id INT NOT NULL,
+    reviewer_id INT DEFAULT NULL,
     score INT DEFAULT NULL,
     checklist TEXT DEFAULT NULL,
     comments TEXT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
-    FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL
+    INDEX idx_rev_app (application_id),
+    INDEX idx_rev_reviewer (reviewer_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-} catch (Exception $e) {}
+} catch (Exception $e) {
+  error_log('[application_view] reviews table: ' . $e->getMessage());
+}
 
 // Load documents
 $dstmt = $pdo->prepare('SELECT * FROM documents WHERE application_id = :id');
@@ -51,8 +53,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $check = $_POST['checklist'] ?? [];
     $comments = trim($_POST['comments'] ?? '');
     $checkJson = json_encode(array_values($check));
-    $ins = $pdo->prepare('INSERT INTO reviews (application_id, reviewer_id, score, checklist, comments) VALUES (:aid, :rid, :score, :check, :comments)');
-    $ins->execute([':aid'=>$id, ':rid'=>$_SESSION['user_id'], ':score'=>$score, ':check'=>$checkJson, ':comments'=>$comments]);
+    
+    try {
+      $ins = $pdo->prepare('INSERT INTO reviews (application_id, reviewer_id, score, checklist, comments) VALUES (:aid, :rid, :score, :check, :comments)');
+      $ins->execute([':aid'=>$id, ':rid'=>$_SESSION['user_id'], ':score'=>$score, ':check'=>$checkJson, ':comments'=>$comments]);
+    } catch (Exception $e) {
+      error_log('[submit_review] ' . $e->getMessage());
+      $_SESSION['flash'] = 'Failed to save review. Please try again.';
+      header('Location: application_view.php?id=' . $id);
+      exit;
+    }
 
     // Create in-app notification for applicant
     try {
@@ -84,29 +94,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
   }
     if ($action === 'update_status') {
-        $status = trim($_POST['status'] ?? '');
+        $status        = trim($_POST['status'] ?? '');
+        $rejectReason  = trim($_POST['reject_reason'] ?? '');
         $allowed = ['submitted','under_review','pending','approved','rejected','waitlisted','draft'];
         if (in_array($status, $allowed, true)) {
-            $oldStatusStmt = $pdo->prepare('SELECT status FROM applications WHERE id = :id');
-            $oldStatusStmt->execute([':id' => $id]);
-            $oldStatus = $oldStatusStmt->fetchColumn();
-            $pdo->prepare('UPDATE applications SET status = :status, reviewed_at = NOW() WHERE id = :id')->execute([':status'=>$status, ':id'=>$id]);
-            
-            // Auto-create pending disbursement on approval
+            $pdo->prepare('UPDATE applications SET status = :status, reviewed_at = NOW() WHERE id = :id')
+                ->execute([':status' => $status, ':id' => $id]);
+
+            // Notify student with reason on rejection/waitlist
+            $notifMsg = match($status) {
+                'approved'   => 'Congratulations! Your application for "' . $app['scholarship_title'] . '" has been approved.',
+                'rejected'   => 'Your application for "' . $app['scholarship_title'] . '" was not selected.' . ($rejectReason ? ' Reason: ' . $rejectReason : ''),
+                'waitlisted' => 'Your application for "' . $app['scholarship_title'] . '" has been waitlisted. You may be considered if a slot opens.',
+                default      => 'Your application status has been updated to ' . ucfirst(str_replace('_', ' ', $status)) . '.',
+            };
+            $notifType = match($status) {
+                'approved'   => 'success',
+                'rejected'   => 'error',
+                'waitlisted' => 'warning',
+                default      => 'info',
+            };
+            try {
+                $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_application_id, created_at) VALUES (:uid, :title, :msg, :type, :aid, NOW())')
+                    ->execute([':uid' => $app['user_id'], ':title' => 'Application ' . ucfirst($status), ':msg' => $notifMsg, ':type' => $notifType, ':aid' => $id]);
+                // Email
+                $userRow = $pdo->prepare('SELECT email, first_name FROM users WHERE id = :id');
+                $userRow->execute([':id' => $app['user_id']]);
+                $u = $userRow->fetch(PDO::FETCH_ASSOC);
+                if ($u && !empty($u['email'])) {
+                    $emailBody = '<p>Dear ' . htmlspecialchars($u['first_name']) . ',</p><p>' . htmlspecialchars($notifMsg) . '</p>';
+                    if ($status === 'rejected' && $rejectReason) {
+                        $emailBody .= '<p><strong>Reason:</strong> ' . htmlspecialchars($rejectReason) . '</p>';
+                    }
+                    $emailBody .= '<p>Log in to your account for more details.</p>';
+                    queueEmail($u['email'], 'Application ' . ucfirst($status) . ' — ' . $app['scholarship_title'], $emailBody, $app['user_id']);
+                }
+            } catch (Exception $e) { /* ignore */ }
+
+            // Auto-create disbursement on approval
             if ($status === 'approved') {
                 try {
-                    $schStmt = $pdo->prepare('SELECT scholarship_id, user_id FROM applications WHERE id = :id');
-                    $schStmt->execute([':id' => $id]);
-                    $appRow = $schStmt->fetch(PDO::FETCH_ASSOC);
-                    $amtStmt = $pdo->prepare('SELECT amount FROM scholarships WHERE id = :id');
-                    $amtStmt->execute([':id' => $appRow['scholarship_id']]);
-                    $sch = $amtStmt->fetch(PDO::FETCH_ASSOC);
-                    $disbStmt = $pdo->prepare("INSERT IGNORE INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, status, created_at) VALUES (:app_id, :user_id, :sch_id, :amount, CURDATE(), 'pending', NOW())");
-                    $disbStmt->execute([':app_id' => $id, ':user_id' => $appRow['user_id'], ':sch_id' => $appRow['scholarship_id'], ':amount' => $sch['amount'] ?? 0]);
+                    $appRow = $pdo->prepare('SELECT scholarship_id, user_id FROM applications WHERE id = :id');
+                    $appRow->execute([':id' => $id]);
+                    $ar = $appRow->fetch(PDO::FETCH_ASSOC);
+                    $schRow = $pdo->prepare('SELECT amount FROM scholarships WHERE id = :id');
+                    $schRow->execute([':id' => $ar['scholarship_id']]);
+                    $sch = $schRow->fetch(PDO::FETCH_ASSOC);
+                    $pdo->prepare("INSERT IGNORE INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, payment_method, status, created_at) VALUES (:app_id, :user_id, :sch_id, :amount, CURDATE(), 'Cash', 'pending', NOW())")
+                        ->execute([':app_id' => $id, ':user_id' => $ar['user_id'], ':sch_id' => $ar['scholarship_id'], ':amount' => $sch['amount'] ?? 0]);
                 } catch (Exception $e) { error_log('[Disbursement] ' . $e->getMessage()); }
             }
-            
-            $_SESSION['success'] = 'Status updated';
+
+            $_SESSION['success'] = 'Status updated to ' . ucfirst(str_replace('_', ' ', $status)) . '.';
         }
     }
     header('Location: application_view.php?id=' . $id);
@@ -240,29 +279,30 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   
   <?php if (strtolower($app['status']) === 'approved'): ?>
     <?php
-    // Check if interview already scheduled
     $interviewStmt = $pdo->prepare('
         SELECT ib.*, s.interview_date, s.interview_time, s.duration_minutes, s.interview_type, s.location, s.meeting_link
         FROM interview_bookings ib
         JOIN interview_slots s ON ib.slot_id = s.id
         WHERE ib.application_id = :app_id
-        ORDER BY ib.booked_at DESC
-        LIMIT 1
+        ORDER BY ib.booked_at DESC LIMIT 1
     ');
     $interviewStmt->execute([':app_id' => $id]);
     $interview = $interviewStmt->fetch(PDO::FETCH_ASSOC);
     ?>
-    
-    <?php if ($interview): ?>
-      <div style="margin-top: var(--space-lg); padding: var(--space-lg); background: #e3f2fd; border-radius: var(--radius-lg); border-left: 4px solid #2196F3;">
-        <h4 style="margin: 0 0 var(--space-md) 0; color: #1976D2;">📅 Interview Scheduled</h4>
-        <div style="display: grid; gap: var(--space-sm); color: #555;">
+    <?php if ($interview && $interview['status'] === 'completed'): ?>
+      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#e8f5e9;border-radius:var(--radius-lg);border-left:4px solid #4CAF50;">
+        <h4 style="margin:0 0 var(--space-sm) 0;color:#2e7d32;">✅ Interview Completed</h4>
+        <p style="margin:0;color:#555;">Interview was completed on <?= date('M d, Y', strtotime($interview['interview_date'])) ?>. Disbursement is pending.</p>
+      </div>
+    <?php elseif ($interview): ?>
+      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#e3f2fd;border-radius:var(--radius-lg);border-left:4px solid #2196F3;">
+        <h4 style="margin:0 0 var(--space-md) 0;color:#1976D2;">📅 Interview Scheduled</h4>
+        <div style="display:grid;gap:var(--space-sm);color:#555;">
           <div><strong>Date:</strong> <?= date('F d, Y', strtotime($interview['interview_date'])) ?></div>
           <div><strong>Time:</strong> <?= date('g:i A', strtotime($interview['interview_time'])) ?></div>
-          <div><strong>Duration:</strong> <?= (int)$interview['duration_minutes'] ?> minutes</div>
           <div><strong>Type:</strong> <?= ucfirst($interview['interview_type']) ?></div>
           <?php if ($interview['interview_type'] === 'online' && $interview['meeting_link']): ?>
-            <div><strong>Meeting Link:</strong> <a href="<?= htmlspecialchars($interview['meeting_link']) ?>" target="_blank" class="text-primary">Join Meeting</a></div>
+            <div><strong>Link:</strong> <a href="<?= htmlspecialchars($interview['meeting_link']) ?>" target="_blank">Join Meeting</a></div>
           <?php elseif ($interview['location']): ?>
             <div><strong>Location:</strong> <?= htmlspecialchars($interview['location']) ?></div>
           <?php endif; ?>
@@ -270,14 +310,64 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         </div>
       </div>
     <?php else: ?>
-      <div style="margin-top: var(--space-lg); padding: var(--space-lg); background: #e8f5e9; border-radius: var(--radius-lg); border-left: 4px solid #4CAF50;">
-        <h4 style="margin: 0 0 var(--space-md) 0; color: #2e7d32;">✅ Application Approved</h4>
-        <p style="margin: 0 0 var(--space-md) 0; color: #555;">This applicant is ready for an interview. Schedule an interview slot now.</p>
-        <a href="../admin/interview_slots.php?scholarship_id=<?= (int)$app['scholarship_id'] ?>&app_id=<?= (int)$app['id'] ?>" class="btn btn-primary">
-          📅 Schedule Interview
-        </a>
+      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#fff8e1;border-radius:var(--radius-lg);border-left:4px solid #FFC107;">
+        <h4 style="margin:0 0 var(--space-sm) 0;color:#e65100;">📅 No Interview Scheduled Yet</h4>
+        <p style="margin:0 0 var(--space-md) 0;color:#555;">Schedule an interview slot for this approved applicant.</p>
+        <a href="../admin/interview_slots.php?scholarship_id=<?= (int)$app['scholarship_id'] ?>&app_id=<?= (int)$app['id'] ?>" class="btn btn-primary">📅 Schedule Interview</a>
       </div>
     <?php endif; ?>
+
+  <?php elseif (strtolower($app['status']) === 'under_review'): ?>
+    <?php
+    $reviewedAt = $app['reviewed_at'] ?? $app['updated_at'] ?? null;
+    $daysUnderReview = $reviewedAt ? (int)floor((time() - strtotime($reviewedAt)) / 86400) : 0;
+    $urgentColor = $daysUnderReview >= 7 ? '#dc2626' : ($daysUnderReview >= 3 ? '#d97706' : '#2563eb');
+    ?>
+    <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#eff6ff;border-radius:var(--radius-lg);border-left:4px solid <?= $urgentColor ?>;">
+      <h4 style="margin:0 0 var(--space-sm) 0;color:<?= $urgentColor ?>;">
+        ⏳ Under Review — <?= $daysUnderReview ?> day<?= $daysUnderReview !== 1 ? 's' : '' ?> waiting
+        <?php if ($daysUnderReview >= 7): ?> <span style="font-size:0.8rem;font-weight:400;">(Action recommended)</span><?php endif; ?>
+      </h4>
+      <p style="margin:0 0 var(--space-md) 0;color:#555;">Make a final decision on this application.</p>
+      <div style="display:flex;gap:var(--space-md);flex-wrap:wrap;">
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="action" value="update_status">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+          <input type="hidden" name="status" value="approved">
+          <button type="submit" class="btn btn-primary" onclick="return confirm('Approve this application? A disbursement will be created automatically.')">✅ Approve</button>
+        </form>
+        <button type="button" class="btn btn-ghost" style="color:#dc2626;" onclick="document.getElementById('rejectModal').style.display='block'">❌ Reject</button>
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="action" value="update_status">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+          <input type="hidden" name="status" value="waitlisted">
+          <button type="submit" class="btn btn-ghost" onclick="return confirm('Waitlist this application?')">⏸ Waitlist</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Reject with reason modal -->
+    <div id="rejectModal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+          <h2>❌ Reject Application</h2>
+          <span class="modal-close" onclick="document.getElementById('rejectModal').style.display='none'">&times;</span>
+        </div>
+        <form method="post">
+          <input type="hidden" name="action" value="update_status">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+          <input type="hidden" name="status" value="rejected">
+          <div class="form-group">
+            <label class="form-label">Reason for Rejection <small class="text-muted">(shown to student)</small></label>
+            <textarea name="reject_reason" class="form-textarea" rows="4" placeholder="e.g. Does not meet GPA requirement, incomplete documents, etc." required></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('rejectModal').style.display='none'">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="background:#dc2626;border-color:#dc2626;">Confirm Rejection</button>
+          </div>
+        </form>
+      </div>
+    </div>
   <?php endif; ?>
 </div>
 

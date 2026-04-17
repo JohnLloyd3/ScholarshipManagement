@@ -5,43 +5,52 @@
  */
 
 // Email configuration.
-// Read secrets from environment variables so credentials are not stored in the repo.
-// Supported vars:
-//   SMTP_ENABLED=true|false
-//   SMTP_HOST=smtp.gmail.com
-//   SMTP_PORT=587
-//   SMTP_USER=you@example.com
-//   SMTP_PASS=app-password
-//   EMAIL_FROM=optional-from@example.com
-//   EMAIL_FROM_NAME=Scholarship Management System
-if (!defined('EMAIL_FROM_NAME')) {
-    define('EMAIL_FROM_NAME', getenv('EMAIL_FROM_NAME') ?: 'Scholarship Management System');
-}
-if (!defined('SMTP_ENABLED')) {
-    $smtpEnabled = getenv('SMTP_ENABLED');
-    define('SMTP_ENABLED', $smtpEnabled ? filter_var($smtpEnabled, FILTER_VALIDATE_BOOLEAN) : false);
-}
-if (!defined('SMTP_HOST')) {
-    define('SMTP_HOST', getenv('SMTP_HOST') ?: 'smtp.gmail.com');
-}
-if (!defined('SMTP_PORT')) {
-    define('SMTP_PORT', (int)(getenv('SMTP_PORT') ?: 587));
-}
-if (!defined('SMTP_USER')) {
-    define('SMTP_USER', getenv('SMTP_USER') ?: '');
-}
-if (!defined('SMTP_PASS')) {
-    define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
-}
-if (!defined('EMAIL_FROM')) {
-    $configuredFrom = getenv('EMAIL_FROM') ?: '';
-    if (SMTP_ENABLED && !empty(SMTP_USER)) {
-        define('EMAIL_FROM', $configuredFrom ?: SMTP_USER);
-    } else {
-        define('EMAIL_FROM', $configuredFrom ?: 'noreply@scholarshipmanagement.com');
+// Hardcoded credentials take priority, then DB settings, then env vars.
+
+function _getEmailSetting(string $key, string $envVar, string $default = ''): string {
+    static $dbSettings = null;
+    if ($dbSettings === null) {
+        $dbSettings = [];
+        try {
+            if (function_exists('getPDO')) {
+                $pdo = getPDO();
+                $rows = $pdo->query('SELECT `key`, `value` FROM system_settings')->fetchAll(PDO::FETCH_KEY_PAIR);
+                $dbSettings = $rows ?: [];
+            }
+        } catch (Exception $e) { /* table may not exist yet */ }
     }
+    // DB setting only wins if it's non-empty AND the default is empty
+    // (i.e. admin explicitly changed it via UI)
+    if (isset($dbSettings[$key]) && $dbSettings[$key] !== '' && $default === '') {
+        return $dbSettings[$key];
+    }
+    // Hardcoded default wins when provided
+    if ($default !== '') return $default;
+    $env = getenv($envVar);
+    return ($env !== false && $env !== '') ? $env : '';
 }
 
+if (!defined('EMAIL_FROM_NAME')) {
+    define('EMAIL_FROM_NAME', 'ScholarHub');
+}
+if (!defined('SMTP_ENABLED')) {
+    define('SMTP_ENABLED', true);
+}
+if (!defined('SMTP_HOST')) {
+    define('SMTP_HOST', 'smtp.gmail.com');
+}
+if (!defined('SMTP_PORT')) {
+    define('SMTP_PORT', 587);
+}
+if (!defined('SMTP_USER')) {
+    define('SMTP_USER', 'johnlloydracaza09399561410@gmail.com');
+}
+if (!defined('SMTP_PASS')) {
+    define('SMTP_PASS', 'enaxvieckvaznjlr');
+}
+if (!defined('EMAIL_FROM')) {
+    define('EMAIL_FROM', 'johnlloydracaza09399561410@gmail.com');
+}
 /**
  * Send email using PHP mail() or SMTP
  */

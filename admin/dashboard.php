@@ -95,21 +95,41 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   </div>
 </div>
 
+<?php
+// Actionable alerts
+$alerts = [];
+if ($pendingApplications > 0) $alerts[] = ['msg' => "$pendingApplications application(s) waiting for review", 'link' => 'applications.php', 'label' => 'Review Now'];
+try {
+    $pendingDisb = (int)$pdo->query("SELECT COUNT(*) FROM disbursements WHERE status = 'pending' AND deleted_at IS NULL")->fetchColumn();
+    if ($pendingDisb > 0) $alerts[] = ['msg' => "$pendingDisb disbursement(s) pending processing", 'link' => 'disbursements.php', 'label' => 'Process Now'];
+} catch (Exception $e) {}
+try {
+    $underReview = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'under_review'")->fetchColumn();
+    if ($underReview > 0) $alerts[] = ['msg' => "$underReview application(s) under review awaiting decision", 'link' => 'applications.php', 'label' => 'Decide Now'];
+} catch (Exception $e) {}
+?>
+<?php if (!empty($alerts)): ?>
+<div style="display:flex;flex-direction:column;gap:var(--space-sm);margin-bottom:var(--space-xl);">
+  <?php foreach ($alerts as $al): ?>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);background:#fffbeb;border-left:4px solid #f59e0b;border-radius:var(--radius-lg);">
+      <span style="color:#92400e;font-weight:500;">⚠️ <?= htmlspecialchars($al['msg']) ?></span>
+      <a href="<?= htmlspecialchars($al['link']) ?>" class="btn btn-primary btn-sm"><?= htmlspecialchars($al['label']) ?></a>
+    </div>
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
 <div class="content-card">
-  <h3 style="margin-bottom: var(--space-lg);">Master Controls</h3>
   <p class="text-muted" style="margin-bottom: var(--space-xl);">Quick access to manage every part of the system.</p>
   <div style="display: flex; gap: var(--space-md); flex-wrap: wrap;">
     <a class="btn btn-primary" href="users.php">👥 Manage Users</a>
     <a class="btn btn-primary" href="scholarships.php">🎓 Manage Scholarships</a>
     <a class="btn btn-primary" href="applications.php">📝 Manage Applications</a>
     <a class="btn btn-primary" href="analytics.php">📊 Analytics</a>
-    <!-- Activity Logs link removed -->
-    <!-- Email Queue link removed -->
     <a class="btn btn-primary" href="disbursements.php">💰 Disbursements</a>
     <a class="btn btn-primary" href="fraud_detection.php">🔍 Fraud Detection</a>
     <a class="btn btn-primary" href="interview_slots.php">📅 Interview Slots</a>
     <a class="btn btn-primary" href="interview_bookings.php">📆 Interview Bookings</a>
-    <a class="btn btn-primary" href="surveys.php">📋 Surveys</a>
     <a class="btn btn-primary" href="announcements.php">📢 Announcements</a>
   </div>
 </div>

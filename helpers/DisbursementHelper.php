@@ -149,32 +149,22 @@ function getDisbursementsForExport(PDO $pdo, array $filters = []): array {
  * Insert a notification for disbursement events.
  */
 function createDisbursementNotification(PDO $pdo, int $userId, string $event, array $disbursement): void {
-    $amount     = number_format((float)($disbursement['amount'] ?? 0), 2);
+    $amount      = number_format((float)($disbursement['amount'] ?? 0), 2);
     $scholarship = $disbursement['scholarship_title'] ?? 'your scholarship';
-    $appId      = (int)($disbursement['application_id'] ?? 0);
+    $appId       = (int)($disbursement['application_id'] ?? 0);
 
     $messages = [
-        'disbursement_created'   => "A disbursement of ₱{$amount} has been created for your {$scholarship} award.",
-        'disbursement_completed' => "Your disbursement of ₱{$amount} for {$scholarship} has been completed.",
+        'disbursement_created'   => "A cash disbursement of ₱{$amount} has been created for your {$scholarship} award.",
+        'disbursement_completed' => "Your cash disbursement of ₱{$amount} for {$scholarship} has been completed. Please collect your payment.",
     ];
 
     $message = $messages[$event] ?? "Your disbursement status has been updated.";
     $title   = $event === 'disbursement_completed' ? 'Disbursement Completed' : 'Disbursement Created';
 
-    try {
-        $stmt = $pdo->prepare("
-            INSERT INTO notifications (user_id, title, message, type, related_application_id, created_at)
-            VALUES (:uid, :title, :msg, 'success', :app_id, NOW())
-        ");
-        $stmt->execute([
-            ':uid'    => $userId,
-            ':title'  => $title,
-            ':msg'    => $message,
-            ':app_id' => $appId ?: null,
-        ]);
-    } catch (Exception $e) {
-        error_log('[DisbursementHelper] notification error: ' . $e->getMessage());
+    if (!function_exists('notifyStudent')) {
+        require_once __DIR__ . '/NotificationHelper.php';
     }
+    notifyStudent($pdo, $userId, $title, $message, 'success', $appId ?: null);
 }
 
 /**

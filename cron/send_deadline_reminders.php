@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
+require_once __DIR__ . '/../helpers/NotificationHelper.php';
 
 $pdo = getPDO();
 
@@ -17,27 +18,19 @@ foreach ($map as $days => $type) {
         $stmt->execute([':d' => $days]);
         $schs = $stmt->fetchAll();
         foreach ($schs as $sch) {
-            // notify all active students
             $users = $pdo->query("SELECT id, email, first_name FROM users WHERE role = 'student' AND active = 1")->fetchAll();
             foreach ($users as $u) {
                 // ensure we don't send duplicate reminders
-                $exists = $pdo->prepare('SELECT id FROM deadline_reminders WHERE user_id = :uid AND scholarship_id = :sid AND reminder_type = :rt LIMIT 1');
-                $exists->execute([':uid' => $u['id'], ':sid' => $sch['id'], ':rt' => $type]);
-                if ($exists->fetch()) continue;
+                try {
+                    $exists = $pdo->prepare('SELECT id FROM deadline_reminders WHERE user_id = :uid AND scholarship_id = :sid AND reminder_type = :rt LIMIT 1');
+                    $exists->execute([':uid' => $u['id'], ':sid' => $sch['id'], ':rt' => $type]);
+                    if ($exists->fetch()) continue;
+                    $pdo->prepare('INSERT INTO deadline_reminders (user_id, scholarship_id, reminder_type, sent, sent_at, created_at) VALUES (:uid, :sid, :rt, 1, NOW(), NOW())')
+                        ->execute([':uid' => $u['id'], ':sid' => $sch['id'], ':rt' => $type]);
+                } catch (Exception $e) { /* table may not exist */ }
 
-                // record reminder
-                $ins = $pdo->prepare('INSERT INTO deadline_reminders (user_id, scholarship_id, reminder_type, sent, sent_at, created_at) VALUES (:uid, :sid, :rt, 1, NOW(), NOW())');
-                $ins->execute([':uid' => $u['id'], ':sid' => $sch['id'], ':rt' => $type]);
-
-                // create in-app notification
-                $title = 'Scholarship Deadline Reminder';
-                $msg = 'Reminder: "' . $sch['title'] . '" deadline is in ' . ($days === 0 ? 'today' : $days . ' day(s)') . '.';
-                $pdo->prepare('INSERT INTO notifications (user_id, title, message, type, related_scholarship_id, created_at) VALUES (:uid, :title, :msg, :type, :sid, NOW())')
-                    ->execute([':uid' => $u['id'], ':title' => $title, ':msg' => $msg, ':type' => 'deadline', ':sid' => $sch['id']]);
-
-                // queue email
-                $body = '<p>Dear ' . htmlspecialchars($u['first_name'] ?? '') . ',</p><p>This is a reminder that the scholarship <strong>' . htmlspecialchars($sch['title']) . '</strong> has a deadline on ' . htmlspecialchars($sch['deadline']) . '.</p>';
-                queueEmail($u['email'], $title, $body, $u['id']);
+                $msg = 'Reminder: "' . $sch['title'] . '" deadline is ' . ($days === 0 ? 'today' : 'in ' . $days . ' day(s)') . ' (' . $sch['deadline'] . ').';
+                notifyStudent($pdo, (int)$u['id'], 'Scholarship Deadline Reminder', $msg, 'deadline', null, (int)$sch['id']);
             }
         }
     } catch (Exception $e) {

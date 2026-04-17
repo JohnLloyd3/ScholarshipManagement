@@ -1,7 +1,7 @@
 ﻿<?php
-startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 require_once __DIR__ . '/../helpers/FeedbackHelper.php';
 
 requireLogin();
@@ -39,6 +39,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php foreach($pending as $app): ?>
     <div style="border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:var(--space-lg);margin-top:var(--space-lg);">
       <h3 style="margin:0 0 var(--space-md) 0;"><?= htmlspecialchars($app['scholarship_title']) ?></h3>
+      <?php if (!empty($app['disbursement_completed'])): ?>
+        <span style="display:inline-block;background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:9999px;font-size:0.8rem;font-weight:600;margin-bottom:var(--space-sm);">💰 Disbursement received — please share your experience</span>
+      <?php endif; ?>
       <form method="POST" action="../controllers/FeedbackController.php">
         <input type="hidden" name="action" value="submit_feedback">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">

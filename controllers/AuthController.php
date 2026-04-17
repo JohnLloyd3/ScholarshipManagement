@@ -177,6 +177,12 @@ if ($action === 'register') {
         exit;
     }
 
+    if (strlen($password) < 8) {
+        $_SESSION['flash'] = 'Password must be at least 8 characters.';
+        header("Location: ../auth/register.php");
+        exit;
+    }
+
     if ($pdo) {
         try {
             // Check username or email exists
@@ -314,7 +320,7 @@ if ($action === 'register') {
                 exit;
             }
 
-            $stmt = $pdo->prepare('SELECT id, username, password, first_name, last_name, email, role, active, email_verified, COALESCE(must_change_password, 0) AS must_change_password FROM users WHERE username = :u LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, username, password, first_name, last_name, email, role, active, email_verified FROM users WHERE username = :u LIMIT 1');
             $stmt->execute([':u' => $username]);
             $found = $stmt->fetch();
 
@@ -357,18 +363,20 @@ if ($action === 'register') {
                 'role' => $found['role'] ?? 'student'
             ];
 
-            // Force password change if flagged
+            // Force password change if flagged (safe — column may not exist yet)
             try {
                 $mustChange = false;
                 $colCheck = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'must_change_password'")->fetch();
                 if ($colCheck) {
-                    $mustChange = (bool)$found['must_change_password'];
+                    $mcStmt = $pdo->prepare('SELECT must_change_password FROM users WHERE id = :id');
+                    $mcStmt->execute([':id' => $found['id']]);
+                    $mustChange = (bool)$mcStmt->fetchColumn();
                 }
                 if ($mustChange) {
                     header("Location: ../auth/change_password.php");
                     exit;
                 }
-            } catch (Exception $e) { /* column may not exist */ }
+            } catch (Exception $e) { /* column may not exist — skip silently */ }
 
             $_SESSION['success'] = 'Welcome back, ' . ($found['first_name'] ?? $found['username']);
             _redirect_dashboard_for_role($found['role'] ?? 'student');

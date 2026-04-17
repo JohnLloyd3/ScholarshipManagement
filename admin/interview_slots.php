@@ -1,8 +1,8 @@
 ﻿<?php
-startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 
 requireLogin();
 requireAnyRole(['admin', 'staff'], 'Admin or Staff access required');

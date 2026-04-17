@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-// Audit helper removed
+require_once __DIR__ . '/../helpers/NotificationHelper.php';
 
 startSecureSession();
 
@@ -89,14 +89,8 @@ if ($action === 'set_application_status') {
                     $email = $email ?: $uRow['email'];
                     $applicantName = trim(($uRow['first_name'] ?? '') . ' ' . ($uRow['last_name'] ?? '')) ?: 'Applicant';
                 }
-                $ins = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type) VALUES (:uid, :title, :msg, :type)');
-                $ins->execute([':uid'=>$userId,':title'=>'Application '.ucfirst($status),':msg'=>'Your application for "'.$scholarshipTitle.'" has been '.$status.'.',':type'=>$status==='approved'?'success':'warning']);
+                notifyStudent($pdo, $userId, 'Application ' . ucfirst($status), 'Your application for "' . $scholarshipTitle . '" has been ' . $status . '.', $status === 'approved' ? 'success' : 'warning');
             }
-            if ($email) {
-                queueEmail($email, 'Application '.ucfirst($status), "<p>Dear $applicantName,</p><p>Your application for '<b>$scholarshipTitle</b>' has been <b>$status</b>.</p>", $userId);
-            }
-        }
-        $_SESSION['success'] = 'Application status updated.';
     }
     header('Location: ../admin/applications.php');
     exit;
@@ -133,13 +127,7 @@ if ($action === 'update_application') {
                 }
                 $msg = 'Your application for "'.$schTitle.'" has been '.$status.'.';
                 if ($reviewComments !== '') $msg .= "\n\nComment: ".$reviewComments;
-                $ins = $pdo->prepare('INSERT INTO notifications (user_id, title, message, type) VALUES (:uid, :title, :msg, :type)');
-                $ins->execute([':uid'=>$userId,':title'=>'Application '.ucfirst($status),':msg'=>$msg,':type'=>$status==='approved'?'success':'warning']);
-            }
-            if ($email) {
-                $body = "<p>Dear $applicantName,</p><p>Your application for '<b>$schTitle</b>' has been <b>$status</b>.</p>";
-                if ($reviewComments !== '') $body .= "<p><b>Staff comment:</b> ".nl2br(htmlspecialchars($reviewComments))."</p>";
-                queueEmail($email, 'Application '.ucfirst($status), $body, $userId);
+                notifyStudent($pdo, $userId, 'Application ' . ucfirst($status), $msg, $status === 'approved' ? 'success' : 'warning');
             }
         }
         $_SESSION['success'] = 'Application updated.';

@@ -1,7 +1,7 @@
 ﻿<?php
-startSecureSession();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+startSecureSession();
 requireLogin();
 requireAnyRole(['staff','admin'], 'Staff access required');
 
@@ -76,6 +76,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['run_script'])) {
 $lastRuns = [];
 $stmt = $pdo->query('SELECT script, MAX(ran_at) as last_run, status FROM cron_runs GROUP BY script');
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) $lastRuns[$r['script']] = $r;
+
+// Auto-trigger auto_close_scholarships if not run in last hour
+$autoCloseScript = $cronDir . DIRECTORY_SEPARATOR . 'auto_close_scholarships.php';
+if (is_file($autoCloseScript)) {
+    $lastAutoClose = $lastRuns['auto_close_scholarships.php']['last_run'] ?? null;
+    if (!$lastAutoClose || (time() - strtotime($lastAutoClose)) > 3600) {
+        try {
+            ob_start();
+            include $autoCloseScript;
+            $out = ob_get_clean();
+            $stmt = $pdo->prepare('INSERT INTO cron_runs (name, script, ran_at, status, output) VALUES (:name, :script, NOW(), :status, :output)');
+            $stmt->execute([':name'=>'auto_close_scholarships.php', ':script'=>'auto_close_scholarships.php', ':status'=>'ok', ':output'=>$out]);
+        } catch (Throwable $e) { /* silent */ }
+    }
+}
 
 ?>
 <?php

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/DisbursementHelper.php';
@@ -11,6 +11,30 @@ requireAnyRole(['admin'], 'Admin access required');
 $pdo    = getPDO();
 $userId = $_SESSION['user_id'];
 $csrf_token = generateCSRFToken();
+
+// Auto-fix disbursements table schema on every page load (safe — ignores already-existing columns)
+foreach ([
+    "ALTER TABLE `disbursements` ADD COLUMN `application_id` INT DEFAULT NULL",
+    "ALTER TABLE `disbursements` ADD COLUMN `scholarship_id` INT DEFAULT NULL",
+    "ALTER TABLE `disbursements` ADD COLUMN `transaction_reference` VARCHAR(255) DEFAULT NULL",
+    "ALTER TABLE `disbursements` ADD COLUMN `deleted_at` DATETIME DEFAULT NULL",
+    "ALTER TABLE `disbursements` ADD COLUMN `created_by` INT DEFAULT NULL",
+    "ALTER TABLE `disbursements` MODIFY COLUMN `payment_method` VARCHAR(100) NOT NULL DEFAULT 'Cash'",
+    "ALTER TABLE `disbursements` MODIFY COLUMN `status` ENUM('pending','processing','completed','failed') DEFAULT 'pending'",
+    "ALTER TABLE `disbursements` MODIFY COLUMN `award_id` INT DEFAULT NULL",
+] as $_sql) {
+    try { $pdo->exec($_sql); } catch (Exception $_e) { /* already exists — skip */ }
+}
+// Drop the award_id foreign key constraint (old schema blocks inserts without award_id)
+try {
+    $fkRow = $pdo->query("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'disbursements'
+        AND COLUMN_NAME = 'award_id' AND REFERENCED_TABLE_NAME IS NOT NULL LIMIT 1")->fetch();
+    if ($fkRow) {
+        $pdo->exec("ALTER TABLE `disbursements` DROP FOREIGN KEY `{$fkRow['CONSTRAINT_NAME']}`");
+    }
+} catch (Exception $_e) { /* ignore */ }
+unset($_sql, $_e);
 
 // Filters
 $filters = [
@@ -134,8 +158,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <th>Scholarship</th>
           <th>Amount</th>
           <th>Date</th>
-          <th>Method</th>
-          <th>Reference</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
@@ -150,23 +172,33 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td><?= htmlspecialchars($d['scholarship_title']) ?></td>
             <td><strong>₱<?= number_format((float)$d['amount'], 2) ?></strong></td>
             <td><?= !empty($d['disbursement_date']) ? date('M d, Y', strtotime($d['disbursement_date'])) : '—' ?></td>
-            <td><?= htmlspecialchars($d['payment_method']) ?></td>
-            <td><small><?= htmlspecialchars($d['transaction_reference'] ?? '—') ?></small></td>
             <td>
-              <span class="status-badge status-<?= $d['status'] ?>">
-                <?= ucfirst($d['status']) ?>
-              </span>
+              <?php
+                $steps = ['pending' => 1, 'processing' => 2, 'completed' => 3, 'failed' => 0];
+                $step  = $steps[$d['status']] ?? 0;
+                $colors = ['pending' => '#d97706', 'processing' => '#2563eb', 'completed' => '#16a34a', 'failed' => '#dc2626'];
+                $sc = $colors[$d['status']] ?? '#6b7280';
+              ?>
+              <div style="display:flex;align-items:center;gap:4px;font-size:0.75rem;">
+                <span style="padding:2px 8px;border-radius:9999px;background:<?= $step>=1?'#fef3c7':'#f3f4f6' ?>;color:<?= $step>=1?'#92400e':'#9ca3af' ?>;font-weight:600;">Pending</span>
+                <span style="color:#d1d5db;">›</span>
+                <span style="padding:2px 8px;border-radius:9999px;background:<?= $step>=2?'#dbeafe':'#f3f4f6' ?>;color:<?= $step>=2?'#1e40af':'#9ca3af' ?>;font-weight:600;">Processing</span>
+                <span style="color:#d1d5db;">›</span>
+                <span style="padding:2px 8px;border-radius:9999px;background:<?= $step>=3?'#d1fae5':'#f3f4f6' ?>;color:<?= $step>=3?'#065f46':'#9ca3af' ?>;font-weight:600;">Completed</span>
+                <?php if ($d['status'] === 'failed'): ?>
+                  <span style="padding:2px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;">Failed</span>
+                <?php endif; ?>
+              </div>
             </td>
             <td>
-              <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-                <!-- Status advance -->
+              <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
                 <?php if ($d['status'] === 'pending'): ?>
                   <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
                     <input type="hidden" name="action" value="update_status">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                     <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
                     <input type="hidden" name="status" value="processing">
-                    <button type="submit" class="btn btn-ghost btn-sm" title="Mark Processing">⚙️</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Mark Processing</button>
                   </form>
                 <?php elseif ($d['status'] === 'processing'): ?>
                   <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
@@ -174,19 +206,27 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                     <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
                     <input type="hidden" name="status" value="completed">
-                    <button type="submit" class="btn btn-ghost btn-sm" title="Mark Completed" style="color:#16a34a;">✅</button>
+                    <button type="submit" class="btn btn-primary btn-sm" style="background:#16a34a;border-color:#16a34a;" onclick="return confirm('Mark as Completed? This will notify the student.')">✓ Complete</button>
                   </form>
                   <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
                     <input type="hidden" name="action" value="update_status">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                     <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
                     <input type="hidden" name="status" value="failed">
-                    <button type="submit" class="btn btn-ghost btn-sm" title="Mark Failed" style="color:#dc2626;">❌</button>
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;">✗ Failed</button>
+                  </form>
+                <?php elseif ($d['status'] === 'completed'): ?>
+                  <span style="color:#16a34a;font-weight:600;font-size:0.85rem;">✓ Paid</span>
+                <?php elseif ($d['status'] === 'failed'): ?>
+                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
+                    <input type="hidden" name="action" value="update_status">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
+                    <input type="hidden" name="status" value="processing">
+                    <button type="submit" class="btn btn-ghost btn-sm">↺ Retry</button>
                   </form>
                 <?php endif; ?>
-                <!-- Edit -->
                 <button onclick="openEditModal(<?= htmlspecialchars(json_encode($d)) ?>)" class="btn btn-ghost btn-sm" title="Edit">✏️</button>
-                <!-- Delete -->
                 <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;" onsubmit="return confirm('Delete this disbursement?')">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
@@ -240,20 +280,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         </div>
       </div>
       <div class="form-group">
-        <label>Payment Method *</label>
-        <select name="payment_method" class="form-input" required>
-          <option value="">Select method...</option>
-          <option value="Bank Transfer">Bank Transfer</option>
-          <option value="GCash">GCash</option>
-          <option value="Maya">Maya</option>
-          <option value="Check">Check</option>
-          <option value="Cash">Cash</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Transaction Reference</label>
-        <input type="text" name="transaction_reference" class="form-input" placeholder="Optional reference number">
+        <label>Payment Method</label>
+        <input type="text" class="form-input" value="Cash" disabled>
+        <input type="hidden" name="payment_method" value="Cash">
       </div>
       <div class="form-group">
         <label>Notes</label>
@@ -289,19 +318,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         </div>
       </div>
       <div class="form-group">
-        <label>Payment Method *</label>
-        <select name="payment_method" id="edit_method" class="form-input" required>
-          <option value="Bank Transfer">Bank Transfer</option>
-          <option value="GCash">GCash</option>
-          <option value="Maya">Maya</option>
-          <option value="Check">Check</option>
-          <option value="Cash">Cash</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Transaction Reference</label>
-        <input type="text" name="transaction_reference" id="edit_ref" class="form-input">
+        <label>Payment Method</label>
+        <input type="text" class="form-input" value="Cash" disabled>
+        <input type="hidden" name="payment_method" value="Cash">
       </div>
       <div class="form-group">
         <label>Notes</label>
@@ -320,8 +339,6 @@ function openEditModal(d) {
   document.getElementById('edit_id').value     = d.id;
   document.getElementById('edit_amount').value = d.amount;
   document.getElementById('edit_date').value   = d.disbursement_date;
-  document.getElementById('edit_method').value = d.payment_method;
-  document.getElementById('edit_ref').value    = d.transaction_reference || '';
   document.getElementById('edit_notes').value  = d.notes || '';
   document.getElementById('editModal').style.display = 'block';
 }
