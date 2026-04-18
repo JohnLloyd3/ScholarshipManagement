@@ -41,7 +41,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>🎓 Manage Scholarships</h1>
-  <p class="text-muted">Create, edit, and manage scholarship programs</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -77,7 +76,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <form method="post" style="display:inline-block;margin-left:var(--space-sm)" onsubmit="return confirm('Delete this scholarship?');">
               <input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-              <button class="btn btn-ghost btn-sm" name="action" value="delete" style="color:var(--red-primary)">🗑️ Delete</button>
+              <button class="btn btn-ghost btn-sm" name="action" value="delete" style="color:var(--peach)">🗑️ Delete</button>
             </form>
           </td>
         </tr>

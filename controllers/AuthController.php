@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 // Security helpers (verification code, tokens)
@@ -195,8 +195,8 @@ if ($action === 'register') {
             }
 
             $pwHash = password_hash($password, PASSWORD_DEFAULT);
-            // Insert account as inactive pending email verification
-            $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, phone, address, role, email_verified, active) VALUES (:u, :p, :f, :l, :e, :ph, :a, :r, 0, 0)');
+            // Insert account as active immediately — no email verification required
+            $stmt = $pdo->prepare('INSERT INTO users (username, password, first_name, last_name, email, phone, address, role, email_verified, active) VALUES (:u, :p, :f, :l, :e, :ph, :a, :r, 1, 1)');
             $stmt->execute([
                 ':u' => $username,
                 ':p' => $pwHash,
@@ -210,43 +210,18 @@ if ($action === 'register') {
 
             $id = $pdo->lastInsertId();
 
-            // Generate a secure verification token and store it
-            $token = bin2hex(random_bytes(32));
-            $expires = date('Y-m-d H:i:s', time() + 86400); // 24 hours
-            try {
-                $pdo->prepare('INSERT INTO email_verifications (user_id, token, expires_at) VALUES (:uid, :token, :exp)
-                               ON DUPLICATE KEY UPDATE token = :token2, expires_at = :exp2')
-                    ->execute([':uid' => $id, ':token' => $token, ':exp' => $expires, ':token2' => $token, ':exp2' => $expires]);
-            } catch (Exception $e) {
-                // Fallback: store token in a simple column if table doesn't exist
-                try {
-                    $pdo->prepare('UPDATE users SET verification_token = :token WHERE id = :id')
-                        ->execute([':token' => $token, ':id' => $id]);
-                } catch (Exception $e2) { /* ignore */ }
-            }
-
-            // Send verification email
-            $verifyUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
-                . '://' . $_SERVER['HTTP_HOST']
-                . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\')
-                . '/../auth/verify_email.php?token=' . urlencode($token);
-
-            $emailBody = '
-            <h2>Verify Your Email Address</h2>
-            <p>Dear ' . htmlspecialchars($first) . ',</p>
-            <p>Thank you for registering with ScholarHub. Please click the link below to activate your account:</p>
-            <p style="margin:20px 0;">
-              <a href="' . htmlspecialchars($verifyUrl) . '" style="background:#c41e3a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Verify Email Address</a>
-            </p>
-            <p>Or copy this link into your browser:<br><small>' . htmlspecialchars($verifyUrl) . '</small></p>
-            <p>This link expires in 24 hours.</p>
-            <p>If you did not register, please ignore this email.</p>';
-
-            queueEmail($email, 'Verify your ScholarHub account', $emailBody, $id);
-
-            $_SESSION['success'] = 'Registration successful! Please check your email for a verification link to activate your account.';
-            header("Location: ../auth/login.php");
-            exit;
+            // Log user in immediately
+            rotateSession();
+            $_SESSION['user_id'] = $id;
+            $_SESSION['user'] = [
+                'username'   => $username,
+                'first_name' => $first,
+                'last_name'  => $last,
+                'email'      => $email,
+                'role'       => $role
+            ];
+            $_SESSION['success'] = 'Welcome to ScholarHub, ' . $first . '!';
+            _redirect_dashboard_for_role($role);
 
         } catch (PDOException $e) {
             _error_db($e);
@@ -333,19 +308,7 @@ if ($action === 'register') {
 
             // Check if account is active
             if (!$found['active']) {
-                // Check if it's pending email verification
-                $verifyPending = false;
-                try {
-                    $vStmt = $pdo->prepare('SELECT 1 FROM email_verifications WHERE user_id = :uid LIMIT 1');
-                    $vStmt->execute([':uid' => $found['id']]);
-                    $verifyPending = (bool)$vStmt->fetchColumn();
-                } catch (Exception $e) { /* table may not exist */ }
-
-                if ($verifyPending || !$found['email_verified']) {
-                    $_SESSION['flash'] = 'Please verify your email address first. Check your inbox for the verification link.';
-                } else {
-                    $_SESSION['flash'] = 'Your account has been deactivated. Please contact administrator.';
-                }
+                $_SESSION['flash'] = 'Your account has been deactivated. Please contact administrator.';
                 header("Location: ../auth/login.php");
                 exit;
             }

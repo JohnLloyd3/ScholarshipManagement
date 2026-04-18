@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -130,7 +130,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>👤 My Profile</h1>
-  <p class="text-muted">Manage your personal information and academic details</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -151,14 +150,14 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         : '../assets/image/default-avatar.svg';
       ?>
       <img src="<?= htmlspecialchars($profile_pic) ?>" alt="Profile Picture" 
-           style="width: 120px; height: 120px; border-radius: var(--radius-lg); object-fit: cover; border: 3px solid var(--red-primary); box-shadow: var(--shadow-md);">
+           style="width: 120px; height: 120px; border-radius: var(--r-lg); object-fit: cover; border: 3px solid var(--red-primary); box-shadow: var(--shadow-md);">
     </div>
     <div style="flex: 1;">
       <h2 style="margin: 0 0 var(--space-xs) 0; font-size: 1.5rem; color: var(--gray-900);">
         <?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?>
       </h2>
       <p style="margin: 0 0 var(--space-sm) 0; color: var(--gray-600); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
-        <span style="display: inline-block; background: var(--red-ghost); color: var(--red-primary); padding: 4px 12px; border-radius: var(--radius-md);">
+        <span style="display: inline-block; background: var(--peach-ghost); color: var(--peach); padding: 4px 12px; border-radius: var(--r-md);">
           <?= htmlspecialchars(ucfirst($user['role'] ?? 'Student')) ?>
         </span>
       </p>

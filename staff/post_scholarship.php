@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 // Audit helper removed
@@ -71,7 +71,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>➕ Post Scholarship</h1>
-  <p class="text-muted">Create a new scholarship opportunity</p>
 </div>
 
 <?php if (!empty($errors)): ?>

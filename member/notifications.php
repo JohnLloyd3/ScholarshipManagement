@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -79,7 +79,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php else: ?>
     <div style="display:flex;flex-direction:column;gap:var(--space-md);">
       <?php foreach ($notifications as $n): ?>
-        <div style="padding:var(--space-lg);border-radius:var(--radius-lg);border:1px solid var(--gray-200);<?= !$n['seen'] ? 'border-left:4px solid var(--red-primary);background:var(--red-ghost);' : '' ?>display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-md);">
+        <div style="padding:var(--space-lg);border-radius:var(--r-lg);border:1px solid var(--gray-200);<?= !$n['seen'] ? 'border-left:4px solid var(--peach);background:var(--peach-ghost);' : '' ?>display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-md);">
           <div style="flex:1;">
             <h4 style="font-weight:600;margin-bottom:0.4rem;color:var(--gray-900);"><?= htmlspecialchars($n['title']) ?></h4>
             <p style="margin:0.4rem 0;color:var(--gray-700);"><?= nl2br(htmlspecialchars($n['message'])) ?></p>

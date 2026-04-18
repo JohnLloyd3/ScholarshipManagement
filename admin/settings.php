@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -83,7 +83,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>⚙️ System Settings</h1>
-  <p class="text-muted">Configure email and system preferences</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -175,7 +174,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <h2 style="margin-bottom:var(--space-lg);">📖 Quick Setup Guide</h2>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-xl);">
 
-    <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--radius-lg);">
+    <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--r-lg);">
       <h4 style="margin-bottom:var(--space-md);">Gmail</h4>
       <ol style="margin:0;padding-left:var(--space-lg);color:var(--gray-700);line-height:2;">
         <li>Enable 2-Step Verification on your Google account</li>
@@ -183,34 +182,34 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         <li>Create an app password for "Mail"</li>
         <li>Use that 16-character password above</li>
       </ol>
-      <div style="margin-top:var(--space-md);background:var(--white);padding:var(--space-md);border-radius:var(--radius-md);font-size:0.85rem;">
+      <div style="margin-top:var(--space-md);background:var(--white);padding:var(--space-md);border-radius:var(--r-md);font-size:0.85rem;">
         Host: <strong>smtp.gmail.com</strong><br>
         Port: <strong>587</strong><br>
         User: <strong>your Gmail address</strong>
       </div>
     </div>
 
-    <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--radius-lg);">
+    <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--r-lg);">
       <h4 style="margin-bottom:var(--space-md);">Outlook / Office 365</h4>
       <ol style="margin:0;padding-left:var(--space-lg);color:var(--gray-700);line-height:2;">
         <li>Use your Microsoft account email and password</li>
         <li>Make sure SMTP AUTH is enabled in your account</li>
       </ol>
-      <div style="margin-top:var(--space-md);background:var(--white);padding:var(--space-md);border-radius:var(--radius-md);font-size:0.85rem;">
+      <div style="margin-top:var(--space-md);background:var(--white);padding:var(--space-md);border-radius:var(--r-md);font-size:0.85rem;">
         Host: <strong>smtp.office365.com</strong><br>
         Port: <strong>587</strong><br>
         User: <strong>your Outlook address</strong>
       </div>
     </div>
 
-    <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--radius-lg);">
+    <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--r-lg);">
       <h4 style="margin-bottom:var(--space-md);">Yahoo Mail</h4>
       <ol style="margin:0;padding-left:var(--space-lg);color:var(--gray-700);line-height:2;">
         <li>Go to Yahoo Account Security</li>
         <li>Generate an App Password</li>
         <li>Use that password above</li>
       </ol>
-      <div style="margin-top:var(--space-md);background:var(--white);padding:var(--space-md);border-radius:var(--radius-md);font-size:0.85rem;">
+      <div style="margin-top:var(--space-md);background:var(--white);padding:var(--space-md);border-radius:var(--r-md);font-size:0.85rem;">
         Host: <strong>smtp.mail.yahoo.com</strong><br>
         Port: <strong>587</strong><br>
         User: <strong>your Yahoo address</strong>

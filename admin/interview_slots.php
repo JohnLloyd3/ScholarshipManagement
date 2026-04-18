@@ -112,15 +112,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $emailSubject = 'Interview Scheduled - ' . $userInfo['scholarship_title'];
                         
                         $emailBody = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">';
-                        $emailBody .= '<div style="background: #c41e3a; color: white; padding: 20px; text-align: center;">';
+                        $emailBody .= '<div style="background: #2563eb; color: white; padding: 20px; text-align: center;">';
                         $emailBody .= '<h1 style="margin: 0;">📅 Interview Scheduled</h1>';
                         $emailBody .= '</div>';
                         $emailBody .= '<div style="padding: 30px; background: #f9f9f9;">';
                         $emailBody .= '<p style="font-size: 16px;">Dear ' . htmlspecialchars($userInfo['first_name']) . ',</p>';
                         $emailBody .= '<p style="font-size: 16px;">Your interview has been scheduled for your scholarship application.</p>';
                         
-                        $emailBody .= '<div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #c41e3a;">';
-                        $emailBody .= '<h3 style="margin-top: 0; color: #c41e3a;">Interview Details</h3>';
+                        $emailBody .= '<div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid var(--peach);">';
+                        $emailBody .= '<h3 style="margin-top: 0; color: #2563eb;">Interview Details</h3>';
                         $emailBody .= '<p style="margin: 10px 0;"><strong>Scholarship:</strong> ' . htmlspecialchars($userInfo['scholarship_title']) . '</p>';
                         $emailBody .= '<p style="margin: 10px 0;"><strong>Date:</strong> ' . date('F d, Y', strtotime($date)) . '</p>';
                         $emailBody .= '<p style="margin: 10px 0;"><strong>Time:</strong> ' . date('g:i A', strtotime($time)) . '</p>';
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $emailBody .= '<p style="margin: 10px 0;"><strong>Type:</strong> ' . ucfirst($type) . '</p>';
                         
                         if ($type === 'online' && $meetingLink) {
-                            $emailBody .= '<p style="margin: 10px 0;"><strong>Meeting Link:</strong> <a href="' . htmlspecialchars($meetingLink) . '" style="color: #c41e3a;">' . htmlspecialchars($meetingLink) . '</a></p>';
+                            $emailBody .= '<p style="margin: 10px 0;"><strong>Meeting Link:</strong> <a href="' . htmlspecialchars($meetingLink) . '" style="color: #2563eb;">' . htmlspecialchars($meetingLink) . '</a></p>';
                         } elseif ($location) {
                             $emailBody .= '<p style="margin: 10px 0;"><strong>Location:</strong> ' . htmlspecialchars($location) . '</p>';
                         }
@@ -244,7 +244,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📅 Interview Slots Management</h1>
-  <p class="text-muted">Create and manage interview schedules for shortlisted applicants</p>
 </div>
 
 <?php if ($prefilledApplicant): ?>
@@ -323,7 +322,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                   <input type="hidden" name="action" value="delete_slot">
                   <input type="hidden" name="slot_id" value="<?= (int)$slot['id'] ?>">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                  <button type="submit" class="btn btn-ghost btn-sm" title="Delete Slot" style="color: #dc2626;">🗑️</button>
+                  <button type="submit" class="btn btn-ghost btn-sm" title="Delete Slot" data-tip="Delete Slot" style="color: #dc2626;">🗑️</button>
                 </form>
               </div>
             </td>
@@ -355,7 +354,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <?php endif; ?>
       
       <?php if ($prefilledApplicant): ?>
-        <div style="padding: var(--space-md); background: #e3f2fd; border-radius: var(--radius-md); margin-bottom: var(--space-lg); border-left: 4px solid #2196F3;">
+        <div style="padding: var(--space-md); background: #e3f2fd; border-radius: var(--r-md); margin-bottom: var(--space-lg); border-left: 4px solid #2196F3;">
           <strong>📋 Scheduling for:</strong><br>
           <span style="font-size: 1.1em; color: #1976D2;">
             <?= htmlspecialchars($prefilledApplicant['first_name'] . ' ' . $prefilledApplicant['last_name']) ?>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -111,7 +111,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📢 Announcements</h1>
-  <p class="text-muted">Create and manage system announcements</p>
 </div>
 
 <?php if ($message): ?>
@@ -161,7 +160,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <?php foreach ($announcements as $ann): ?>
       <div class="alert alert-<?= $ann['type'] ?>" style="margin-bottom: var(--space-md); position: relative;">
         <?php if (!$ann['published']): ?>
-          <span style="position: absolute; top: var(--space-sm); right: var(--space-sm); background: var(--gray-500); color: white; padding: 2px 8px; border-radius: var(--radius-sm); font-size: 11px;">UNPUBLISHED</span>
+          <span style="position: absolute; top: var(--space-sm); right: var(--space-sm); background: var(--gray-500); color: white; padding: 2px 8px; border-radius: var(--r-sm); font-size: 11px;">UNPUBLISHED</span>
         <?php endif; ?>
         <h4 style="margin-bottom: var(--space-xs);"><?= sanitizeString($ann['title']) ?></h4>
         <p class="text-muted" style="font-size: 0.875rem; margin-bottom: var(--space-sm);">

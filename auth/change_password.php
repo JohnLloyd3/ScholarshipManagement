@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -60,10 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Change Password - ScholarHub</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/modern-theme.css">
+  <link rel="stylesheet" href="../assets/modern-theme.css?v=20260418">
   <style>
-    body { background: linear-gradient(135deg, var(--red-ghost) 0%, var(--white) 50%, var(--red-ghost) 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-xl); }
-    .auth-card { background: var(--white); border-radius: var(--radius-2xl); padding: var(--space-2xl); box-shadow: var(--shadow-xl); border: 1px solid var(--gray-200); max-width: 440px; width: 100%; }
+    body { background: linear-gradient(135deg, var(--peach-ghost) 0%, var(--white) 50%, var(--peach-ghost) 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-xl); }
+    .auth-card { background: var(--white); border-radius: var(--r-2xl); padding: var(--space-2xl); box-shadow: var(--shadow-xl); border: 1px solid var(--gray-200); max-width: 440px; width: 100%; }
   </style>
 </head>
 <body>
@@ -71,7 +71,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div style="text-align:center;margin-bottom:var(--space-xl);">
       <div style="font-size:2.5rem;margin-bottom:var(--space-md);">🔒</div>
       <h2>Set Your New Password</h2>
-      <p class="text-muted">Your account requires a password change before continuing.</p>
     </div>
 
     <?php if (!empty($_SESSION['flash'])): ?>

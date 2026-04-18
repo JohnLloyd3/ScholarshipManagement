@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -42,7 +42,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📊 Staff Dashboard</h1>
-  <p class="text-muted">Manage scholarships and monitor applications</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -107,7 +106,7 @@ try {
 <?php if (!empty($staffAlerts)): ?>
 <div style="display:flex;flex-direction:column;gap:var(--space-sm);margin-bottom:var(--space-xl);">
   <?php foreach ($staffAlerts as $al): ?>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);background:#fffbeb;border-left:4px solid #f59e0b;border-radius:var(--radius-lg);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);background:#fffbeb;border-left:4px solid #f59e0b;border-radius:var(--r-lg);">
       <span style="color:#92400e;font-weight:500;">⚠️ <?= htmlspecialchars($al['msg']) ?></span>
       <a href="<?= htmlspecialchars($al['link']) ?>" class="btn btn-primary btn-sm"><?= htmlspecialchars($al['label']) ?></a>
     </div>
@@ -134,7 +133,6 @@ try {
         </div>
       <?php endforeach; ?>
     <?php else: ?>
-      <p class="text-muted">No applications yet.</p>
     <?php endif; ?>
   </div>
 
@@ -144,7 +142,7 @@ try {
     <div style="display:flex;flex-direction:column;gap:var(--space-md);">
       <a href="post_scholarship.php" class="btn btn-primary" style="text-align:center;">➕ Post Scholarship</a>
       <a href="applications.php" class="btn btn-ghost" style="text-align:center;">📝 Review Applications</a>
-      <a href="disbursements.php" class="btn btn-ghost" style="text-align:center;">💰 Record Disbursement <?= $pendingDisbursements > 0 ? "<span style='background:var(--red-primary);color:white;border-radius:999px;padding:1px 7px;font-size:0.75rem;margin-left:4px;'>$pendingDisbursements</span>" : '' ?></a>
+      <a href="disbursements.php" class="btn btn-ghost" style="text-align:center;">💰 Record Disbursement <?= $pendingDisbursements > 0 ? "<span style='background:var(--peach);color:white;border-radius:999px;padding:1px 7px;font-size:0.75rem;margin-left:4px;'>$pendingDisbursements</span>" : '' ?></a>
       <a href="feedback.php" class="btn btn-ghost" style="text-align:center;">⭐ View Feedback</a>
       <a href="survey_results.php" class="btn btn-ghost" style="text-align:center;">📋 Survey Results</a>
       <a href="reports.php" class="btn btn-ghost" style="text-align:center;">📊 Reports</a>

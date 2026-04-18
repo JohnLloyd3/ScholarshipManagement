@@ -126,7 +126,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               <span class="text-muted"><?= $cnt ?> (<?= $total > 0 ? round($cnt/$total*100) : 0 ?>%)</span>
             </div>
             <div style="background:var(--gray-200);border-radius:4px;height:8px;">
-              <div style="background:var(--red-primary);height:8px;border-radius:4px;width:<?= $total > 0 ? round($cnt/$total*100) : 0 ?>%;"></div>
+              <div style="background:var(--peach);height:8px;border-radius:4px;width:<?= $total > 0 ? round($cnt/$total*100) : 0 ?>%;"></div>
             </div>
           </div>
         <?php endforeach; ?>
@@ -151,7 +151,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <h2>📋 Individual Responses</h2>
   <?php if (!empty($responses)): ?>
     <?php foreach ($responses as $r): ?>
-      <div style="border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:var(--space-lg);margin-top:var(--space-lg);">
+      <div style="border:1px solid var(--gray-200);border-radius:var(--r-lg);padding:var(--space-lg);margin-top:var(--space-lg);">
         <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-md);">
           <strong><?= htmlspecialchars($r['first_name'] . ' ' . $r['last_name']) ?></strong>
           <small class="text-muted"><?= date('M d, Y H:i', strtotime($r['submitted_at'])) ?></small>

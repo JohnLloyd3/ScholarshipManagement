@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 startSecureSession();
@@ -118,7 +118,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📝 My Applications</h1>
-  <p class="text-muted">Track and manage your scholarship applications</p>
 </div>
 <?php if (!empty($_SESSION['success'])): ?>
   <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
@@ -328,14 +327,14 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                         <input type="hidden" name="action" value="delete_draft">
                         <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                        <button class="btn btn-ghost btn-sm" style="color:var(--red-primary)">Delete</button>
+                        <button class="btn btn-ghost btn-sm" style="color:var(--peach)">Delete</button>
                       </form>
                     <?php elseif (in_array($a['status'], ['submitted','pending','under_review'])): ?>
                       <form method="POST" style="display:inline" onsubmit="return confirm('Withdraw this application?')">
                         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                         <input type="hidden" name="action" value="withdraw">
                         <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                        <button class="btn btn-ghost btn-sm" style="color:var(--red-primary)">Withdraw</button>
+                        <button class="btn btn-ghost btn-sm" style="color:var(--peach)">Withdraw</button>
                       </form>
                     <?php elseif ($a['status'] === 'approved'): ?>
                       <a href="award_letter.php?application_id=<?= (int)$a['id'] ?>" class="btn btn-primary btn-sm" target="_blank">📄 Award Letter</a>

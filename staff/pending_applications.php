@@ -25,7 +25,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>⏳ Pending Applications</h1>
-  <p class="text-muted">Bulk manage application statuses</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>

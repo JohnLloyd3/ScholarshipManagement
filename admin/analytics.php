@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Export must run before ANY output — no session_start yet
 if (!empty($_GET['export'])) {
   require_once __DIR__ . '/../config/db.php';
@@ -58,11 +58,11 @@ $page_title = 'Analytics & Reports - Admin';
 $base_path = '../';
 $extra_css = '
   .compact-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-md); margin-bottom: var(--space-lg); }
-  .compact-stat-card { background: var(--white); padding: var(--space-md); border-radius: var(--radius-lg); text-align: center; box-shadow: var(--shadow-sm); border-left: 3px solid var(--red-primary); }
-  .compact-stat-value { font-size: 1.75rem; font-weight: 700; color: var(--red-primary); line-height: 1; }
+  .compact-stat-card { background: var(--white); padding: var(--space-md); border-radius: var(--r-lg); text-align: center; box-shadow: var(--shadow-sm); border-left: 3px solid var(--red-primary); }
+  .compact-stat-value { font-size: 1.75rem; font-weight: 700; color: var(--peach); line-height: 1; }
   .compact-stat-label { color: var(--gray-600); margin-top: var(--space-xs); font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
   .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); margin-bottom: var(--space-lg); }
-  .analytics-card { background: var(--white); padding: var(--space-lg); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+  .analytics-card { background: var(--white); padding: var(--space-lg); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
   .analytics-card h3 { font-size: 1rem; margin-bottom: var(--space-md); color: var(--gray-800); }
   .analytics-card canvas { max-height: 200px; }
   .compact-table { font-size: 0.875rem; }
@@ -222,7 +222,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         datasets: [{ 
           label: 'Applications', 
           data: topData, 
-          backgroundColor: '#c41e3a' 
+          backgroundcolor: '#2563eb' 
         }] 
       },
       options: { 

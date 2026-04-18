@@ -36,7 +36,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>🔍 Global Search</h1>
-  <p class="text-muted">Search across users, scholarships, and applications</p>
 </div>
 
 <div class="content-card">
@@ -65,7 +64,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <?php endforeach; ?>
           </ul>
         <?php else: ?>
-          <p class="text-muted">No users found.</p>
         <?php endif; ?>
       </div>
 
@@ -82,7 +80,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <?php endforeach; ?>
           </ul>
         <?php else: ?>
-          <p class="text-muted">No scholarships found.</p>
         <?php endif; ?>
       </div>
 
@@ -99,7 +96,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <?php endforeach; ?>
           </ul>
         <?php else: ?>
-          <p class="text-muted">No applications found.</p>
         <?php endif; ?>
       </div>
     </div>

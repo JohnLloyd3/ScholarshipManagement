@@ -191,7 +191,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <?= date('M d, Y g:i A', strtotime($slot['interview_date'] . ' ' . $slot['interview_time'])) ?>
     </p>
   <?php else: ?>
-    <p class="text-muted">View and manage all interview bookings</p>
   <?php endif; ?>
 </div>
 
@@ -201,7 +200,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="content-card">
   <?php if ($slot): ?>
-    <div style="margin-bottom: var(--space-lg); padding: var(--space-lg); background: var(--gray-50); border-radius: var(--radius-lg);">
+    <div style="margin-bottom: var(--space-lg); padding: var(--space-lg); background: var(--gray-50); border-radius: var(--r-lg);">
       <h3>Slot Details</h3>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-md); margin-top: var(--space-md);">
         <div>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Applicant Registration Form
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -122,7 +122,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
   
   .registration-header h1 {
     font-size: 2rem;
-    color: var(--red-primary);
+    color: var(--peach);
     margin-bottom: var(--space-sm);
   }
   
@@ -132,7 +132,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
   
   fieldset {
     border: 1px solid var(--gray-200);
-    border-radius: var(--radius-lg);
+    border-radius: var(--r-lg);
     padding: var(--space-xl);
     margin-bottom: var(--space-xl);
     background: var(--white);
@@ -140,7 +140,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
   
   legend {
     font-weight: 700;
-    color: var(--red-primary);
+    color: var(--peach);
     padding: 0 var(--space-md);
     font-size: 1.125rem;
   }

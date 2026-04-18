@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -51,7 +51,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>⚙️ Admin Dashboard</h1>
-  <p class="text-muted">System overview and management</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -111,7 +110,7 @@ try {
 <?php if (!empty($alerts)): ?>
 <div style="display:flex;flex-direction:column;gap:var(--space-sm);margin-bottom:var(--space-xl);">
   <?php foreach ($alerts as $al): ?>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);background:#fffbeb;border-left:4px solid #f59e0b;border-radius:var(--radius-lg);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);background:#fffbeb;border-left:4px solid #f59e0b;border-radius:var(--r-lg);">
       <span style="color:#92400e;font-weight:500;">⚠️ <?= htmlspecialchars($al['msg']) ?></span>
       <a href="<?= htmlspecialchars($al['link']) ?>" class="btn btn-primary btn-sm"><?= htmlspecialchars($al['label']) ?></a>
     </div>

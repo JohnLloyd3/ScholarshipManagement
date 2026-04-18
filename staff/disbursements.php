@@ -50,7 +50,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>💰 Disbursements</h1>
-  <p class="text-muted">Record and view scholarship payouts</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/helpers/SecurityHelper.php';
 startSecureSession();
 http_response_code(404);
@@ -12,11 +12,11 @@ $page_title = '404 - Page Not Found | ScholarHub';
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= $page_title ?></title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/modern-theme.css">
+  <link rel="stylesheet" href="assets/modern-theme.css?v=20260418">
   <style>
     body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--gray-50); }
-    .error-card { text-align: center; background: var(--white); border-radius: var(--radius-2xl); padding: var(--space-2xl); box-shadow: var(--shadow-xl); max-width: 480px; width: 100%; }
-    .error-code { font-size: 6rem; font-weight: 800; color: var(--red-primary); line-height: 1; margin-bottom: var(--space-md); }
+    .error-card { text-align: center; background: var(--white); border-radius: var(--r-2xl); padding: var(--space-2xl); box-shadow: var(--shadow-xl); max-width: 480px; width: 100%; }
+    .error-code { font-size: 6rem; font-weight: 800; color: var(--peach); line-height: 1; margin-bottom: var(--space-md); }
   </style>
 </head>
 <body>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 startSecureSession();
 
@@ -32,10 +32,10 @@ if (isset($_SESSION['user_id'])) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/modern-theme.css">
+  <link rel="stylesheet" href="../assets/modern-theme.css?v=20260418">
   <style>
     body {
-      background: linear-gradient(135deg, var(--red-ghost) 0%, var(--white) 50%, var(--red-ghost) 100%);
+      background: linear-gradient(135deg, var(--peach-ghost) 0%, var(--white) 50%, var(--peach-ghost) 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -50,7 +50,7 @@ if (isset($_SESSION['user_id'])) {
     
     .auth-card {
       background: var(--white);
-      border-radius: var(--radius-2xl);
+      border-radius: var(--r-2xl);
       padding: var(--space-2xl);
       box-shadow: var(--shadow-xl);
       border: 1px solid var(--gray-200);
@@ -69,7 +69,7 @@ if (isset($_SESSION['user_id'])) {
     .auth-logo-text {
       font-size: 1.75rem;
       font-weight: 800;
-      color: var(--red-primary);
+      color: var(--peach);
       font-family: var(--font-display);
     }
     
@@ -111,7 +111,7 @@ if (isset($_SESSION['user_id'])) {
     }
     
     .auth-footer a {
-      color: var(--red-primary);
+      color: var(--peach);
       font-weight: 600;
     }
   </style>

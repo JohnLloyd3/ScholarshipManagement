@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Notification Helper
  * Creates an in-app notification AND sends a real email to the student.
@@ -58,12 +58,12 @@ function notifyStudent(
             $firstName = htmlspecialchars($user['first_name'] ?? 'Student');
             $emailBody = '
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-              <div style="background:#c41e3a;color:white;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
+              <div style="background:#2563eb;color:white;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
                 <h2 style="margin:0;">🎓 ScholarHub</h2>
               </div>
               <div style="padding:24px;background:#f9f9f9;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
                 <p style="font-size:16px;">Dear ' . $firstName . ',</p>
-                <div style="background:white;border-left:4px solid #c41e3a;padding:16px;border-radius:4px;margin:16px 0;">
+                <div style="background:white;border-left:4px solid var(--peach);padding:16px;border-radius:4px;margin:16px 0;">
                   <strong style="font-size:16px;">' . htmlspecialchars($title) . '</strong>
                   <p style="margin:8px 0 0;color:#374151;">' . nl2br(htmlspecialchars($message)) . '</p>
                 </div>

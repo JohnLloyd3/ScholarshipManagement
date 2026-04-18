@@ -59,7 +59,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>💰 Disbursements</h1>
-  <p class="text-muted">Manage scholarship award payouts</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -231,7 +230,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                   <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                  <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;" title="Delete">🗑️</button>
+                  <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;" title="Delete" data-tip="Delete">🗑️</button>
                 </form>
               </div>
             </td>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -111,7 +111,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📝 Apply for Scholarship</h1>
-  <p class="text-muted">Select a scholarship and complete your application</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -135,7 +134,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <?php foreach ($scholarships as $sch): ?>
         <div class="card <?= $selected_scholarship && $selected_scholarship['id'] == $sch['id'] ? 'selected' : '' ?>" 
              onclick="window.location.href='?scholarship_id=<?= $sch['id'] ?>'"
-             style="cursor: pointer; <?= $selected_scholarship && $selected_scholarship['id'] == $sch['id'] ? 'border: 2px solid var(--red-primary); background: var(--red-ghost);' : '' ?>">
+             style="cursor: pointer; <?= $selected_scholarship && $selected_scholarship['id'] == $sch['id'] ? 'border: 2px solid var(--red-primary); background: var(--peach-ghost);' : '' ?>">
           <div class="card-header">
             <h4 class="card-title"><?= htmlspecialchars($sch['title']) ?></h4>
           </div>

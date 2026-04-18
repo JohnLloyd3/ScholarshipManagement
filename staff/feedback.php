@@ -22,7 +22,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>⭐ Student Feedback</h1>
-  <p class="text-muted">View scholarship experience ratings from students</p>
 </div>
 
 <!-- Analytics -->

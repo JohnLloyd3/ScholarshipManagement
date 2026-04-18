@@ -102,7 +102,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>⚙️ Automation / Cron Control</h1>
-  <p class="text-muted">Manage and execute automated tasks</p>
 </div>
 
 <?php if ($message): ?>
@@ -137,7 +136,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <p class="text-muted" style="margin-bottom:var(--space-lg);">To run these scripts automatically, set up a scheduled task on your server.</p>
 
   <h4 style="margin-bottom:var(--space-md);">Linux / cPanel (crontab)</h4>
-  <pre style="background:var(--gray-900);color:#e2e8f0;padding:var(--space-lg);border-radius:var(--radius-lg);overflow-x:auto;font-size:0.85rem;margin-bottom:var(--space-xl);"># Run every hour
+  <pre style="background:var(--gray-900);color:#e2e8f0;padding:var(--space-lg);border-radius:var(--r-lg);overflow-x:auto;font-size:0.85rem;margin-bottom:var(--space-xl);"># Run every hour
 0 * * * * /usr/bin/php <?= htmlspecialchars(realpath(__DIR__ . '/../cron/auto_close_scholarships.php')) ?> >> /tmp/cron_close.log 2>&1
 
 # Run daily at midnight
@@ -150,7 +149,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 */5 * * * * /usr/bin/php <?= htmlspecialchars(realpath(__DIR__ . '/../cron/process_email_queue.php')) ?> >> /tmp/cron_email.log 2>&1</pre>
 
   <h4 style="margin-bottom:var(--space-md);">Windows (Task Scheduler)</h4>
-  <pre style="background:var(--gray-900);color:#e2e8f0;padding:var(--space-lg);border-radius:var(--radius-lg);overflow-x:auto;font-size:0.85rem;"># Open PowerShell as Administrator and run:
+  <pre style="background:var(--gray-900);color:#e2e8f0;padding:var(--space-lg);border-radius:var(--r-lg);overflow-x:auto;font-size:0.85rem;"># Open PowerShell as Administrator and run:
 
 # Auto-close scholarships (every hour)
 schtasks /create /tn "ScholarHub_AutoClose" /tr "C:\xampp\php\php.exe <?= str_replace('/', '\\', realpath(__DIR__ . '/../cron/auto_close_scholarships.php')) ?>" /sc hourly /f

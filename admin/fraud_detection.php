@@ -127,7 +127,7 @@ if ($viewId) {
     <?php if (!empty($evidence)): ?>
     <div class="content-card" style="margin-bottom:var(--space-xl);">
       <h2>Evidence</h2>
-      <pre style="background:var(--gray-50);padding:var(--space-lg);border-radius:var(--radius-md);overflow:auto;font-size:0.85rem;"><?= htmlspecialchars(json_encode($evidence, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
+      <pre style="background:var(--gray-50);padding:var(--space-lg);border-radius:var(--r-md);overflow:auto;font-size:0.85rem;"><?= htmlspecialchars(json_encode($evidence, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
     </div>
     <?php endif; ?>
 
@@ -198,7 +198,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>🛡️ Fraud Detection</h1>
-  <p class="text-muted">Monitor and investigate suspicious activities</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -302,13 +301,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                   <input type="hidden" name="action" value="review_alert">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                   <input type="hidden" name="alert_id" value="<?= (int)$a['id'] ?>">
-                  <button type="submit" class="btn btn-ghost btn-sm" title="Review" onclick="return confirm('Mark as reviewed?')">✅</button>
+                  <button type="submit" class="btn btn-ghost btn-sm" title="Review" data-tip="Review" onclick="return confirm('Mark as reviewed?')">✅</button>
                 </form>
                 <form method="POST" style="display:inline;">
                   <input type="hidden" name="action" value="dismiss_alert">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                   <input type="hidden" name="alert_id" value="<?= (int)$a['id'] ?>">
-                  <button type="submit" class="btn btn-ghost btn-sm" title="Dismiss" onclick="return confirm('Dismiss this alert?')">❌</button>
+                  <button type="submit" class="btn btn-ghost btn-sm" title="Dismiss" data-tip="Dismiss" onclick="return confirm('Dismiss this alert?')">❌</button>
                 </form>
               <?php endif; ?>
             </td>

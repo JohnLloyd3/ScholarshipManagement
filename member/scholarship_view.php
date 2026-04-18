@@ -86,7 +86,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php if (!empty($reqs)): ?>
     <hr style="margin: var(--space-xl) 0; border: none; border-top: 1px solid var(--gray-200);">
     <h3 style="margin-bottom: var(--space-lg);">Eligibility Requirements</h3>
-    <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--radius-lg); border-left: 4px solid var(--red-primary);">
+    <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--r-lg); border-left: 4px solid var(--red-primary);">
       <ul style="margin:0;padding-left:var(--space-xl);line-height:1.8;color:var(--gray-700);">
         <?php foreach ($reqs as $req): ?>
           <li><?= htmlspecialchars($req) ?></li>
@@ -96,7 +96,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php elseif (!empty($s['eligibility_requirements'])): ?>
     <hr style="margin: var(--space-xl) 0; border: none; border-top: 1px solid var(--gray-200);">
     <h3 style="margin-bottom: var(--space-lg);">Eligibility Requirements</h3>
-    <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--radius-lg); border-left: 4px solid var(--red-primary);">
+    <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--r-lg); border-left: 4px solid var(--red-primary);">
       <p style="white-space: pre-wrap; line-height: 1.8; color: var(--gray-700); margin: 0;">
         <?= nl2br(htmlspecialchars($s['eligibility_requirements'])) ?>
       </p>
@@ -106,7 +106,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php if (!empty($reqDocs)): ?>
     <hr style="margin: var(--space-xl) 0; border: none; border-top: 1px solid var(--gray-200);">
     <h3 style="margin-bottom: var(--space-lg);">Required Documents</h3>
-    <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--radius-lg); border-left: 4px solid var(--red-primary);">
+    <div style="background: var(--gray-50); padding: var(--space-lg); border-radius: var(--r-lg); border-left: 4px solid var(--red-primary);">
       <ul style="margin:0;padding-left:var(--space-xl);line-height:1.8;color:var(--gray-700);">
         <?php foreach ($reqDocs as $d): ?>
           <li><?= htmlspecialchars($d) ?></li>

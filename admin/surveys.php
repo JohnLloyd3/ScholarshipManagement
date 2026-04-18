@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/SurveyHelper.php';
@@ -22,7 +22,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📋 Surveys</h1>
-  <p class="text-muted">Create and manage feedback surveys</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -59,14 +58,14 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                     <input type="hidden" name="survey_id" value="<?= (int)$s['id'] ?>">
                     <input type="hidden" name="status" value="active">
-                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#16a34a;" title="Activate">▶️</button>
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#16a34a;" title="Activate" data-tip="Activate">▶️</button>
                   </form>
                   <button onclick="openEditModal(<?= htmlspecialchars(json_encode($s)) ?>)" class="btn btn-ghost btn-sm" title="Edit">✏️</button>
                   <form method="POST" action="../controllers/SurveyController.php" style="display:inline;" onsubmit="return confirm('Delete this survey?')">
                     <input type="hidden" name="action" value="delete_survey">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                     <input type="hidden" name="survey_id" value="<?= (int)$s['id'] ?>">
-                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;" title="Delete">🗑️</button>
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;" title="Delete" data-tip="Delete">🗑️</button>
                   </form>
                 <?php elseif($s['status'] === 'active'): ?>
                   <form method="POST" action="../controllers/SurveyController.php" style="display:inline;" onsubmit="return confirm('Close this survey?')">
@@ -74,7 +73,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                     <input type="hidden" name="survey_id" value="<?= (int)$s['id'] ?>">
                     <input type="hidden" name="status" value="closed">
-                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;" title="Close">⏹️</button>
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;" title="Close" data-tip="Close">⏹️</button>
                   </form>
                 <?php endif; ?>
               </div>

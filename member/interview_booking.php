@@ -192,7 +192,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📅 Interview Scheduling</h1>
-  <p class="text-muted">Book your interview slots for shortlisted applications</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>

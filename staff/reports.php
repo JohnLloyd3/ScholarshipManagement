@@ -91,8 +91,8 @@ if ($export === 'pdf') {
     if (!file_exists($autoload)) { die('Dompdf not installed. Run: composer install'); }
     require_once $autoload;
     [$headers, $rows] = get_report_data($pdo, $dataset, $from, $to);
-    $html = '<style>body{font-family:sans-serif;font-size:11px}table{width:100%;border-collapse:collapse}th{background:#c41e3a;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #ddd}</style>';
-    $html .= '<h2 style="color:#c41e3a">'.ucfirst($dataset).' Report</h2>';
+    $html = '<style>body{font-family:sans-serif;font-size:11px}table{width:100%;border-collapse:collapse}th{background:#2563eb;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #ddd}</style>';
+    $html .= '<h2 style="color:#2563eb">'.ucfirst($dataset).' Report</h2>';
     $html .= '<table><thead><tr>';
     foreach ($headers as $h) $html .= '<th>'.htmlspecialchars($h).'</th>';
     $html .= '</tr></thead><tbody>';
@@ -120,7 +120,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📊 Reports & Exports</h1>
-  <p class="text-muted">Generate and download data reports</p>
 </div>
 
 <div class="content-card">
@@ -143,9 +142,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </div>
     <button class="btn btn-primary" name="export" value="csv">📥 Export CSV</button>
     <button class="btn btn-primary" name="export" value="xlsx" style="background:#217346">📊 Export Excel</button>
-    <button class="btn btn-primary" name="export" value="pdf" style="background:#c41e3a">📄 Export PDF</button>
+    <button class="btn btn-primary" name="export" value="pdf" style="background:#2563eb">📄 Export PDF</button>
   </form>
-  <p class="text-muted">CSV export contains recent rows for the selected dataset. Use filters for date ranges on applications and scholarships.</p>
 </div>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

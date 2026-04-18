@@ -22,7 +22,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>⭐ Feedback</h1>
-  <p class="text-muted">Rate your scholarship experience</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -37,7 +36,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <div class="content-card" style="margin-bottom:var(--space-xl);">
   <h2>📝 Leave Feedback</h2>
   <?php foreach($pending as $app): ?>
-    <div style="border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:var(--space-lg);margin-top:var(--space-lg);">
+    <div style="border:1px solid var(--gray-200);border-radius:var(--r-lg);padding:var(--space-lg);margin-top:var(--space-lg);">
       <h3 style="margin:0 0 var(--space-md) 0;"><?= htmlspecialchars($app['scholarship_title']) ?></h3>
       <?php if (!empty($app['disbursement_completed'])): ?>
         <span style="display:inline-block;background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:9999px;font-size:0.8rem;font-weight:600;margin-bottom:var(--space-sm);">💰 Disbursement received — please share your experience</span>

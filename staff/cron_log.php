@@ -26,7 +26,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📜 Cron Logs: <?= htmlspecialchars($script) ?></h1>
-  <p class="text-muted">Execution history for automated tasks</p>
 </div>
 
 <div class="content-card">
@@ -39,7 +38,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <tr>
         <td><?= htmlspecialchars($r['ran_at']) ?></td>
         <td><span class="status-badge status-<?= strtolower($r['status']) ?>"><?= htmlspecialchars($r['status']) ?></span></td>
-        <td><pre style="white-space:pre-wrap;max-height:240px;overflow:auto;background:var(--gray-50);padding:var(--space-md);border-radius:var(--radius-md);font-size:0.875rem"><?= htmlspecialchars($r['output']) ?></pre></td>
+        <td><pre style="white-space:pre-wrap;max-height:240px;overflow:auto;background:var(--gray-50);padding:var(--space-md);border-radius:var(--r-md);font-size:0.875rem"><?= htmlspecialchars($r['output']) ?></pre></td>
       </tr>
     <?php endforeach; ?>
     </tbody>

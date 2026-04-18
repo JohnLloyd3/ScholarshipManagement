@@ -36,7 +36,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
 	<h1>🎓 Scholarship Management</h1>
-	<p class="text-muted">Create, edit, and manage scholarship programs</p>
 </div>
 				</div>
 			</div>

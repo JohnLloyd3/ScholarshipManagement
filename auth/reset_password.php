@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 startSecureSession();
 
@@ -31,7 +31,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
 
 <style>
   body {
-    background: linear-gradient(135deg, var(--red-ghost) 0%, var(--white) 50%, var(--red-ghost) 100%);
+    background: linear-gradient(135deg, var(--peach-ghost) 0%, var(--white) 50%, var(--peach-ghost) 100%);
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -46,7 +46,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
   
   .auth-card {
     background: var(--white);
-    border-radius: var(--radius-2xl);
+    border-radius: var(--r-2xl);
     padding: var(--space-2xl);
     box-shadow: var(--shadow-xl);
     border: 1px solid var(--gray-200);
@@ -65,7 +65,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
   .auth-logo-text {
     font-size: 1.75rem;
     font-weight: 800;
-    color: var(--red-primary);
+    color: var(--peach);
     font-family: var(--font-display);
   }
   
@@ -87,7 +87,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
   }
   
   .auth-footer a {
-    color: var(--red-primary);
+    color: var(--peach);
     font-weight: 600;
   }
 </style>

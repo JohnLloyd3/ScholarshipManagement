@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 // Audit helper removed
@@ -277,9 +277,9 @@ if ($action === 'export_pdf') {
     require_once $autoload;
     $html = '<html><head><style>
         body{font-family:Arial,sans-serif;font-size:11px;}
-        h2{color:#c41e3a;}
+        h2{color:#2563eb;}
         table{width:100%;border-collapse:collapse;}
-        th{background:#c41e3a;color:white;padding:6px;text-align:left;}
+        th{background:#2563eb;color:white;padding:6px;text-align:left;}
         td{padding:5px;border-bottom:1px solid #eee;}
         .badge{padding:2px 6px;border-radius:3px;font-size:10px;}
         .pending{background:#fef3c7;color:#92400e;}

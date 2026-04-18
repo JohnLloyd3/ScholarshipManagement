@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -33,7 +33,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📋 Surveys</h1>
-  <p class="text-muted">Share your thoughts through structured surveys</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>

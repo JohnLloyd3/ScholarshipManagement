@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/helpers/SecurityHelper.php';
 
@@ -264,7 +264,7 @@ try {
       <div class="flex flex-col gap-3">
         <div class="card">
           <div class="flex gap-3">
-            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--red-primary); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">1</div>
+            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--peach); color: white; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">1</div>
             <div>
               <h4 class="card-title">Create Your Profile</h4>
               <p class="text-gray">Sign up and complete your student profile with your academic information</p>
@@ -274,7 +274,7 @@ try {
         
         <div class="card">
           <div class="flex gap-3">
-            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--red-primary); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">2</div>
+            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--peach); color: white; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">2</div>
             <div>
               <h4 class="card-title">Browse Scholarships</h4>
               <p class="text-gray">Explore available scholarships and find the ones that match your goals</p>
@@ -284,7 +284,7 @@ try {
         
         <div class="card">
           <div class="flex gap-3">
-            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--red-primary); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">3</div>
+            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--peach); color: white; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">3</div>
             <div>
               <h4 class="card-title">Submit Application</h4>
               <p class="text-gray">Fill out the application form and upload required documents</p>
@@ -294,7 +294,7 @@ try {
         
         <div class="card">
           <div class="flex gap-3">
-            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--red-primary); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">4</div>
+            <div style="flex-shrink: 0; width: 48px; height: 48px; background: var(--peach); color: white; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem;">4</div>
             <div>
               <h4 class="card-title">Track & Receive</h4>
               <p class="text-gray">Monitor your application status and receive your scholarship award</p>
@@ -314,9 +314,9 @@ try {
         Join thousands of students who have already found their perfect scholarship opportunity
       </p>
       <?php if (!isLoggedIn()): ?>
-        <a href="auth/register.php" class="btn btn-lg" style="background: white; color: var(--red-primary);">Create Free Account</a>
+        <a href="auth/register.php" class="btn btn-lg" style="background: white; color: var(--peach);">Create Free Account</a>
       <?php else: ?>
-        <a href="member/scholarships.php" class="btn btn-lg" style="background: white; color: var(--red-primary);">Browse Scholarships</a>
+        <a href="member/scholarships.php" class="btn btn-lg" style="background: white; color: var(--peach);">Browse Scholarships</a>
       <?php endif; ?>
     </div>
   </section>

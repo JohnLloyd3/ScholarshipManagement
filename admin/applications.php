@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../config/email.php';
@@ -161,7 +161,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📝 Applications Management</h1>
-  <p class="text-muted">Review and manage scholarship applications</p>
 </div>
 <?php if ($message): ?>
   <div class="alert alert-success"><?= sanitizeString($message) ?></div>
@@ -203,7 +202,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       
       <div>
         <label style="font-weight: 600; color: var(--gray-700); display: block; margin-bottom: var(--space-xs);">Application Details</label>
-        <div style="background: var(--gray-50); padding: var(--space-md); border-radius: var(--radius-md);"><?= nl2br(sanitizeString($viewing['details'] ?? '')) ?></div>
+        <div style="background: var(--gray-50); padding: var(--space-md); border-radius: var(--r-md);"><?= nl2br(sanitizeString($viewing['details'] ?? '')) ?></div>
       </div>
     </div>
                 
@@ -302,7 +301,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       foreach ($applications as $a) { if ($a['status'] === 'waitlisted') $waitlistCount++; }
     ?>
     <?php if ($waitlistCount > 0): ?>
-      <div style="background:#fffde7;border-left:4px solid #FFC107;padding:var(--space-md);border-radius:var(--radius-md);margin-bottom:var(--space-lg);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md);">
+      <div style="background:#fffde7;border-left:4px solid #FFC107;padding:var(--space-md);border-radius:var(--r-md);margin-bottom:var(--space-lg);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md);">
         <span><strong><?= $waitlistCount ?> waitlisted</strong> application<?= $waitlistCount > 1 ? 's' : '' ?> — promote when a slot opens.</span>
         <a href="applications.php?filter=waitlisted" class="btn btn-ghost btn-sm">View Waitlisted</a>
       </div>

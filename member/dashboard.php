@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -53,7 +53,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
   <div>
     <h1>👋 Welcome back, <?= htmlspecialchars($user['first_name'] ?? $user['username'] ?? 'Student') ?>!</h1>
-    <p class="text-muted">Here's what's happening with your scholarships</p>
   </div>
   <a href="apply_scholarship.php" class="btn btn-primary">Apply for Scholarship</a>
 </div>
@@ -138,8 +137,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <a href="applications.php" class="btn btn-ghost" style="text-align:center;">📝 My Applications</a>
       <a href="interview_booking.php" class="btn btn-ghost" style="text-align:center;">📅 Interview Booking</a>
       <a href="payouts.php" class="btn btn-ghost" style="text-align:center;">💰 My Payouts</a>
-      <a href="surveys.php" class="btn btn-ghost" style="text-align:center;">📋 Surveys <?= $pendingSurveys > 0 ? "<span style='background:var(--red-primary);color:white;border-radius:999px;padding:1px 7px;font-size:0.75rem;margin-left:4px;'>$pendingSurveys</span>" : '' ?></a>
-      <a href="feedback.php" class="btn btn-ghost" style="text-align:center;">⭐ Feedback <?= $pendingFeedback > 0 ? "<span style='background:var(--red-primary);color:white;border-radius:999px;padding:1px 7px;font-size:0.75rem;margin-left:4px;'>$pendingFeedback</span>" : '' ?></a>
+      <a href="surveys.php" class="btn btn-ghost" style="text-align:center;">📋 Surveys <?= $pendingSurveys > 0 ? "<span style='background:var(--peach);color:white;border-radius:999px;padding:1px 7px;font-size:0.75rem;margin-left:4px;'>$pendingSurveys</span>" : '' ?></a>
+      <a href="feedback.php" class="btn btn-ghost" style="text-align:center;">⭐ Feedback <?= $pendingFeedback > 0 ? "<span style='background:var(--peach);color:white;border-radius:999px;padding:1px 7px;font-size:0.75rem;margin-left:4px;'>$pendingFeedback</span>" : '' ?></a>
     </div>
   </div>
 
@@ -150,7 +149,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <div class="content-card">
   <h2 style="margin-bottom:var(--space-lg);">📢 Announcements</h2>
   <?php foreach ($announcements as $ann): ?>
-    <div style="padding:var(--space-lg);border-left:4px solid var(--red-primary);background:var(--red-ghost);margin-bottom:var(--space-md);border-radius:var(--radius-lg);">
+    <div style="padding:var(--space-lg);border-left:4px solid var(--peach);background:var(--peach-ghost);margin-bottom:var(--space-md);border-radius:var(--r-lg);">
       <h4 style="font-weight:600;margin-bottom:0.4rem;"><?= htmlspecialchars($ann['title']) ?></h4>
       <p style="margin:0.4rem 0;color:var(--gray-700);"><?= nl2br(htmlspecialchars($ann['message'])) ?></p>
       <small class="text-muted"><?= date('M d, Y', strtotime($ann['published_at'])) ?></small>

@@ -197,7 +197,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <?php endforeach; ?>
     </ul>
   <?php else: ?>
-    <p class="text-muted">No documents uploaded.</p>
   <?php endif; ?>
 </div>
 
@@ -247,7 +246,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <h4 style="margin-top:var(--space-2xl);margin-bottom:var(--space-lg)">Previous Reviews</h4>
     <div style="display:grid;gap:var(--space-lg)">
       <?php foreach($reviews as $rev): ?>
-        <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--radius-lg);border-left:4px solid var(--red-primary)">
+        <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--r-lg);border-left:4px solid var(--peach)">
           <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-md)">
             <strong><?= htmlspecialchars($rev['first_name'].' '.$rev['last_name'] ?? 'Staff') ?></strong>
             <span class="status-badge status-approved">Score: <?= htmlspecialchars($rev['score'] ?? 'N/A') ?></span>
@@ -290,12 +289,12 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     $interview = $interviewStmt->fetch(PDO::FETCH_ASSOC);
     ?>
     <?php if ($interview && $interview['status'] === 'completed'): ?>
-      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#e8f5e9;border-radius:var(--radius-lg);border-left:4px solid #4CAF50;">
+      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#e8f5e9;border-radius:var(--r-lg);border-left:4px solid #4CAF50;">
         <h4 style="margin:0 0 var(--space-sm) 0;color:#2e7d32;">✅ Interview Completed</h4>
         <p style="margin:0;color:#555;">Interview was completed on <?= date('M d, Y', strtotime($interview['interview_date'])) ?>. Disbursement is pending.</p>
       </div>
     <?php elseif ($interview): ?>
-      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#e3f2fd;border-radius:var(--radius-lg);border-left:4px solid #2196F3;">
+      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#e3f2fd;border-radius:var(--r-lg);border-left:4px solid #2196F3;">
         <h4 style="margin:0 0 var(--space-md) 0;color:#1976D2;">📅 Interview Scheduled</h4>
         <div style="display:grid;gap:var(--space-sm);color:#555;">
           <div><strong>Date:</strong> <?= date('F d, Y', strtotime($interview['interview_date'])) ?></div>
@@ -310,7 +309,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         </div>
       </div>
     <?php else: ?>
-      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#fff8e1;border-radius:var(--radius-lg);border-left:4px solid #FFC107;">
+      <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#fff8e1;border-radius:var(--r-lg);border-left:4px solid #FFC107;">
         <h4 style="margin:0 0 var(--space-sm) 0;color:#e65100;">📅 No Interview Scheduled Yet</h4>
         <p style="margin:0 0 var(--space-md) 0;color:#555;">Schedule an interview slot for this approved applicant.</p>
         <a href="../admin/interview_slots.php?scholarship_id=<?= (int)$app['scholarship_id'] ?>&app_id=<?= (int)$app['id'] ?>" class="btn btn-primary">📅 Schedule Interview</a>
@@ -323,7 +322,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     $daysUnderReview = $reviewedAt ? (int)floor((time() - strtotime($reviewedAt)) / 86400) : 0;
     $urgentColor = $daysUnderReview >= 7 ? '#dc2626' : ($daysUnderReview >= 3 ? '#d97706' : '#2563eb');
     ?>
-    <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#eff6ff;border-radius:var(--radius-lg);border-left:4px solid <?= $urgentColor ?>;">
+    <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#eff6ff;border-radius:var(--r-lg);border-left:4px solid <?= $urgentColor ?>;">
       <h4 style="margin:0 0 var(--space-sm) 0;color:<?= $urgentColor ?>;">
         ⏳ Under Review — <?= $daysUnderReview ?> day<?= $daysUnderReview !== 1 ? 's' : '' ?> waiting
         <?php if ($daysUnderReview >= 7): ?> <span style="font-size:0.8rem;font-weight:400;">(Action recommended)</span><?php endif; ?>

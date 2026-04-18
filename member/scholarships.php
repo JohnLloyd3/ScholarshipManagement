@@ -49,7 +49,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <div class="content-card text-center" style="padding: var(--space-3xl);">
     <div style="font-size: 3rem; margin-bottom: var(--space-lg);">📚</div>
     <h3>No Scholarships Found</h3>
-    <p class="text-muted">Try adjusting your search or check back later for new opportunities.</p>
   </div>
 <?php else: ?>
   <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-xl);">

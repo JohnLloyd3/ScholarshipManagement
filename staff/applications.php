@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/ScreeningHelper.php';
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $emailBody = '<h2>Application Status Update</h2>';
                     $emailBody .= '<p>Dear ' . htmlspecialchars($app['first_name'] ?? 'Student') . ',</p>';
                     $emailBody .= '<p>Your application for <strong>' . htmlspecialchars($app['scholarship_title'] ?? 'scholarship') . '</strong> has been updated.</p>';
-                    $emailBody .= '<p><strong>New Status:</strong> <span style="color: #c41e3a; font-weight: bold;">' . ucfirst(str_replace('_', ' ', $status)) . '</span></p>';
+                    $emailBody .= '<p><strong>New Status:</strong> <span style="color: #2563eb; font-weight: bold;">' . ucfirst(str_replace('_', ' ', $status)) . '</span></p>';
                     $emailBody .= '<p>Please log in to your account to view full details.</p>';
                     $emailBody .= '<p>Best regards,<br>ScholarHub Team</p>';
                     
@@ -159,7 +159,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>&#128203; Applications Queue</h1>
-  <p class="text-muted">Review and manage scholarship applications</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>

@@ -61,7 +61,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
     <div id="questionsContainer">
       <?php foreach ($questions as $i => $q): ?>
-        <div class="question-block" data-index="<?= $i ?>" style="border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:var(--space-lg);margin-bottom:var(--space-lg);background:var(--gray-50);">
+        <div class="question-block" data-index="<?= $i ?>" style="border:1px solid var(--gray-200);border-radius:var(--r-lg);padding:var(--space-lg);margin-bottom:var(--space-lg);background:var(--gray-50);">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-md);">
             <div style="flex:1;">
               <div class="form-group">
@@ -91,7 +91,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               </div>
             </div>
             <?php if ($survey['status'] === 'draft'): ?>
-              <button type="button" onclick="removeQuestion(this)" class="btn btn-ghost btn-sm" style="color:#dc2626;margin-top:1.8rem;" title="Remove">🗑️</button>
+              <button type="button" onclick="removeQuestion(this)" class="btn btn-ghost btn-sm" style="color:#dc2626;margin-top:1.8rem;" title="Remove" data-tip="Remove">🗑️</button>
             <?php endif; ?>
           </div>
         </div>
@@ -109,7 +109,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <!-- Question template (hidden) -->
 <template id="questionTemplate">
-  <div class="question-block" style="border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:var(--space-lg);margin-bottom:var(--space-lg);background:var(--gray-50);">
+  <div class="question-block" style="border:1px solid var(--gray-200);border-radius:var(--r-lg);padding:var(--space-lg);margin-bottom:var(--space-lg);background:var(--gray-50);">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-md);">
       <div style="flex:1;">
         <div class="form-group">
@@ -138,7 +138,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <textarea name="" class="form-textarea options-raw" rows="3" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
         </div>
       </div>
-      <button type="button" onclick="removeQuestion(this)" class="btn btn-ghost btn-sm" style="color:#dc2626;margin-top:1.8rem;" title="Remove">🗑️</button>
+      <button type="button" onclick="removeQuestion(this)" class="btn btn-ghost btn-sm" style="color:#dc2626;margin-top:1.8rem;" title="Remove" data-tip="Remove">🗑️</button>
     </div>
   </div>
 </template>

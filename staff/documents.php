@@ -26,7 +26,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📄 Pending Documents</h1>
-  <p class="text-muted">Verify or reject submitted documents in bulk</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>

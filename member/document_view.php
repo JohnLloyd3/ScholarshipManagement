@@ -65,9 +65,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <div style="margin-bottom: var(--space-xl);">
     <?php if (strpos($mime, 'pdf') !== false): ?>
       <div id="pdf-viewer">
-        <canvas id="pdf-canvas" style="width:100%;border:1px solid var(--gray-200);background:var(--white);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);"></canvas>
+        <canvas id="pdf-canvas" style="width:100%;border:1px solid var(--gray-200);background:var(--white);border-radius:var(--r-lg);box-shadow:var(--shadow-md);"></canvas>
         <noscript>
-          <iframe src="<?= $webPath ?>" style="width:100%;height:80vh;border:0;border-radius:var(--radius-lg);"></iframe>
+          <iframe src="<?= $webPath ?>" style="width:100%;height:80vh;border:0;border-radius:var(--r-lg);"></iframe>
         </noscript>
       </div>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.1/pdf.min.js"></script>
@@ -95,7 +95,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             iframe.style.width = '100%';
             iframe.style.height = '80vh';
             iframe.style.border = '0';
-            iframe.style.borderRadius = 'var(--radius-lg)';
+            iframe.style.borderRadius = 'var(--r-lg)';
             var v = document.getElementById('pdf-viewer');
             v.innerHTML = '';
             v.appendChild(iframe);
@@ -103,7 +103,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         })();
       </script>
     <?php elseif (strpos($mime, 'image/') === 0): ?>
-      <img src="<?= $webPath ?>" alt="<?= htmlspecialchars($doc['file_name']) ?>" style="max-width:100%;height:auto;border:1px solid var(--gray-200);padding:var(--space-lg);background:var(--white);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);">
+      <img src="<?= $webPath ?>" alt="<?= htmlspecialchars($doc['file_name']) ?>" style="max-width:100%;height:auto;border:1px solid var(--gray-200);padding:var(--space-lg);background:var(--white);border-radius:var(--r-lg);box-shadow:var(--shadow-md);">
     <?php else: ?>
       <div class="empty-state">
         <div class="empty-state-icon">📄</div>

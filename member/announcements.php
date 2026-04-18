@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 startSecureSession();
@@ -21,13 +21,12 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1>📢 Announcements</h1>
-  <p class="text-muted">Latest updates and news from ScholarHub</p>
 </div>
 
 <div class="content-card">
   <?php if (!empty($announcements)): ?>
     <?php foreach ($announcements as $ann): ?>
-      <div style="padding:var(--space-lg);border-left:4px solid var(--red-primary);background:var(--red-ghost);margin-bottom:var(--space-md);border-radius:var(--radius-lg);">
+      <div style="padding:var(--space-lg);border-left:4px solid var(--peach);background:var(--peach-ghost);margin-bottom:var(--space-md);border-radius:var(--r-lg);">
         <h3 style="font-weight:600;margin-bottom:0.4rem;"><?= htmlspecialchars($ann['title']) ?></h3>
         <p style="margin:0.4rem 0;color:var(--gray-700);"><?= nl2br(htmlspecialchars($ann['message'])) ?></p>
         <small class="text-muted"><?= date('M d, Y', strtotime($ann['published_at'])) ?></small>
