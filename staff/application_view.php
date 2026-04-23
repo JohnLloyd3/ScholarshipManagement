@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -172,92 +172,94 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <a href="applications.php" class="btn btn-secondary" style="margin-bottom:var(--space-xl)">? Back to Queue</a>
 
-<div class="content-card">
-  <h3 style="margin-bottom:var(--space-lg)">Applicant Information</h3>
-  <p><strong><?= htmlspecialchars($app['first_name'].' '.$app['last_name']) ?></strong><br><span class="text-muted"><?= htmlspecialchars($app['email']) ?></span></p>
-</div>
+<?php $appData = json_decode($app['motivational_letter'] ?? '{}', true) ?: []; ?>
+<style>
+  .detail-section { margin-bottom: 1.5rem; }
+  .detail-section h4 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #E53935; border-left: 3px solid #E53935; padding-left: 0.6rem; margin-bottom: 0.875rem; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .detail-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+  .detail-item label { display: block; font-size: 0.72rem; font-weight: 600; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem; }
+  .detail-item span { font-size: 0.875rem; color: #1a1a2e; font-weight: 500; }
+</style>
 
 <div class="content-card">
-  <h3 style="margin-bottom:var(--space-lg)">Application Details</h3>
-  <div style="display:grid;gap:var(--space-md)">
-    <div><strong>Status:</strong> <span class="status-badge status-<?= strtolower($app['status']) ?>"><?= htmlspecialchars($app['status']) ?></span></div>
-    <div><strong>Submitted:</strong> <?= htmlspecialchars($app['created_at']) ?></div>
-    <div><strong>Last Updated:</strong> <?= htmlspecialchars($app['updated_at'] ?? '�') ?></div>
+  <div class="detail-section">
+    <h4>Personal Information</h4>
+    <div class="detail-grid-3">
+      <div class="detail-item"><label>Full Name</label><span><?= htmlspecialchars($appData['full_name'] ?? ($app['first_name'].' '.$app['last_name'])) ?></span></div>
+      <div class="detail-item"><label>Date of Birth</label><span><?= htmlspecialchars($appData['dob'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>Age</label><span><?= htmlspecialchars($appData['age'] ?? '—') ?></span></div>
+    </div>
+    <div class="detail-grid" style="margin-top:0.75rem;">
+      <div class="detail-item"><label>Sex</label><span><?= htmlspecialchars($appData['sex'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>Civil Status</label><span><?= htmlspecialchars($appData['civil_status'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>Contact Number</label><span><?= htmlspecialchars($appData['mobile'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>Email</label><span><?= htmlspecialchars($appData['email'] ?? $app['email']) ?></span></div>
+    </div>
+  </div>
+  <div class="detail-section">
+    <h4>Home Address</h4>
+    <div class="detail-item"><label>Address</label><span><?= htmlspecialchars($appData['home_address'] ?? '—') ?></span></div>
+  </div>
+  <div class="detail-section">
+    <h4>Family Background</h4>
+    <div class="detail-grid">
+      <div class="detail-item"><label>Parent/Guardian Name</label><span><?= htmlspecialchars($appData['parent_name'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>Occupation</label><span><?= htmlspecialchars($appData['parent_occupation'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>Monthly Income</label><span><?= htmlspecialchars($appData['monthly_income'] ?? '—') ?></span></div>
+    </div>
+  </div>
+  <div class="detail-section">
+    <h4>Educational Background</h4>
+    <div class="detail-grid">
+      <div class="detail-item"><label>School</label><span><?= htmlspecialchars($appData['school_name'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>Program</label><span><?= htmlspecialchars($appData['course_strand'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>GWA</label><span><?= htmlspecialchars($appData['gwa'] ?? '—') ?></span></div>
+      <div class="detail-item"><label>Year Level</label><span><?= htmlspecialchars($appData['year_level'] ?? '—') ?></span></div>
+    </div>
+  </div>
+  <div class="detail-section" style="margin-bottom:0;">
+    <h4>Application Status</h4>
+    <div class="detail-grid">
+      <div class="detail-item"><label>Status</label><span class="status-badge status-<?= strtolower($app['status']) ?>"><?= ucfirst(str_replace('_',' ',$app['status'])) ?></span></div>
+      <div class="detail-item"><label>Submitted</label><span><?= htmlspecialchars($app['created_at']) ?></span></div>
+      <div class="detail-item"><label>Last Updated</label><span><?= htmlspecialchars($app['updated_at'] ?? '—') ?></span></div>
+    </div>
   </div>
 </div>
 
 <div class="content-card">
-  <h3 style="margin-bottom:var(--space-lg)">Submitted Documents</h3>
+  <h3 style="margin-bottom:1rem;">Submitted Documents</h3>
   <?php if ($docs): ?>
-    <ul style="list-style:none;padding:0;margin:0">
-      <?php foreach($docs as $d): ?>
-        <li style="padding:var(--space-md);border-bottom:1px solid var(--gray-200)">
-          <a href="../students/document_view.php?id=<?= (int)$d['id'] ?>" target="_blank" class="text-primary"><?= htmlspecialchars($d['document_type'].' � '.$d['file_name']) ?></a>
-        </li>
-      <?php endforeach; ?>
-    </ul>
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>File Name</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Uploaded</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($docs as $i => $d): ?>
+          <tr>
+            <td style="color:#9E9E9E;font-size:0.8rem;"><?= $i + 1 ?></td>
+            <td><?= htmlspecialchars($d['file_name']) ?></td>
+            <td><?= htmlspecialchars($d['document_type']) ?></td>
+            <td><span class="status-badge status-<?= strtolower($d['verification_status'] ?? 'pending') ?>"><?= ucfirst($d['verification_status'] ?? 'pending') ?></span></td>
+            <td style="font-size:0.8rem;color:#9E9E9E;"><?= date('M d, Y', strtotime($d['uploaded_at'])) ?></td>
+            <td><a href="../students/document_view.php?id=<?= (int)$d['id'] ?>" target="_blank" class="btn btn-ghost btn-sm">View</a></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
   <?php else: ?>
-  <?php endif; ?>
-</div>
-
-<div class="content-card">
-  <h3 style="margin-bottom:var(--space-lg)">Submit Review</h3>
-  <form method="post">
-    <input type="hidden" name="action" value="submit_review">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-    
-    <div class="form-group">
-      <label class="form-label">Score (0-100) *</label>
-      <input type="number" name="score" min="0" max="100" class="form-input" required>
-    </div>
-    
-    <div class="form-group">
-      <label class="form-label">Checklist</label>
-      <div style="display:grid;gap:var(--space-sm)">
-        <label style="display:flex;align-items:center;gap:var(--space-sm)"><input type="checkbox" name="checklist[]" value="Eligibility"> Eligibility</label>
-        <label style="display:flex;align-items:center;gap:var(--space-sm)"><input type="checkbox" name="checklist[]" value="Academic Merit"> Academic Merit</label>
-        <label style="display:flex;align-items:center;gap:var(--space-sm)"><input type="checkbox" name="checklist[]" value="Financial Need"> Financial Need</label>
-        <label style="display:flex;align-items:center;gap:var(--space-sm)"><input type="checkbox" name="checklist[]" value="Documents Complete"> Documents Complete</label>
-      </div>
-    </div>
-    
-    <div class="form-group">
-      <label class="form-label">Comments (Optional)</label>
-      <textarea name="comments" rows="4" class="form-input" placeholder="Add your review comments here..."></textarea>
-    </div>
-    
-    <button class="btn btn-primary">? Submit Review</button>
-  </form>
-
-  <?php
-    // Fetch reviews if table exists
-    $reviews = [];
-    try {
-      $rlist = $pdo->prepare('SELECT r.*, u.first_name, u.last_name FROM reviews r LEFT JOIN users u ON r.reviewer_id = u.id WHERE r.application_id = :aid ORDER BY r.created_at DESC');
-      $rlist->execute([':aid'=>$id]);
-      $reviews = $rlist->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-      // Reviews table doesn't exist yet - skip this section
-      $reviews = [];
-    }
-  ?>
-  
-  <?php if ($reviews): ?>
-    <h4 style="margin-top:var(--space-2xl);margin-bottom:var(--space-lg)">Previous Reviews</h4>
-    <div style="display:grid;gap:var(--space-lg)">
-      <?php foreach($reviews as $rev): ?>
-        <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--r-lg);border-left:4px solid var(--peach)">
-          <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-md)">
-            <strong><?= htmlspecialchars($rev['first_name'].' '.$rev['last_name'] ?? 'Staff') ?></strong>
-            <span class="status-badge status-approved">Score: <?= htmlspecialchars($rev['score'] ?? 'N/A') ?></span>
-          </div>
-          <div class="text-muted" style="font-size:0.875rem;margin-bottom:var(--space-sm)"><?= htmlspecialchars($rev['created_at']) ?></div>
-          <div style="margin-bottom:var(--space-sm)"><strong>Checklist:</strong> <?= htmlspecialchars($rev['checklist']) ?></div>
-          <?php if (!empty($rev['comments'])): ?>
-            <div><strong>Comments:</strong> <?= nl2br(htmlspecialchars($rev['comments'])) ?></div>
-          <?php endif; ?>
-        </div>
-      <?php endforeach; ?>
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="fas fa-file"></i></div>
+      <div class="empty-state-title">No Documents</div>
+      <div class="empty-state-description">No documents were submitted with this application.</div>
     </div>
   <?php endif; ?>
 </div>

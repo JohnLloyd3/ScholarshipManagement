@@ -30,6 +30,25 @@ if ($action === 'create') {
     // ensure we don't include action or scholarship id
     unset($posted['action'], $posted['scholarship_id']);
 
+    // Build full_name server-side if JS didn't combine it
+    if (empty($posted['full_name'])) {
+        $fn = trim(($posted['first_name'] ?? '') . ' ' . ($posted['middle_name'] ?? '') . ' ' . ($posted['last_name'] ?? ''));
+        $posted['full_name'] = preg_replace('/\s+/', ' ', $fn);
+        $_POST['full_name'] = $posted['full_name'];
+    }
+
+    // Build home_address server-side if JS didn't combine it
+    if (empty($posted['home_address'])) {
+        $parts = array_filter([
+            $posted['street'] ?? '',
+            $posted['barangay'] ?? '',
+            $posted['city'] ?? '',
+            $posted['province'] ?? ''
+        ]);
+        $posted['home_address'] = implode(', ', $parts);
+        $_POST['home_address'] = $posted['home_address'];
+    }
+
     // determine if user is saving draft
     $is_draft = !empty($_POST['save_draft']);
 
@@ -39,7 +58,7 @@ if ($action === 'create') {
         $validation_errors[] = 'Please select a scholarship.';
     }
     if (!$is_draft) {
-        if (empty($posted['full_name'])) {
+        if (empty(trim($posted['full_name'] ?? ''))) {
             $validation_errors[] = 'Full name is required.';
         }
         if (empty($posted['sex'])) {
@@ -102,22 +121,12 @@ if ($action === 'create') {
         $stmt = $pdo->prepare('SELECT document_name FROM scholarship_documents WHERE scholarship_id = :id');
         $stmt->execute([':id' => $scholarship_id]);
         $required_docs = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        
-        if (!empty($required_docs)) {
-            // Check if files were uploaded
-            if (empty($_FILES['documents']) || empty($_FILES['documents']['name'][0])) {
-                $missing_docs = implode(', ', $required_docs);
-                $_SESSION['flash'] = "Missing required documents: $missing_docs. Please upload all required documents.";
-                header('Location: ../students/apply_scholarship.php?scholarship_id=' . $scholarship_id);
-                exit;
-            }
-            
-            // Count uploaded files
+        // Only enforce scholarship_documents if they exist AND files were provided via documents[] array
+        if (!empty($required_docs) && !empty($_FILES['documents']['name'][0])) {
             $uploaded_count = 0;
             foreach ($_FILES['documents']['name'] as $name) {
                 if (!empty($name)) $uploaded_count++;
             }
-            
             if ($uploaded_count < count($required_docs)) {
                 $missing_docs = implode(', ', $required_docs);
                 $_SESSION['flash'] = "You uploaded $uploaded_count file(s) but " . count($required_docs) . " document(s) are required: $missing_docs";
@@ -141,8 +150,10 @@ if ($action === 'create') {
     $stmt = $pdo->prepare('SELECT deadline FROM scholarships WHERE id = :id');
     $stmt->execute([':id' => $scholarship_id]);
     $scholarship_deadline = $stmt->fetchColumn();
-    if (!$is_draft && $scholarship_deadline && strtotime('now') > strtotime($scholarship_deadline)) {
-        $validation_errors[] = "Application deadline has passed.";
+    if (!$is_draft && $scholarship_deadline && strtotime('today') > strtotime($scholarship_deadline)) {
+        $_SESSION['flash'] = 'Application deadline has passed.';
+        header('Location: ../students/apply_scholarship.php?scholarship_id=' . $scholarship_id);
+        exit;
     }
 
     if (!empty($validation_errors)) {
@@ -154,6 +165,19 @@ if ($action === 'create') {
     $documentPath = null;
     $uploadedPaths = [];
     $collectedUploads = [];
+
+    // Collect individually named file fields from the form
+    $namedFiles = ['cert_indigency', 'id_picture', 'report_card', 'birth_certificate', 'proof_income'];
+    foreach ($namedFiles as $fieldName) {
+        if (!empty($_FILES[$fieldName]['name']) && $_FILES[$fieldName]['error'] === UPLOAD_ERR_OK) {
+            $_FILES['documents']['name'][]     = $_FILES[$fieldName]['name'];
+            $_FILES['documents']['type'][]     = $_FILES[$fieldName]['type'];
+            $_FILES['documents']['tmp_name'][] = $_FILES[$fieldName]['tmp_name'];
+            $_FILES['documents']['error'][]    = $_FILES[$fieldName]['error'];
+            $_FILES['documents']['size'][]     = $_FILES[$fieldName]['size'];
+        }
+    }
+
     if (!empty($_FILES['documents']) && !empty($_FILES['documents']['name'][0])) {
         $up = __DIR__ . '/../uploads';
         if (!is_dir($up)) mkdir($up, 0777, true);

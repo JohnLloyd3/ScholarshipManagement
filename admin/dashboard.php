@@ -50,7 +50,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <h1>Welcome, <?= htmlspecialchars($adminName) ?>!</h1>
     <p>Admin Dashboard</p>
   </div>
-  <div class="page-header-icon"><i class="fas fa-cog"></i></div>
+
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>

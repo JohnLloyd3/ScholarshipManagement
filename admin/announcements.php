@@ -125,54 +125,49 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
   <h2 style="margin:0;">All Announcements</h2>
-  <button type="button" class="btn btn-primary btn-sm" id="toggleFormBtn" onclick="toggleForm()">+ New Announcement</button>
+  <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('newAnnouncementModal').style.display='flex'">+ New Announcement</button>
 </div>
 
-<div class="content-card" style="margin-bottom:1.5rem;display:none;" id="formCard">
-  <h3 style="margin-bottom:1rem;">Create New Announcement</h3>
-  <form method="POST">
-    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-    <input type="hidden" name="action" value="create">
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Title *</label>
-        <input type="text" name="title" class="form-input" required placeholder="e.g., Scholarship Deadline Extended">
+<!-- Create Announcement Modal -->
+<div id="newAnnouncementModal" class="modal" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-content" style="max-width:560px;">
+    <div class="modal-header">
+      <h3>Create New Announcement</h3>
+      <button class="modal-close" onclick="document.getElementById('newAnnouncementModal').style.display='none'">&times;</button>
+    </div>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+      <input type="hidden" name="action" value="create">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input type="text" name="title" class="form-input" required placeholder="e.g., Scholarship Deadline Extended">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select name="type" class="form-input">
+            <option value="info">Info</option>
+            <option value="success">Success</option>
+            <option value="warning">Warning</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Type</label>
-        <select name="type" class="form-input">
-          <option value="info">Info</option>
-          <option value="success">Success</option>
-          <option value="warning">Warning</option>
-          <option value="urgent">Urgent</option>
-        </select>
+        <label class="form-label">Message *</label>
+        <textarea name="message" class="form-input" rows="4" required placeholder="Enter the announcement message..."></textarea>
       </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Message *</label>
-      <textarea name="message" class="form-input" rows="4" required placeholder="Enter the announcement message..."></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Expires At (Optional)</label>
-      <input type="datetime-local" name="expires_at" class="form-input">
-    </div>
-    <button type="submit" class="btn btn-primary">Post Announcement</button>
-  </form>
+      <div class="form-group">
+        <label class="form-label">Expires At (Optional)</label>
+        <input type="datetime-local" name="expires_at" class="form-input">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('newAnnouncementModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Post Announcement</button>
+      </div>
+    </form>
+  </div>
 </div>
-
-<script>
-function toggleForm() {
-  const formCard = document.getElementById('formCard');
-  const btn = document.getElementById('toggleFormBtn');
-  if (formCard.style.display === 'none') {
-    formCard.style.display = 'block';
-    btn.textContent = '? Close';
-  } else {
-    formCard.style.display = 'none';
-    btn.textContent = '? New Announcement';
-  }
-}
-</script>
 
 <div class="content-card">
   <h3 style="margin-bottom:1rem;">All Announcements</h3>

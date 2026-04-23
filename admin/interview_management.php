@@ -138,36 +138,45 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   </div>
 </div>
 
-<!-- Auto-Assignment Form -->
-<div class="content-card">
-  <h2><i class="fas fa-magic"></i> Auto-Assign Applicants</h2>
-  <p class="text-muted">Automatically assign approved applicants to interview groups</p>
-  
-  <form method="POST" style="max-width: 600px;">
-    <input type="hidden" name="action" value="auto_assign">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-    
-    <div class="form-group">
-      <label>Select Scholarship *</label>
-      <select name="scholarship_id" class="form-input" required>
-        <option value="">Choose scholarship...</option>
-        <?php foreach($scholarships as $sch): ?>
-          <option value="<?= (int)$sch['id'] ?>">
-            <?= htmlspecialchars($sch['title']) ?> (<?= (int)$sch['approved_count'] ?> approved)
-          </option>
-        <?php endforeach; ?>
-      </select>
+<!-- Auto-Assignment Button -->
+<div style="display:flex;justify-content:flex-end;margin-bottom:1.5rem;">
+  <button class="btn btn-primary" onclick="document.getElementById('autoAssignModal').style.display='flex'">
+    <i class="fas fa-magic"></i> Auto-Assign Applicants
+  </button>
+</div>
+
+<!-- Auto-Assign Modal -->
+<div id="autoAssignModal" class="modal" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <h3><i class="fas fa-magic"></i> Auto-Assign Applicants</h3>
+      <button class="modal-close" onclick="document.getElementById('autoAssignModal').style.display='none'">&times;</button>
     </div>
-    
-    <div class="form-group">
-      <label>Interview Date *</label>
-      <input type="date" name="session_date" class="form-input" required min="<?= date('Y-m-d') ?>">
-    </div>
-    
-    <button type="submit" class="btn btn-primary">
-      <i class="fas fa-magic"></i> Auto-Assign Applicants
-    </button>
-  </form>
+    <p class="text-muted" style="margin-bottom:1rem;">Automatically assign approved applicants to interview groups</p>
+    <form method="POST">
+      <input type="hidden" name="action" value="auto_assign">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+      <div class="form-group">
+        <label class="form-label">Select Scholarship *</label>
+        <select name="scholarship_id" class="form-input" required>
+          <option value="">Choose scholarship...</option>
+          <?php foreach($scholarships as $sch): ?>
+            <option value="<?= (int)$sch['id'] ?>">
+              <?= htmlspecialchars($sch['title']) ?> (<?= (int)$sch['approved_count'] ?> approved)
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Interview Date *</label>
+        <input type="date" name="session_date" class="form-input" required min="<?= date('Y-m-d') ?>">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('autoAssignModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-magic"></i> Auto-Assign</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- View Schedule -->

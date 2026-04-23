@@ -21,24 +21,24 @@
     ::selection { background: #FFCDD2; color: #B71C1C; }
 
     /* Navbar */
-    .top-navbar { position: fixed; top: 0; left: 260px; right: 0; height: 60px; background: #fff; border-bottom: 1px solid #D1D5DB; display: flex; align-items: center; justify-content: space-between; padding: 0 1.75rem; z-index: 200; box-shadow: 0 1px 6px rgba(229,57,53,0.07); }
+    .top-navbar { position: fixed; top: 0; left: 260px; right: 0; height: 72px; background: #fff; border-bottom: 1px solid #D1D5DB; display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; z-index: 200; box-shadow: 0 1px 6px rgba(229,57,53,0.07); }
     .navbar-search { display: flex; align-items: center; gap: 0.5rem; background: #FFF5F5; border: 1.5px solid #D1D5DB; border-radius: 10px; padding: 0.45rem 1rem; width: 340px; }
     .navbar-search input { border: none; background: transparent; outline: none; font-size: 0.875rem; color: #1a1a2e; width: 100%; font-family: inherit; }
     .navbar-search input::placeholder { color: #BDBDBD; }
     .search-icon { color: #BDBDBD; font-size: 0.875rem; flex-shrink: 0; }
-    .navbar-right { display: flex; align-items: center; gap: 0.75rem; }
-    .navbar-icon-btn { width: 38px; height: 38px; border-radius: 10px; background: #FFF5F5; border: 1.5px solid #D1D5DB; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; text-decoration: none; transition: background 0.15s; }
+    .navbar-right { display: flex; align-items: center; gap: 1rem; }
+    .navbar-icon-btn { width: 44px; height: 44px; border-radius: 12px; background: #FFF5F5; border: 1.5px solid #D1D5DB; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; text-decoration: none; transition: background 0.15s; font-size: 1.1rem; color: #1a1a2e; }
     .navbar-icon-btn:hover { background: #D1D5DB; }
     .navbar-badge { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: #E53935; color: #fff; font-size: 0.6rem; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; }
-    .navbar-user { display: flex; align-items: center; gap: 0.6rem; background: #FFF5F5; border: 1.5px solid #D1D5DB; border-radius: 10px; padding: 0.35rem 0.75rem; cursor: pointer; }
-    .navbar-user-avatar { width: 30px; height: 30px; border-radius: 8px; background: #E53935; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; overflow: hidden; }
+    .navbar-user { display: flex; align-items: center; gap: 0.75rem; background: #FFF5F5; border: 1.5px solid #D1D5DB; border-radius: 12px; padding: 0.5rem 1rem; cursor: pointer; }
+    .navbar-user-avatar { width: 38px; height: 38px; border-radius: 10px; background: #E53935; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; flex-shrink: 0; overflow: hidden; }
     .navbar-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .navbar-user-name { font-size: 0.8125rem; font-weight: 600; color: #1a1a2e; }
-    .navbar-user-role { font-size: 0.7rem; color: #E53935; }
+    .navbar-user-name { font-size: 0.9rem; font-weight: 600; color: #1a1a2e; }
+    .navbar-user-role { font-size: 0.775rem; color: #E53935; }
 
     /* Layout */
     .dashboard-layout { display: flex; min-height: 100vh; }
-    .main-content { flex: 1; margin-left: 260px; margin-top: 60px; padding: 1.75rem 2rem; min-height: calc(100vh - 60px); background: #FFF5F5; }
+    .main-content { flex: 1; margin-left: 260px; margin-top: 72px; padding: 1.75rem 2rem; min-height: calc(100vh - 72px); background: #FFF5F5; }
 
     /* Page header */
     .page-header { background: linear-gradient(135deg, #E53935 0%, #B71C1C 100%); border-radius: 14px; padding: 1.5rem 1.75rem; margin-bottom: 1.5rem; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
@@ -228,10 +228,7 @@ if ($navRole === 'student') {
 ?>
 
 <nav class="top-navbar">
-  <div class="navbar-search">
-    <span class="search-icon"><i class="fas fa-search"></i></span>
-    <input type="text" placeholder="Search students, scholarships, applications...">
-  </div>
+  <div></div>
   <div class="navbar-right">
     <?php if ($navRole === 'student'): ?>
     <a href="<?= ($base_path ?? '../') ?>students/notifications.php" class="navbar-icon-btn">
@@ -241,8 +238,7 @@ if ($navRole === 'student') {
       <?php endif; ?>
     </a>
     <?php endif; ?>
-    <a href="<?= ($base_path ?? '../') ?><?= $navRole === 'admin' ? 'admin' : ($navRole === 'staff' ? 'staff' : 'students') ?>/profile.php" class="navbar-icon-btn"><i class="fas fa-user"></i></a>
-    <div class="navbar-user">
+    <a href="<?= ($base_path ?? '../') ?><?= $navRole === 'admin' ? 'admin' : ($navRole === 'staff' ? 'staff' : 'students') ?>/profile.php" class="navbar-user" style="text-decoration:none;">
       <div class="navbar-user-avatar">
         <?php if ($navPic): ?>
           <img src="<?= htmlspecialchars($navPic) ?>" alt="Profile">
@@ -254,6 +250,6 @@ if ($navRole === 'student') {
         <div class="navbar-user-name"><?= htmlspecialchars($navName) ?></div>
         <div class="navbar-user-role"><?= ucfirst(htmlspecialchars($navRole)) ?></div>
       </div>
-    </div>
+    </a>
   </div>
 </nav>

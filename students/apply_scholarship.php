@@ -85,14 +85,6 @@ require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
-  <div>
-    <h1>Apply for Scholarship</h1>
-    <p>Complete the application form below</p>
-  </div>
-  <a href="scholarships.php" class="btn btn-ghost">← Back to Scholarships</a>
-</div>
-
 <?php if (!empty($_SESSION['success'])): ?>
   <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
 <?php endif; ?>
@@ -100,6 +92,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <div class="alert alert-error"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
 <?php endif; ?>
 <style>
+  #appModal .modal-content { max-width: 780px; max-height: 90vh; overflow-y: auto; }
   .form-section { margin-bottom: 2rem; }
   .form-section h4 { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #E53935; }
   .form-section .form-group { margin-bottom: 1rem; }
@@ -134,19 +127,23 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   }
 </style>
 
-<div class="content-card">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
-    <div>
-      <h3 style="margin:0 0 0.25rem;">Scholarship Application Form</h3>
-      <div style="font-size:0.875rem;color:#E53935;font-weight:600;"><?= htmlspecialchars($selected_scholarship['title']) ?></div>
-    </div>
-    <?php if ($days_remaining !== null): ?>
-      <div class="alert <?= $days_remaining > 7 ? 'alert-success' : 'alert-warning' ?>" style="margin:0;padding:0.45rem 0.875rem;font-size:0.8rem;">
-        <?= $days_remaining > 0 ? $days_remaining.' day(s) remaining' : 'Deadline reached' ?>
-        &mdash; <?= htmlspecialchars($selected_scholarship['deadline']) ?>
+<div id="appModal" class="modal" style="display:flex;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin:0 0 0.2rem;">Scholarship Application Form</h3>
+        <div style="font-size:0.875rem;color:#E53935;font-weight:600;"><?= htmlspecialchars($selected_scholarship['title']) ?></div>
       </div>
-    <?php endif; ?>
-  </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <?php if ($days_remaining !== null): ?>
+          <div class="alert <?= $days_remaining > 7 ? 'alert-success' : 'alert-warning' ?>" style="margin:0;padding:0.35rem 0.75rem;font-size:0.75rem;">
+            <?= $days_remaining > 0 ? $days_remaining.' day(s) remaining' : 'Deadline reached' ?>
+            &mdash; <?= htmlspecialchars($selected_scholarship['deadline']) ?>
+          </div>
+        <?php endif; ?>
+        <a href="scholarships.php" class="modal-close" style="text-decoration:none;">&times;</a>
+      </div>
+    </div>
 
   <?php if ($eligible === false): ?>
     <div class="alert alert-warning" style="margin-bottom:1rem;">
@@ -181,7 +178,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <input type="text" id="middle_name" placeholder="Santos">
         </div>
       </div>
-      <div class="form-row">
+      <div class="form-row-3">
         <div class="form-group">
           <label>Date of Birth *</label>
           <input type="date" name="dob" id="dob" required>
@@ -190,13 +187,12 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <label>Age *</label>
           <input type="number" name="age" id="age" required min="1" max="120" placeholder="18">
         </div>
-      </div>
-      <div class="form-group">
-        <label>Sex *</label>
-        <div class="radio-group">
-          <label><input type="radio" name="sex" value="Male" required> Male</label>
-          <label><input type="radio" name="sex" value="Female" required> Female</label>
-          <label><input type="radio" name="sex" value="Prefer not to say" required> Prefer not to say</label>
+        <div class="form-group">
+          <label>Sex *</label>
+          <div class="radio-group">
+            <label><input type="radio" name="sex" value="Male" required> Male</label>
+            <label><input type="radio" name="sex" value="Female" required> Female</label>
+          </div>
         </div>
       </div>
       <div class="form-group">
@@ -348,34 +344,36 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <label>Monthly Income *</label>
           <input type="text" name="monthly_income" required placeholder="₱ 15,000">
         </div>
-        <div class="form-group">
-          <label>Total Household Income *</label>
-          <input type="text" name="total_income" required placeholder="₱ 20,000">
-        </div>
       </div>
     </div>
 
-    <!-- Educational Background -->
+      <!-- Educational Background -->
     <div class="form-section">
       <h4>Educational Background</h4>
       <div class="form-group">
         <label>School Name *</label>
-        <input type="text" name="school_name" required placeholder="Name of School/University">
+        <input type="text" name="school_name" required value="St. Cecilia's College-Cebu, Inc." readonly style="background:#F5F5F5;color:#9E9E9E;">
+      </div>
+      <div class="form-group">
+        <label>Program *</label>
+        <select name="course_strand" required>
+          <option value="">Select Program</option>
+          <option value="BSIT">BSIT</option>
+          <option value="ACT">ACT</option>
+          <option value="BSED">BSED</option>
+          <option value="BEED">BEED</option>
+          <option value="BSHM">BSHM</option>
+          <option value="BSTM">BSTM</option>
+          <option value="BSBA">BSBA</option>
+          <option value="BSMA">BSMA</option>
+          <option value="BSCRIM">BSCRIM</option>
+          <option value="BSNURSING">BSNURSING</option>
+        </select>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label>Course/Strand *</label>
-          <input type="text" name="course_strand" required placeholder="STEM, ABM, BS Computer Science, etc.">
-        </div>
         <div class="form-group">
           <label>General Average (GWA) *</label>
           <input type="text" name="gwa" required placeholder="92.5">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Year Graduated *</label>
-          <input type="text" name="year_graduated" required placeholder="2024">
         </div>
         <div class="form-group">
           <label>Year Level *</label>
@@ -386,8 +384,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <option value="3rd Year">3rd Year</option>
             <option value="4th Year">4th Year</option>
             <option value="5th Year">5th Year</option>
-            <option value="Incoming Freshman">Incoming Freshman</option>
-            <option value="Graduate">Graduate</option>
           </select>
         </div>
       </div>
@@ -398,36 +394,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <h4>Requirements Upload</h4>
       <div class="form-row">
         <div class="form-group">
-          <label>Report Card / TOR *</label>
-          <input type="file" name="report_card" id="report_card" required accept=".pdf,.jpg,.jpeg,.png">
-        </div>
-        <div class="form-group">
-          <label>Birth Certificate *</label>
-          <input type="file" name="birth_certificate" id="birth_certificate" required accept=".pdf,.jpg,.jpeg,.png">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Proof of Income *</label>
-          <input type="file" name="proof_income" id="proof_income" required accept=".pdf,.jpg,.jpeg,.png">
-        </div>
-        <div class="form-group">
           <label>Certificate of Indigency *</label>
           <input type="file" name="cert_indigency" id="cert_indigency" required accept=".pdf,.jpg,.jpeg,.png">
         </div>
-      </div>
-      <div class="form-group">
-        <label>2x2 ID Picture *</label>
-        <input type="file" name="id_picture" id="id_picture" required accept=".jpg,.jpeg,.png">
-      </div>
-    </div>
-
-    <!-- Essay -->
-    <div class="form-section">
-      <h4>Essay</h4>
-      <div class="form-group">
-        <label>Why do you deserve this scholarship? *</label>
-        <textarea name="essay" required placeholder="Write your essay here... (minimum 100 words)"></textarea>
+        <div class="form-group">
+          <label>2x2 ID Picture *</label>
+          <input type="file" name="id_picture" id="id_picture" required accept=".jpg,.jpeg,.png">
+        </div>
       </div>
     </div>
 
@@ -442,13 +415,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </div>
     </div>
 
-    <!-- Submit Buttons -->
-    <div style="display:flex;gap:0.75rem;align-items:center;margin-top:1.5rem;padding-top:1rem;border-top:1.5px solid #D1D5DB;flex-wrap:wrap;">
-      <button type="submit" class="btn btn-primary">Submit Application</button>
-      <button type="submit" name="save_draft" value="1" class="btn btn-secondary">Save Draft</button>
-      <a href="scholarships.php" class="btn btn-ghost">Cancel</a>
-    </div>
-  </form>
+      <div class="modal-footer">
+        <a href="scholarships.php" class="btn btn-ghost">Cancel</a>
+        <button type="submit" name="save_draft" value="1" class="btn btn-secondary">Save Draft</button>
+        <button type="submit" class="btn btn-primary">Submit Application</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -495,7 +468,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     const isDraft = e.submitter && e.submitter.name === 'save_draft';
     
     if (!isDraft) {
-      const requiredFiles = ['report_card', 'birth_certificate', 'proof_income', 'cert_indigency', 'id_picture'];
+      const requiredFiles = ['cert_indigency', 'id_picture'];
       let missingFiles = [];
       
       for (const fileId of requiredFiles) {

@@ -215,51 +215,43 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <?php else: ?>
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
     <h2>All Scholarships</h2>
-    <button class="btn btn-primary" onclick="document.getElementById('newForm').style.display = 'block'">+ New Scholarship</button>
+    <button class="btn btn-primary" onclick="document.getElementById('newScholarshipModal').style.display='flex'">+ New Scholarship</button>
   </div>
 
-  <div id="newForm" class="content-card" style="display: none; margin-bottom: 1.5rem;">
-    <h3 style="margin-bottom:1rem;">Create New Scholarship</h3>
-    <form method="POST">
-      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-      <input type="hidden" name="action" value="create">
-      <div class="form-row">
+  <!-- Create Scholarship Modal -->
+  <div id="newScholarshipModal" class="modal" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-content" style="max-width:620px;">
+      <div class="modal-header">
+        <h3>Create New Scholarship</h3>
+        <button class="modal-close" onclick="document.getElementById('newScholarshipModal').style.display='none'">&times;</button>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+        <input type="hidden" name="action" value="create">
         <div class="form-group">
           <label class="form-label">Title *</label>
           <input type="text" name="title" class="form-input" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Organization</label>
-          <input type="text" name="organization" class="form-input">
+          <label class="form-label">Description *</label>
+          <textarea name="description" class="form-input" rows="3" required></textarea>
         </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Description *</label>
-        <textarea name="description" class="form-input" rows="3" required></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Eligibility Requirements</label>
-        <textarea name="eligibility_requirements" class="form-input" rows="3"></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Renewal Requirements</label>
-        <textarea name="renewal_requirements" class="form-input" rows="2"></textarea>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Amount (₱)</label>
-          <input type="number" name="amount" class="form-input" step="0.01" min="0">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Amount (₱)</label>
+            <input type="number" name="amount" class="form-input" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Deadline *</label>
+            <input type="date" name="deadline" class="form-input" required>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Deadline *</label>
-          <input type="date" name="deadline" class="form-input" required>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('newScholarshipModal').style.display='none'">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Scholarship</button>
         </div>
-      </div>
-      <div style="display:flex;gap:0.75rem;">
-        <button type="submit" class="btn btn-primary">Create Scholarship</button>
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('newForm').style.display='none'">Cancel</button>
-      </div>
-    </form>
+      </form>
+    </div>
   </div>
 
   <div class="content-card">

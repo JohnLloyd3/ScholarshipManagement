@@ -96,7 +96,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <h1>Welcome, <?= htmlspecialchars($staffName) ?>!</h1>
     <p>Staff Dashboard</p>
   </div>
-  <div class="page-header-icon"><i class="fas fa-chart-line"></i></div>
+
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
