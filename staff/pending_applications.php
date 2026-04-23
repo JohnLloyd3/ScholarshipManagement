@@ -47,7 +47,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <input type="hidden" name="action" value="bulk_change_status">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <table class="modern-table">
-        <thead><tr><th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th><th>#</th><th>Applicant</th><th>Title</th><th>Scholarship</th><th>Status</th><th>Submitted</th></tr></thead>
+        <thead><tr><th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th><th>#</th><th>Applicant</th><th>Title</th><th>Scholarship</th><th>Status</th><th>Submitted</th><th>Actions</th></tr></thead>
         <tbody>
           <?php foreach ($apps as $a): ?>
             <tr>
@@ -58,12 +58,24 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               <td><?= htmlspecialchars($a['scholarship_title'] ?? '—') ?></td>
               <td><span class="status-badge status-<?= strtolower($a['status']) ?>"><?= htmlspecialchars($a['status']) ?></span></td>
               <td><small><?= htmlspecialchars($a['created_at']) ?></small></td>
+              <td>
+                <a href="application_view.php?id=<?= (int)$a['id'] ?>" class="btn btn-primary btn-sm">
+                  <i class="fas fa-eye"></i> View
+                </a>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
 
       <div style="margin-top:var(--space-xl);display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll()">
+          <i class="fas fa-check-square"></i> Select All
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="deselectAll()">
+          <i class="fas fa-square"></i> Deselect All
+        </button>
+        <div style="border-left:2px solid #D1D5DB;height:30px;margin:0 var(--space-sm);"></div>
         <select name="new_status" class="form-select" style="width:auto">
           <option value="under_review">Mark as Under Review</option>
           <option value="approved">Mark as Approved</option>
@@ -78,6 +90,16 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 </div>
 
 <script>
+  function selectAll() {
+    document.querySelectorAll('input[name="application_ids[]"]').forEach(function(i){ i.checked = true; });
+    document.getElementById('select_all').checked = true;
+  }
+  
+  function deselectAll() {
+    document.querySelectorAll('input[name="application_ids[]"]').forEach(function(i){ i.checked = false; });
+    document.getElementById('select_all').checked = false;
+  }
+  
   function toggleAll(cb){
     document.querySelectorAll('input[name="application_ids[]"]').forEach(function(i){ i.checked = cb.checked; });
   }

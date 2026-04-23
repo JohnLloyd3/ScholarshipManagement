@@ -131,16 +131,6 @@ $scholarships = $pdo->query("
     ORDER BY s.created_at DESC
 ")->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-// Fetch scholarship for editing
-$editing = null;
-if ($action === 'edit') {
-    $id = sanitizeInt($_GET['id'] ?? 0);
-    if ($id) {
-        $stmt = $pdo->prepare("SELECT * FROM scholarships WHERE id = :id");
-        $stmt->execute([':id' => $id]);
-        $editing = $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-}
 ?>
 <?php
 $page_title = 'Manage Scholarships - Admin';
@@ -159,64 +149,10 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   </div>
 <?php endif; ?>
 
-<?php if ($action === 'edit' && $editing): ?>
-  <div class="content-card">
-    <h3 style="margin-bottom:1rem;">Edit Scholarship</h3>
-    <form method="POST">
-      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-      <input type="hidden" name="action" value="update">
-      <input type="hidden" name="id" value="<?= $editing['id'] ?>">
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Title *</label>
-          <input type="text" name="title" class="form-input" value="<?= htmlspecialchars($editing['title']) ?>" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Organization</label>
-          <input type="text" name="organization" class="form-input" value="<?= htmlspecialchars($editing['organization'] ?? '') ?>">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Description *</label>
-        <textarea name="description" class="form-input" rows="4" required><?= htmlspecialchars($editing['description'] ?? '') ?></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Eligibility Requirements</label>
-        <textarea name="eligibility_requirements" class="form-input" rows="3"><?= htmlspecialchars($editing['eligibility_requirements'] ?? '') ?></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Renewal Requirements</label>
-        <textarea name="renewal_requirements" class="form-input" rows="3"><?= htmlspecialchars($editing['renewal_requirements'] ?? '') ?></textarea>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Amount (₱)</label>
-          <input type="number" name="amount" class="form-input" step="0.01" value="<?= $editing['amount'] ?? 0 ?>">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Deadline *</label>
-          <input type="date" name="deadline" class="form-input" value="<?= $editing['deadline'] ?? '' ?>" required>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Status *</label>
-        <select name="status" class="form-input" required>
-          <option value="open" <?= $editing['status'] === 'open' ? 'selected' : '' ?>>Open</option>
-          <option value="closed" <?= $editing['status'] === 'closed' ? 'selected' : '' ?>>Closed</option>
-          <option value="cancelled" <?= $editing['status'] === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
-        </select>
-      </div>
-      <div style="display:flex;gap:0.75rem;">
-        <button type="submit" class="btn btn-primary">Update Scholarship</button>
-        <a href="scholarships.php" class="btn btn-ghost">Cancel</a>
-      </div>
-    </form>
-  </div>
-<?php else: ?>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
-    <h2>All Scholarships</h2>
-    <button class="btn btn-primary" onclick="document.getElementById('newScholarshipModal').style.display='flex'">+ New Scholarship</button>
-  </div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
+  <h2>All Scholarships</h2>
+  <button class="btn btn-primary" onclick="document.getElementById('newScholarshipModal').style.display='flex'">+ New Scholarship</button>
+</div>
 
   <!-- Create Scholarship Modal -->
   <div id="newScholarshipModal" class="modal" onclick="if(event.target===this)this.style.display='none'">
@@ -228,14 +164,20 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <form method="POST">
         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
         <input type="hidden" name="action" value="create">
+        <input type="hidden" name="organization" value="">
+        <input type="hidden" name="eligibility_requirements" value="">
+        <input type="hidden" name="renewal_requirements" value="">
+        
         <div class="form-group">
           <label class="form-label">Title *</label>
           <input type="text" name="title" class="form-input" required>
         </div>
+        
         <div class="form-group">
           <label class="form-label">Description *</label>
           <textarea name="description" class="form-input" rows="3" required></textarea>
         </div>
+        
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Amount (₱)</label>
@@ -246,6 +188,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <input type="date" name="deadline" class="form-input" required>
           </div>
         </div>
+        
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" onclick="document.getElementById('newScholarshipModal').style.display='none'">Cancel</button>
           <button type="submit" class="btn btn-primary">Create Scholarship</button>
@@ -280,7 +223,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               <td><span class="status-badge status-<?= $sch['status'] ?>"><?= $sch['status'] ?></span></td>
               <td>
                 <div style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center">
-                  <a href="?action=edit&id=<?= $sch['id'] ?>" class="btn btn-primary btn-sm">Edit</a>
+                  <button onclick="openEditModal(<?= htmlspecialchars(json_encode($sch)) ?>)" class="btn btn-primary btn-sm">Edit</button>
                   <form style="display:contents" method="POST" onsubmit="return confirm('Delete this scholarship?');">
                     <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                     <input type="hidden" name="action" value="delete">
@@ -301,6 +244,73 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </div>
     <?php endif; ?>
   </div>
-<?php endif; ?>
+
+<!-- Edit Scholarship Modal -->
+<div id="editScholarshipModal" class="modal">
+  <div class="modal-content" style="max-width:620px;">
+    <div class="modal-header">
+      <h3>Edit Scholarship</h3>
+      <button class="modal-close" onclick="document.getElementById('editScholarshipModal').style.display='none'">&times;</button>
+    </div>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+      <input type="hidden" name="action" value="update">
+      <input type="hidden" name="id" id="edit_id">
+      <input type="hidden" name="organization" id="edit_organization">
+      <input type="hidden" name="eligibility_requirements" id="edit_eligibility">
+      <input type="hidden" name="renewal_requirements" id="edit_renewal">
+      
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input type="text" name="title" id="edit_title" class="form-input" required>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <textarea name="description" id="edit_description" class="form-input" rows="3" required></textarea>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">Amount (₱) *</label>
+          <input type="number" name="amount" id="edit_amount" class="form-input" step="0.01" min="0" required>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">Deadline *</label>
+          <input type="date" name="deadline" id="edit_deadline" class="form-input" required>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Status *</label>
+        <select name="status" id="edit_status" class="form-input" required>
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('editScholarshipModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Scholarship</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditModal(scholarship) {
+  document.getElementById('edit_id').value = scholarship.id;
+  document.getElementById('edit_title').value = scholarship.title || '';
+  document.getElementById('edit_organization').value = scholarship.organization || '';
+  document.getElementById('edit_description').value = scholarship.description || '';
+  document.getElementById('edit_eligibility').value = scholarship.eligibility_requirements || '';
+  document.getElementById('edit_renewal').value = scholarship.renewal_requirements || '';
+  document.getElementById('edit_amount').value = scholarship.amount || 0;
+  document.getElementById('edit_deadline').value = scholarship.deadline || '';
+  document.getElementById('edit_status').value = scholarship.status || 'open';
+  document.getElementById('editScholarshipModal').style.display = 'flex';
+}
+</script>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

@@ -8,6 +8,11 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
+// Try to include AuditHelper if it exists
+if (file_exists(__DIR__ . '/../helpers/AuditHelper.php')) {
+    require_once __DIR__ . '/../helpers/AuditHelper.php';
+}
+
 startSecureSession();
 requireLogin();
 requireAnyRole(['staff', 'admin'], 'Staff or Admin access required');
@@ -27,7 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
             $stmt = $pdo->prepare("UPDATE applications SET status = ?, reviewed_at = NOW() WHERE id IN ($placeholders)");
             $stmt->execute(array_merge([$newStatus], $ids));
-            logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'BULK_STATUS_UPDATE', 'applications', null, 'Bulk status changed to: '.$newStatus.' for '.count($ids).' applications');
+            
+            // Log audit trail if function exists
+            if (function_exists('logAuditTrail')) {
+                logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'BULK_STATUS_UPDATE', 'applications', null, 'Bulk status changed to: '.$newStatus.' for '.count($ids).' applications');
+            }
+            
             $_SESSION['success'] = count($ids) . ' application(s) updated to ' . ucfirst(str_replace('_', ' ', $newStatus)) . '.';
         } else {
             $_SESSION['flash'] = 'No applications selected or invalid status.';
@@ -88,18 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     queueEmail($app['email'], $emailSubject, $emailBody, $app['user_id']);
                 }
                 
-                // Log audit trail
-                logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'APPLICATION_STATUS_UPDATED', 'applications', $appid, 'Status changed to: ' . $status);
-                
-                // Auto-create pending disbursement on approval
-                if ($status === 'approved') {
-                    try {
-                        $schStmt = $pdo->prepare('SELECT amount FROM scholarships WHERE id = :id');
-                        $schStmt->execute([':id' => $app['scholarship_id']]);
-                        $sch = $schStmt->fetch(PDO::FETCH_ASSOC);
-                        $disbStmt = $pdo->prepare("INSERT IGNORE INTO disbursements (application_id, user_id, scholarship_id, amount, disbursement_date, status, created_at) VALUES (:app_id, :user_id, :sch_id, :amount, CURDATE(), 'pending', NOW())");
-                        $disbStmt->execute([':app_id' => $appid, ':user_id' => $app['user_id'], ':sch_id' => $app['scholarship_id'], ':amount' => $sch['amount'] ?? 0]);
-                    } catch (Exception $e) { error_log('[Disbursement] ' . $e->getMessage()); }
+                // Log audit trail if function exists
+                if (function_exists('logAuditTrail')) {
+                    logAuditTrail($pdo, $_SESSION['user_id'] ?? null, 'APPLICATION_STATUS_UPDATED', 'applications', $appid, 'Status changed to: ' . $status);
                 }
                 
                 $_SESSION['success'] = 'Application status updated to ' . ucfirst(str_replace('_', ' ', $status)) . '. Notification sent to applicant.';

@@ -70,14 +70,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Get scholarships with approved applicants
-$scholarships = $pdo->query('
-    SELECT s.id, s.title, COUNT(DISTINCT a.id) as approved_count
+// Get scholarships with approved applicants who haven't been assigned to interviews yet (for auto-assign)
+$scholarshipsForAssign = $pdo->query('
+    SELECT s.id, s.title, 
+           COUNT(DISTINCT CASE 
+               WHEN a.status = "approved" AND ia.id IS NULL THEN a.id 
+               ELSE NULL 
+           END) as approved_count
     FROM scholarships s
-    LEFT JOIN applications a ON s.id = a.scholarship_id AND a.status = "approved"
+    LEFT JOIN applications a ON s.id = a.scholarship_id
+    LEFT JOIN interview_assignments ia ON a.id = ia.application_id
     WHERE s.status = "open"
     GROUP BY s.id
     HAVING approved_count > 0
+    ORDER BY s.title ASC
+')->fetchAll(PDO::FETCH_ASSOC);
+
+// Get all scholarships with any interview assignments (for viewing schedule)
+$scholarshipsWithInterviews = $pdo->query('
+    SELECT DISTINCT s.id, s.title,
+           COUNT(DISTINCT ia.id) as assignment_count
+    FROM scholarships s
+    INNER JOIN applications a ON s.id = a.scholarship_id
+    INNER JOIN interview_assignments ia ON a.id = ia.application_id
+    GROUP BY s.id
     ORDER BY s.title ASC
 ')->fetchAll(PDO::FETCH_ASSOC);
 
@@ -160,7 +176,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         <label class="form-label">Select Scholarship *</label>
         <select name="scholarship_id" class="form-input" required>
           <option value="">Choose scholarship...</option>
-          <?php foreach($scholarships as $sch): ?>
+          <?php foreach($scholarshipsForAssign as $sch): ?>
             <option value="<?= (int)$sch['id'] ?>">
               <?= htmlspecialchars($sch['title']) ?> (<?= (int)$sch['approved_count'] ?> approved)
             </option>
@@ -180,7 +196,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 </div>
 
 <!-- View Schedule -->
-<?php if (!empty($scholarships)): ?>
+<?php if (!empty($scholarshipsWithInterviews)): ?>
 <div class="content-card" style="margin-top: var(--space-xl);">
   <h2><i class="fas fa-calendar-alt"></i> View Interview Schedule</h2>
   
@@ -188,7 +204,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <label>Select Scholarship</label>
     <select class="form-input" onchange="window.location.href='interview_management.php?scholarship_id='+this.value">
       <option value="">Choose scholarship...</option>
-      <?php foreach($scholarships as $sch): ?>
+      <?php foreach($scholarshipsWithInterviews as $sch): ?>
         <option value="<?= (int)$sch['id'] ?>" <?= $selectedScholarshipId == $sch['id'] ? 'selected' : '' ?>>
           <?= htmlspecialchars($sch['title']) ?>
         </option>

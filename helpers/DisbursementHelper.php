@@ -168,6 +168,8 @@ function getDisbursement(PDO $pdo, int $id): array|false {
 
 /**
  * Fetch approved applications eligible for disbursement (for create form dropdown).
+ * Excludes applications that already have disbursement records.
+ * Returns only ONE (the latest) application per person.
  */
 function getEligibleApplications(PDO $pdo): array {
     try {
@@ -175,12 +177,19 @@ function getEligibleApplications(PDO $pdo): array {
             SELECT a.id, a.user_id, s.amount AS application_amount,
                    u.first_name, u.last_name, u.student_id,
                    s.title AS scholarship_title,
-                   a.scholarship_id
+                   a.scholarship_id,
+                   a.reviewed_at
             FROM applications a
             JOIN users u ON a.user_id = u.id
             JOIN scholarships s ON a.scholarship_id = s.id
             WHERE a.status = 'approved'
-            ORDER BY a.reviewed_at DESC
+            AND NOT EXISTS (
+                SELECT 1 FROM disbursements d 
+                WHERE d.user_id = a.user_id 
+                AND d.scholarship_id = a.scholarship_id
+                AND (d.deleted_at IS NULL OR d.deleted_at = '0000-00-00 00:00:00')
+            )
+            ORDER BY u.last_name ASC, u.first_name ASC
         ");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
@@ -232,4 +241,109 @@ function isValidDisbursementTransition(string $from, string $to): bool {
         'processing' => ['completed', 'failed'],
     ];
     return in_array($to, $allowed[$from] ?? [], true);
+}
+
+/**
+ * Calculate the next available disbursement date based on 300 people per day limit.
+ * Returns the date when this person can be scheduled, organized alphabetically.
+ */
+function getNextAvailableDisbursementDate(PDO $pdo, string $firstName, string $lastName): string {
+    try {
+        // Start from today
+        $checkDate = date('Y-m-d');
+        $maxAttempts = 365; // Check up to 1 year ahead
+        $dailyLimit = 300;
+        
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            // Count how many people already scheduled for this date
+            $countStmt = $pdo->prepare("
+                SELECT COUNT(DISTINCT d.user_id) as person_count
+                FROM disbursements d
+                WHERE DATE(d.disbursement_date) = :date
+                AND (d.deleted_at IS NULL OR d.deleted_at = '0000-00-00 00:00:00')
+            ");
+            $countStmt->execute([':date' => $checkDate]);
+            $personCount = (int)$countStmt->fetchColumn();
+            
+            if ($personCount < $dailyLimit) {
+                // This date has space available
+                // Now check alphabetical position
+                $alphabeticalStmt = $pdo->prepare("
+                    SELECT u.first_name, u.last_name
+                    FROM disbursements d
+                    JOIN users u ON d.user_id = u.id
+                    WHERE DATE(d.disbursement_date) = :date
+                    AND (d.deleted_at IS NULL OR d.deleted_at = '0000-00-00 00:00:00')
+                    ORDER BY u.last_name ASC, u.first_name ASC
+                ");
+                $alphabeticalStmt->execute([':date' => $checkDate]);
+                $scheduledPeople = $alphabeticalStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Find where this person fits alphabetically
+                $fullName = $lastName . ' ' . $firstName;
+                $position = 0;
+                foreach ($scheduledPeople as $person) {
+                    $scheduledName = $person['last_name'] . ' ' . $person['first_name'];
+                    if (strcasecmp($fullName, $scheduledName) > 0) {
+                        $position++;
+                    }
+                }
+                
+                // If position is within limit, this date works
+                if ($position < $dailyLimit) {
+                    return $checkDate;
+                }
+            }
+            
+            // Move to next day
+            $checkDate = date('Y-m-d', strtotime($checkDate . ' +1 day'));
+        }
+        
+        // Fallback: return today if no date found
+        return date('Y-m-d');
+        
+    } catch (Exception $e) {
+        error_log('[getNextAvailableDisbursementDate] Error: ' . $e->getMessage());
+        return date('Y-m-d');
+    }
+}
+
+/**
+ * Get disbursement queue statistics for display.
+ */
+function getDisbursementQueueStats(PDO $pdo): array {
+    try {
+        // Count people scheduled for today
+        $todayStmt = $pdo->prepare("
+            SELECT COUNT(DISTINCT d.user_id) as count
+            FROM disbursements d
+            WHERE DATE(d.disbursement_date) = CURDATE()
+            AND (d.deleted_at IS NULL OR d.deleted_at = '0000-00-00 00:00:00')
+        ");
+        $todayStmt->execute();
+        $todayCount = (int)$todayStmt->fetchColumn();
+        
+        // Count total pending people
+        $pendingStmt = $pdo->prepare("
+            SELECT COUNT(DISTINCT d.user_id) as count
+            FROM disbursements d
+            WHERE d.status IN ('pending', 'processing')
+            AND (d.deleted_at IS NULL OR d.deleted_at = '0000-00-00 00:00:00')
+        ");
+        $pendingStmt->execute();
+        $pendingCount = (int)$pendingStmt->fetchColumn();
+        
+        return [
+            'today_count' => $todayCount,
+            'today_remaining' => max(0, 300 - $todayCount),
+            'pending_count' => $pendingCount,
+        ];
+    } catch (Exception $e) {
+        error_log('[getDisbursementQueueStats] Error: ' . $e->getMessage());
+        return [
+            'today_count' => 0,
+            'today_remaining' => 300,
+            'pending_count' => 0,
+        ];
+    }
 }

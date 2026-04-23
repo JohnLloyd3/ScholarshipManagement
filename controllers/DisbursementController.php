@@ -61,17 +61,44 @@ if ($action === 'create') {
     if (!$applicationId || !is_numeric($amount) || (float)$amount <= 0) {
         flashAndRedirect('Amount must be a positive number.', backUrl($role));
     }
-    if (!$date) {
-        flashAndRedirect('Disbursement date is required.', backUrl($role));
-    }
 
     // Validate application exists and is approved
-    $appStmt = $pdo->prepare("SELECT a.id, a.user_id, a.scholarship_id, s.title AS scholarship_title FROM applications a JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id AND a.status = 'approved'");
+    $appStmt = $pdo->prepare("SELECT a.id, a.user_id, a.scholarship_id, s.title AS scholarship_title, u.first_name, u.last_name FROM applications a JOIN scholarships s ON a.scholarship_id = s.id JOIN users u ON a.user_id = u.id WHERE a.id = :id AND a.status = 'approved'");
     $appStmt->execute([':id' => $applicationId]);
     $application = $appStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$application) {
         flashAndRedirect('Selected application is not eligible for disbursement.', backUrl($role));
+    }
+
+    // Check if this person already has a disbursement record for this specific scholarship (prevent duplicates)
+    try {
+        $checkStmt = $pdo->prepare("
+            SELECT COUNT(*) as count
+            FROM disbursements
+            WHERE user_id = :user_id
+            AND scholarship_id = :scholarship_id
+            AND (deleted_at IS NULL OR deleted_at = '0000-00-00 00:00:00')
+        ");
+        $checkStmt->execute([
+            ':user_id' => $application['user_id'],
+            ':scholarship_id' => $application['scholarship_id']
+        ]);
+        $existingCount = (int)$checkStmt->fetchColumn();
+        
+        if ($existingCount > 0) {
+            flashAndRedirect('This person already has a disbursement record for this scholarship. Cannot create duplicate.', backUrl($role));
+        }
+    } catch (Exception $e) {
+        error_log('[DisbursementController] duplicate check error: ' . $e->getMessage());
+    }
+
+    // Auto-assign disbursement date based on alphabetical order and 300 people per day limit
+    $autoDate = getNextAvailableDisbursementDate($pdo, $application['first_name'], $application['last_name']);
+    
+    // Use provided date if given, otherwise use auto-calculated date
+    if (empty($date)) {
+        $date = $autoDate;
     }
 
     try {
@@ -114,7 +141,11 @@ if ($action === 'create') {
             createDisbursementNotification($pdo, $application['user_id'], 'disbursement_created', $disbursement);
         }
 
-        flashAndRedirect('Disbursement created successfully.', backUrl($role), 'success');
+        $successMsg = 'Disbursement created successfully. Scheduled for: ' . date('F d, Y', strtotime($date));
+        if ($date !== date('Y-m-d')) {
+            $successMsg .= ' (Auto-assigned based on alphabetical order)';
+        }
+        flashAndRedirect($successMsg, backUrl($role), 'success');
     } catch (Exception $e) {
         error_log('[DisbursementController] create error: ' . $e->getMessage());
         flashAndRedirect('An error occurred: ' . $e->getMessage(), backUrl($role));

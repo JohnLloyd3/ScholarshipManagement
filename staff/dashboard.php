@@ -187,7 +187,7 @@ try {
   <?php if (!empty($recentApps)): ?>
     <table class="modern-table">
       <thead>
-        <tr><th>Applicant</th><th>Scholarship</th><th>Status</th><th>Date</th></tr>
+        <tr><th>Applicant</th><th>Scholarship</th><th>Status</th><th>Date</th><th>Actions</th></tr>
       </thead>
       <tbody>
         <?php foreach ($recentApps as $a): ?>
@@ -196,6 +196,11 @@ try {
             <td><?= htmlspecialchars($a['scholarship_title']) ?></td>
             <td><span class="status-badge status-<?= strtolower($a['status']) ?>"><?= ucfirst(str_replace('_', ' ', $a['status'])) ?></span></td>
             <td style="color:#9E9E9E;font-size:0.8rem;"><?= date('M d, Y', strtotime($a['created_at'])) ?></td>
+            <td>
+              <a href="application_view.php?id=<?= (int)$a['id'] ?>" class="btn btn-primary btn-sm">
+                <i class="fas fa-eye"></i> View Details
+              </a>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>

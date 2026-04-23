@@ -80,16 +80,17 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td><?= !empty($d['disbursement_date']) ? date('M d, Y', strtotime($d['disbursement_date'])) : '—' ?></td>
             <td>
               <?php
-                $step = ['pending'=>1,'processing'=>2,'completed'=>3,'failed'=>0][$d['status']] ?? 0;
+                $statusColors = [
+                  'pending'    => ['bg'=>'#fef3c7','color'=>'#92400e'],
+                  'processing' => ['bg'=>'#dbeafe','color'=>'#1e40af'],
+                  'completed'  => ['bg'=>'#d1fae5','color'=>'#065f46'],
+                  'failed'     => ['bg'=>'#fee2e2','color'=>'#991b1b'],
+                ];
+                $sc = $statusColors[$d['status']] ?? ['bg'=>'#f3f4f6','color'=>'#6b7280'];
               ?>
-              <div style="display:flex;align-items:center;gap:3px;font-size:0.72rem;flex-wrap:wrap;">
-                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=1?'#fef3c7':'#f3f4f6' ?>;color:<?= $step>=1?'#92400e':'#9ca3af' ?>;font-weight:600;">Pending</span>
-                <span style="color:#d1d5db;">›</span>
-                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=2?'#dbeafe':'#f3f4f6' ?>;color:<?= $step>=2?'#1e40af':'#9ca3af' ?>;font-weight:600;">Processing</span>
-                <span style="color:#d1d5db;">›</span>
-                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=3?'#d1fae5':'#f3f4f6' ?>;color:<?= $step>=3?'#065f46':'#9ca3af' ?>;font-weight:600;">Completed</span>
-                <?php if ($d['status']==='failed'): ?><span style="padding:2px 7px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;">Failed</span><?php endif; ?>
-              </div>
+              <span style="padding:6px 16px;border-radius:9999px;background:<?= $sc['bg'] ?>;color:<?= $sc['color'] ?>;font-weight:600;font-size:0.875rem;display:inline-block;">
+                <?= ucfirst($d['status']) ?>
+              </span>
             </td>
           </tr>
         <?php endforeach; ?>

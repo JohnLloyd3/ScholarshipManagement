@@ -63,6 +63,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </table>
 
       <div style="margin-top:var(--space-xl);display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="selectAll()"><i class="fas fa-check-square"></i> Select All</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="deselectAll()"><i class="far fa-square"></i> Deselect All</button>
+        <div style="width:1px;height:24px;background:#e5e7eb;margin:0 var(--space-sm);"></div>
         <select name="new_status" class="form-select" style="width:auto">
           <option value="verified">Mark as Verified</option>
           <option value="rejected">Mark as Rejected</option>
@@ -78,6 +81,16 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <script>
   function toggleAll(cb){
     document.querySelectorAll('input[name="document_ids[]"]').forEach(function(i){ i.checked = cb.checked; });
+  }
+  
+  function selectAll() {
+    document.querySelectorAll('input[name="document_ids[]"]').forEach(function(i){ i.checked = true; });
+    document.getElementById('select_all').checked = true;
+  }
+  
+  function deselectAll() {
+    document.querySelectorAll('input[name="document_ids[]"]').forEach(function(i){ i.checked = false; });
+    document.getElementById('select_all').checked = false;
   }
 </script>
 

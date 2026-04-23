@@ -159,7 +159,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </div>
       <div class="form-group">
         <label class="form-label">Expires At (Optional)</label>
-        <input type="datetime-local" name="expires_at" class="form-input">
+        <input type="date" name="expires_at" class="form-input">
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('newAnnouncementModal').style.display='none'">Cancel</button>

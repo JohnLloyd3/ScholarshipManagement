@@ -52,6 +52,13 @@ $applications  = getEligibleApplications($pdo);
 // Get all scholarships for filter dropdown
 $scholarships = $pdo->query("SELECT DISTINCT id, title FROM scholarships ORDER BY title")->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+// Calculate today's disbursement total for daily limit display
+$queueStats = getDisbursementQueueStats($pdo);
+$todayCount = $queueStats['today_count'];
+$todayRemaining = $queueStats['today_remaining'];
+$pendingCount = $queueStats['pending_count'];
+$todayPercentage = min(100, ($todayCount / 300) * 100);
+
 $page_title = 'Disbursements - ScholarHub';
 $base_path  = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
@@ -60,6 +67,28 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="page-header">
   <h1><i class="fas fa-money-bill-wave"></i> Disbursements</h1>
+</div>
+
+<!-- Daily Limit Indicator -->
+<div class="content-card" style="margin-bottom:var(--space-lg);background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-sm);">
+    <div>
+      <h3 style="margin:0;color:white;font-size:1.1rem;"><i class="fas fa-calendar-day"></i> Daily Disbursement Queue</h3>
+      <p style="margin:0.25rem 0 0 0;opacity:0.9;font-size:0.9rem;">Maximum 300 people per day (alphabetical order)</p>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:2rem;font-weight:700;line-height:1;"><?= $todayCount ?> / 300</div>
+      <div style="font-size:0.85rem;opacity:0.9;">Remaining slots: <?= $todayRemaining ?></div>
+    </div>
+  </div>
+  <div style="background:rgba(255,255,255,0.2);border-radius:9999px;height:12px;overflow:hidden;">
+    <div style="background:<?= $todayPercentage >= 100 ? '#ef4444' : ($todayPercentage >= 80 ? '#f59e0b' : '#10b981') ?>;height:100%;width:<?= $todayPercentage ?>%;transition:width 0.3s ease;"></div>
+  </div>
+  <?php if ($pendingCount > 0): ?>
+    <div style="margin-top:var(--space-sm);padding-top:var(--space-sm);border-top:1px solid rgba(255,255,255,0.2);font-size:0.9rem;opacity:0.95;">
+      <i class="fas fa-clock"></i> <?= $pendingCount ?> people in queue waiting for disbursement
+    </div>
+  <?php endif; ?>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -129,51 +158,26 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td><strong>₱<?= number_format((float)$d['amount'], 2) ?></strong></td>
             <td><?= !empty($d['disbursement_date']) ? date('M d, Y', strtotime($d['disbursement_date'])) : '—' ?></td>
             <td>
-              <?php $step = ['pending'=>1,'processing'=>2,'completed'=>3,'failed'=>0][$d['status']] ?? 0; ?>
-              <div style="display:flex;align-items:center;gap:3px;font-size:0.72rem;flex-wrap:wrap;">
-                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=1?'#fef3c7':'#f3f4f6' ?>;color:<?= $step>=1?'#92400e':'#9ca3af' ?>;font-weight:600;">Pending</span>
-                <span style="color:#d1d5db;">›</span>
-                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=2?'#dbeafe':'#f3f4f6' ?>;color:<?= $step>=2?'#1e40af':'#9ca3af' ?>;font-weight:600;">Processing</span>
-                <span style="color:#d1d5db;">›</span>
-                <span style="padding:2px 7px;border-radius:9999px;background:<?= $step>=3?'#d1fae5':'#f3f4f6' ?>;color:<?= $step>=3?'#065f46':'#9ca3af' ?>;font-weight:600;">Completed</span>
-                <?php if ($d['status']==='failed'): ?><span style="padding:2px 7px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;">Failed</span><?php endif; ?>
-              </div>
+              <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
+                <input type="hidden" name="action" value="update_status">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
+                
+                <?php if ($d['status'] === 'pending'): ?>
+                  <button type="submit" name="status" value="processing" style="padding:6px 16px;border-radius:9999px;border:none;background:#fef3c7;color:#92400e;font-weight:600;font-size:0.875rem;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#fde68a'" onmouseout="this.style.background='#fef3c7'">Pending</button>
+                <?php elseif ($d['status'] === 'processing'): ?>
+                  <button type="submit" name="status" value="completed" style="padding:6px 16px;border-radius:9999px;border:none;background:#dbeafe;color:#1e40af;font-weight:600;font-size:0.875rem;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">Processing</button>
+                <?php elseif ($d['status'] === 'completed'): ?>
+                  <span style="padding:6px 16px;border-radius:9999px;background:#d1fae5;color:#065f46;font-weight:600;font-size:0.875rem;display:inline-block;">Completed</span>
+                <?php elseif ($d['status'] === 'failed'): ?>
+                  <button type="submit" name="status" value="processing" style="padding:6px 16px;border-radius:9999px;border:none;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.875rem;cursor:pointer;transition:all 0.2s;">Failed (Retry)</button>
+                <?php endif; ?>
+              </form>
             </td>
             <td>
               <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
-                <?php if ($d['status'] === 'pending'): ?>
-                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="processing">
-                    <button type="submit" class="btn btn-primary btn-sm">Mark Processing</button>
-                  </form>
-                <?php elseif ($d['status'] === 'processing'): ?>
-                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="completed">
-                    <button type="submit" class="btn btn-primary btn-sm" style="background:#16a34a;border-color:#16a34a;" onclick="return confirm('Mark as Completed? This will notify the student.')">✓ Complete</button>
-                  </form>
-                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="failed">
-                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;">✗ Failed</button>
-                  </form>
-                <?php elseif ($d['status'] === 'completed'): ?>
+                <?php if ($d['status'] === 'completed'): ?>
                   <span style="color:#16a34a;font-weight:600;font-size:0.85rem;">✓ Paid</span>
-                <?php elseif ($d['status'] === 'failed'): ?>
-                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="processing">
-                    <button type="submit" class="btn btn-ghost btn-sm">↺ Retry</button>
-                  </form>
                 <?php endif; ?>
               </div>
             </td>
@@ -202,10 +206,10 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <div class="form-group">
         <label>Application *</label>
-        <select name="application_id" class="form-input" required>
+        <select name="application_id" id="application_select" class="form-input" required onchange="updateAmount()">
           <option value="">Select application...</option>
           <?php foreach($applications as $app): ?>
-            <option value="<?= (int)$app['id'] ?>">
+            <option value="<?= (int)$app['id'] ?>" data-amount="<?= (float)$app['application_amount'] ?>">
               <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?> — <?= htmlspecialchars($app['scholarship_title']) ?>
             </option>
           <?php endforeach; ?>
@@ -214,11 +218,12 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <div class="form-row">
         <div class="form-group">
           <label>Amount (₱) *</label>
-          <input type="number" name="amount" class="form-input" step="0.01" min="0.01" required>
+          <input type="number" name="amount" id="amount_input" class="form-input" step="0.01" min="0.01" required readonly style="background:#f9fafb;">
         </div>
         <div class="form-group">
-          <label>Date *</label>
-          <input type="date" name="disbursement_date" class="form-input" required value="<?= date('Y-m-d') ?>">
+          <label>Date (Auto-assigned)</label>
+          <input type="date" name="disbursement_date" class="form-input" placeholder="Leave empty for auto-schedule">
+          <small class="text-muted" style="display:block;margin-top:4px;">Leave empty to auto-assign based on alphabetical order (300 people/day limit)</small>
         </div>
       </div>
       <div class="form-group">
@@ -237,5 +242,20 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </form>
   </div>
 </div>
+
+<script>
+function updateAmount() {
+  const select = document.getElementById('application_select');
+  const amountInput = document.getElementById('amount_input');
+  const selectedOption = select.options[select.selectedIndex];
+  
+  if (selectedOption && selectedOption.value) {
+    const amount = selectedOption.getAttribute('data-amount');
+    amountInput.value = parseFloat(amount).toFixed(2);
+  } else {
+    amountInput.value = '';
+  }
+}
+</script>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

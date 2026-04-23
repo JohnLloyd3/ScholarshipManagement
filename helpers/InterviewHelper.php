@@ -21,7 +21,7 @@ class InterviewHelper {
         try {
             $this->pdo->beginTransaction();
             
-            // Get approved applicants who are not yet assigned
+            // Get approved applicants who are not yet assigned and don't have existing interview for this scholarship
             $stmt = $this->pdo->prepare('
                 SELECT a.id, a.user_id, a.created_at
                 FROM applications a
@@ -29,9 +29,15 @@ class InterviewHelper {
                 WHERE a.scholarship_id = :sid
                 AND a.status = "approved"
                 AND ia.id IS NULL
+                AND a.user_id NOT IN (
+                    SELECT a2.user_id 
+                    FROM interview_assignments ia2
+                    JOIN applications a2 ON ia2.application_id = a2.id
+                    WHERE a2.scholarship_id = :sid2
+                )
                 ORDER BY a.created_at ASC, a.id ASC
             ');
-            $stmt->execute([':sid' => $scholarshipId]);
+            $stmt->execute([':sid' => $scholarshipId, ':sid2' => $scholarshipId]);
             $applicants = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             if (empty($applicants)) {
