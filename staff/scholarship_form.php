@@ -52,7 +52,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1><?= $sch ? '✏️ Edit' : '➕ Create' ?> Scholarship</h1>
+  <h1><?= $sch ? '<i class="fas fa-edit"></i> Edit' : '<i class="fas fa-plus"></i> Create' ?> Scholarship</h1>
   <p class="text-muted"><?= $sch ? 'Update scholarship details' : 'Add a new scholarship opportunity' ?></p>
 </div>
 
@@ -103,7 +103,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </div>
     
     <div style="margin-top:var(--space-xl)">
-      <button class="btn btn-primary" type="submit"><?= $sch ? '💾 Save Changes' : '➕ Create Scholarship' ?></button>
+      <button class="btn btn-primary" type="submit"><?= $sch ? '<i class="fas fa-save"></i> Save Changes' : '<i class="fas fa-plus"></i> Create Scholarship' ?></button>
     </div>
   </form>
 </div>

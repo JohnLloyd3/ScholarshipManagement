@@ -1,16 +1,22 @@
 ﻿<?php
+/**
+ * ADMIN � ANNOUNCEMENTS
+ * Role: Admin
+ * Purpose: Create, publish, and manage system-wide announcements for students
+ * URL: /admin/announcements.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 startSecureSession();
-
-// Authentication
 requireLogin();
 requireRole('admin', 'Admin access required');
 
 $pdo = getPDO();
-$message = $_SESSION['message'] ?? '';
-unset($_SESSION['message']);
+
+$message = $_SESSION['flash'] ?? $_SESSION['message'] ?? '';
+$message_type = $_SESSION['message_type'] ?? 'success';
+unset($_SESSION['message'], $_SESSION['message_type'], $_SESSION['flash']);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -114,16 +120,20 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 </div>
 
 <?php if ($message): ?>
-  <div class="alert alert-success"><?= sanitizeString($message) ?></div>
+  <div class="alert alert-<?= $message_type === 'error' ? 'error' : 'success' ?>"><?= htmlspecialchars($message) ?></div>
 <?php endif; ?>
 
-<div class="content-card" style="margin-bottom: var(--space-xl);">
-  <h3 style="margin-bottom: var(--space-xl);">Create New Announcement</h3>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+  <h2 style="margin:0;">All Announcements</h2>
+  <button type="button" class="btn btn-primary btn-sm" id="toggleFormBtn" onclick="toggleForm()">+ New Announcement</button>
+</div>
+
+<div class="content-card" style="margin-bottom:1.5rem;display:none;" id="formCard">
+  <h3 style="margin-bottom:1rem;">Create New Announcement</h3>
   <form method="POST">
     <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
     <input type="hidden" name="action" value="create">
-    
-    <div class="grid-2" style="margin-bottom: var(--space-lg);">
+    <div class="form-row">
       <div class="form-group">
         <label class="form-label">Title *</label>
         <input type="text" name="title" class="form-input" required placeholder="e.g., Scholarship Deadline Extended">
@@ -138,61 +148,69 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         </select>
       </div>
     </div>
-
     <div class="form-group">
       <label class="form-label">Message *</label>
       <textarea name="message" class="form-input" rows="4" required placeholder="Enter the announcement message..."></textarea>
     </div>
-
     <div class="form-group">
       <label class="form-label">Expires At (Optional)</label>
       <input type="datetime-local" name="expires_at" class="form-input">
     </div>
-
-    <button type="submit" class="btn btn-primary">📢 Post Announcement</button>
+    <button type="submit" class="btn btn-primary">Post Announcement</button>
   </form>
 </div>
 
+<script>
+function toggleForm() {
+  const formCard = document.getElementById('formCard');
+  const btn = document.getElementById('toggleFormBtn');
+  if (formCard.style.display === 'none') {
+    formCard.style.display = 'block';
+    btn.textContent = '? Close';
+  } else {
+    formCard.style.display = 'none';
+    btn.textContent = '? New Announcement';
+  }
+}
+</script>
+
 <div class="content-card">
-  <h3 style="margin-bottom: var(--space-xl);">All Announcements</h3>
-  
+  <h3 style="margin-bottom:1rem;">All Announcements</h3>
   <?php if (!empty($announcements)): ?>
     <?php foreach ($announcements as $ann): ?>
-      <div class="alert alert-<?= $ann['type'] ?>" style="margin-bottom: var(--space-md); position: relative;">
+      <div style="padding:1rem;border-radius:10px;border:1.5px solid #D1D5DB;margin-bottom:0.75rem;position:relative;background:<?= !$ann['published'] ? '#fafafa' : '#fff' ?>;">
         <?php if (!$ann['published']): ?>
-          <span style="position: absolute; top: var(--space-sm); right: var(--space-sm); background: var(--gray-500); color: white; padding: 2px 8px; border-radius: var(--r-sm); font-size: 11px;">UNPUBLISHED</span>
+          <span style="position:absolute;top:0.75rem;right:0.75rem;background:#9E9E9E;color:#fff;padding:2px 8px;border-radius:999px;font-size:0.7rem;font-weight:600;">UNPUBLISHED</span>
         <?php endif; ?>
-        <h4 style="margin-bottom: var(--space-xs);"><?= sanitizeString($ann['title']) ?></h4>
-        <p class="text-muted" style="font-size: 0.875rem; margin-bottom: var(--space-sm);">
-          Posted by <?= sanitizeString($ann['first_name'] . ' ' . $ann['last_name']) ?> on <?= date('M d, Y H:i', strtotime($ann['published_at'])) ?>
-          <?php if ($ann['expires_at']): ?>
-            | Expires: <?= date('M d, Y', strtotime($ann['expires_at'])) ?>
-          <?php endif; ?>
-        </p>
-        <p style="margin-bottom: var(--space-md);"><?= nl2br(sanitizeString($ann['message'])) ?></p>
-        <div style="display: flex; gap: var(--space-sm);">
+        <div style="font-weight:700;font-size:0.9375rem;color:#1a1a2e;margin-bottom:0.25rem;"><?= htmlspecialchars($ann['title']) ?></div>
+        <div style="font-size:0.8rem;color:#9E9E9E;margin-bottom:0.5rem;">
+          Posted by <?= htmlspecialchars($ann['first_name'] . ' ' . $ann['last_name']) ?> on <?= date('M d, Y H:i', strtotime($ann['published_at'])) ?>
+          <?php if ($ann['expires_at']): ?> &bull; Expires: <?= date('M d, Y', strtotime($ann['expires_at'])) ?><?php endif; ?>
+        </div>
+        <div style="font-size:0.875rem;color:#424242;margin-bottom:0.75rem;"><?= nl2br(htmlspecialchars($ann['message'])) ?></div>
+        <div style="display:flex;gap:0.5rem;">
           <?php if ($ann['published']): ?>
-            <form style="display: inline;" method="POST" onsubmit="return confirm('Unpublish this announcement?');">
+            <form style="display:inline;" method="POST" onsubmit="return confirm('Unpublish this announcement?');">
               <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
               <input type="hidden" name="action" value="unpublish">
               <input type="hidden" name="id" value="<?= $ann['id'] ?>">
               <button type="submit" class="btn btn-ghost btn-sm">Unpublish</button>
             </form>
           <?php endif; ?>
-          <form style="display: inline;" method="POST" onsubmit="return confirm('Delete this announcement?');">
+          <form style="display:inline;" method="POST" onsubmit="return confirm('Delete this announcement?');">
             <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="id" value="<?= $ann['id'] ?>">
-            <button type="submit" class="btn btn-ghost btn-sm">Delete</button>
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
           </form>
         </div>
       </div>
     <?php endforeach; ?>
   <?php else: ?>
     <div class="empty-state">
-      <div class="empty-state-icon">📢</div>
-      <h3 class="empty-state-title">No Announcements</h3>
-      <p class="empty-state-description">Create your first announcement to get started.</p>
+      <div class="empty-state-icon">??</div>
+      <div class="empty-state-title">No Announcements</div>
+      <div class="empty-state-description">Create your first announcement to get started.</div>
     </div>
   <?php endif; ?>
 </div>

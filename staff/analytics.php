@@ -27,7 +27,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>📊 Analytics Dashboard</h1>
+  <h1><i class="fas fa-chart-line"></i> Analytics Dashboard</h1>
 </div>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--space-xl);margin-bottom:var(--space-xl)">

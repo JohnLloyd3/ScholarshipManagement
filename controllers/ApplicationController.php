@@ -18,7 +18,7 @@ $user_id = $_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !validateCSRFToken($_POST['csrf_token'] ?? '')) {
     $_SESSION['flash'] = 'Invalid request. Please try again.';
-    header('Location: ../member/apply_scholarship.php');
+    header('Location: ../students/apply_scholarship.php');
     exit;
 }
 
@@ -66,7 +66,7 @@ if ($action === 'create') {
     }
     if (!empty($validation_errors)) {
         $_SESSION['flash'] = implode(' ', $validation_errors);
-        header('Location: ../member/apply_scholarship.php' . ($scholarship_id ? '?scholarship_id=' . $scholarship_id : ''));
+        header('Location: ../students/apply_scholarship.php' . ($scholarship_id ? '?scholarship_id=' . $scholarship_id : ''));
         exit;
     }
 
@@ -77,7 +77,7 @@ if ($action === 'create') {
 
     if (!$scholarship) {
         $_SESSION['flash'] = 'Scholarship not found or is closed.';
-        header('Location: ../member/apply_scholarship.php');
+        header('Location: ../students/apply_scholarship.php');
         exit;
     }
 
@@ -87,7 +87,7 @@ if ($action === 'create') {
         $stmt->execute([':uid' => $user_id, ':sid' => $scholarship_id]);
         if ($stmt->fetch()) {
             $_SESSION['flash'] = 'Duplicate application detected: You have already applied for this scholarship.';
-            header('Location: ../member/apply_scholarship.php');
+            header('Location: ../students/apply_scholarship.php');
             exit;
         }
     }
@@ -96,6 +96,37 @@ if ($action === 'create') {
     $stmt = $pdo->prepare('SELECT requirement FROM eligibility_requirements WHERE scholarship_id = :id');
     $stmt->execute([':id' => $scholarship_id]);
     $requirements = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Check required documents for non-draft submissions
+    if (!$is_draft) {
+        $stmt = $pdo->prepare('SELECT document_name FROM scholarship_documents WHERE scholarship_id = :id');
+        $stmt->execute([':id' => $scholarship_id]);
+        $required_docs = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        if (!empty($required_docs)) {
+            // Check if files were uploaded
+            if (empty($_FILES['documents']) || empty($_FILES['documents']['name'][0])) {
+                $missing_docs = implode(', ', $required_docs);
+                $_SESSION['flash'] = "Missing required documents: $missing_docs. Please upload all required documents.";
+                header('Location: ../students/apply_scholarship.php?scholarship_id=' . $scholarship_id);
+                exit;
+            }
+            
+            // Count uploaded files
+            $uploaded_count = 0;
+            foreach ($_FILES['documents']['name'] as $name) {
+                if (!empty($name)) $uploaded_count++;
+            }
+            
+            if ($uploaded_count < count($required_docs)) {
+                $missing_docs = implode(', ', $required_docs);
+                $_SESSION['flash'] = "You uploaded $uploaded_count file(s) but " . count($required_docs) . " document(s) are required: $missing_docs";
+                header('Location: ../students/apply_scholarship.php?scholarship_id=' . $scholarship_id);
+                exit;
+            }
+        }
+    }
+    
     // we will not enforce them in controller beyond file presence
     foreach ($requirements as $req) {
         if (stripos($req, 'document') !== false || stripos($req, 'upload') !== false) {
@@ -116,7 +147,7 @@ if ($action === 'create') {
 
     if (!empty($validation_errors)) {
         $_SESSION['flash'] = 'Requirements not met: ' . implode(', ', $validation_errors);
-        header('Location: ../member/apply_scholarship.php?scholarship_id=' . $scholarship_id);
+        header('Location: ../students/apply_scholarship.php?scholarship_id=' . $scholarship_id);
         exit;
     }
 
@@ -143,7 +174,7 @@ if ($action === 'create') {
             $file_validation = validateFileUpload($file);
             if (!$file_validation['valid']) {
                 $_SESSION['flash'] = 'File validation failed: ' . $file_validation['error'];
-                header('Location: ../member/apply_scholarship.php?scholarship_id=' . $scholarship_id);
+                header('Location: ../students/apply_scholarship.php?scholarship_id=' . $scholarship_id);
                 exit;
             }
             $name = sanitizeFilename(basename($file['name']));
@@ -241,16 +272,6 @@ if ($action === 'create') {
         // Commit after successful inserts and screening
         $pdo->commit();
 
-        // Run fraud detection non-blocking (only for final submissions)
-        if (!$is_draft) {
-            try {
-                require_once __DIR__ . '/../helpers/FraudDetectionHelper.php';
-                runFraudDetection($pdo, $application_id);
-            } catch (Exception $e) {
-                error_log('[ApplicationController] fraud detection error: ' . $e->getMessage());
-            }
-        }
-
         // Log audit trail
         logAuditTrail($pdo, $user_id, 'APPLICATION_SUBMITTED', 'applications', $application_id, 'Initial status: ' . $final_status);
 
@@ -272,7 +293,7 @@ if ($action === 'create') {
         } else {
             $_SESSION['success'] = 'Application saved as draft.';
         }
-        header('Location: ../member/applications.php');
+        header('Location: ../students/applications.php');
         exit;
     } catch (Exception $e) {
         // Rollback and cleanup uploaded files on failure
@@ -283,7 +304,7 @@ if ($action === 'create') {
         }
         error_log('Application submission failed: ' . $e->getMessage());
         $_SESSION['flash'] = 'Failed to submit application. Please try again.';
-        header('Location: ../member/apply_scholarship.php?scholarship_id=' . $scholarship_id);
+        header('Location: ../students/apply_scholarship.php?scholarship_id=' . $scholarship_id);
         exit;
     }
 }
@@ -293,7 +314,7 @@ if ($action === 'update_status') {
     $role = $_SESSION['user']['role'] ?? 'student';
     if (!in_array($role, ['admin', 'staff'], true)) {
         $_SESSION['flash'] = 'Access denied.';
-        header('Location: ../member/applications.php');
+        header('Location: ../students/applications.php');
         exit;
     }
     $application_id = (int)($_POST['application_id'] ?? 0);
@@ -305,11 +326,11 @@ if ($action === 'update_status') {
         logAuditTrail($pdo, $user_id, 'APPLICATION_STATUS_UPDATED', 'applications', $application_id, 'New status: ' . $new_status);
         $_SESSION['success'] = 'Application status updated.';
     }
-    header('Location: ../member/applications.php');
+    header('Location: ../students/applications.php');
     exit;
 }
 
 // unsupported
 $_SESSION['flash'] = 'Invalid request.';
-header('Location: ../member/applications.php');
+header('Location: ../students/applications.php');
 exit;

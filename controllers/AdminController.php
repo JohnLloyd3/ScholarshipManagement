@@ -1,6 +1,11 @@
 <?php
+/**
+ * ADMIN CONTROLLER
+ * Role: Admin
+ * Purpose: Handles admin actions — user management, application decisions, system settings
+ * URL: /controllers/AdminController.php
+ */
 require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/NotificationHelper.php';
 
@@ -91,6 +96,7 @@ if ($action === 'set_application_status') {
                 }
                 notifyStudent($pdo, $userId, 'Application ' . ucfirst($status), 'Your application for "' . $scholarshipTitle . '" has been ' . $status . '.', $status === 'approved' ? 'success' : 'warning');
             }
+        }
     }
     header('Location: ../admin/applications.php');
     exit;
@@ -247,6 +253,27 @@ if ($action === 'update_scholarship') {
         $_SESSION['flash'] = 'Invalid scholarship update.';
     }
     header('Location: ../admin/scholarships.php');
+    exit;
+}
+
+if ($action === 'delete_scholarship') {
+    $id = (int)($_POST['id'] ?? 0);
+    if ($id) {
+        try {
+            // Delete related records first
+            $pdo->prepare('DELETE FROM eligibility_requirements WHERE scholarship_id = :id')->execute([':id' => $id]);
+            $pdo->prepare('DELETE FROM scholarship_documents WHERE scholarship_id = :id')->execute([':id' => $id]);
+            // Delete the scholarship
+            $stmt = $pdo->prepare('DELETE FROM scholarships WHERE id = :id');
+            $stmt->execute([':id' => $id]);
+            $_SESSION['success'] = 'Scholarship deleted successfully.';
+        } catch (PDOException $e) {
+            $_SESSION['flash'] = 'Failed to delete scholarship: ' . $e->getMessage();
+        }
+    }
+    // Redirect to staff or admin scholarships page based on referrer
+    $redirect = (strpos($_SERVER['HTTP_REFERER'] ?? '', '/staff/') !== false) ? '../staff/scholarships.php' : '../admin/scholarships.php';
+    header('Location: ' . $redirect);
     exit;
 }
 

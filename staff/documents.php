@@ -25,7 +25,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>📄 Pending Documents</h1>
+  <h1><i class="fas fa-file"></i> Pending Documents</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -39,7 +39,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <div class="content-card">
   <?php if (empty($docs)): ?>
     <div class="empty-state">
-      <div class="empty-state-icon">📄</div>
+      <div class="empty-state-icon"><i class="fas fa-file"></i></div>
       <h3 class="empty-state-title">No Pending Documents</h3>
       <p class="empty-state-description">All documents have been reviewed!</p>
     </div>

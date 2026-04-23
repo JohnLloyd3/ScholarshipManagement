@@ -30,15 +30,15 @@ $initial = strtoupper(substr($user['first_name'] ?? $user['username'] ?? 'U', 0,
       <a href="<?= APP_BASE ?>/staff/dashboard.php">Staff Dashboard</a>
       <a href="<?= APP_BASE ?>/staff/applications.php">Applications Queue</a>
       <a href="<?= APP_BASE ?>/staff/scholarships.php">Manage Scholarships</a>
-      <a href="<?= APP_BASE ?>/member/notifications.php">Notifications</a>
+      <a href="<?= APP_BASE ?>/students/notifications.php">Notifications</a>
       <a href="<?= APP_BASE ?>/auth/logout.php">Logout</a>
     <?php else: ?>
-      <a href="<?= APP_BASE ?>/member/dashboard.php">Dashboard</a>
-      <a href="<?= APP_BASE ?>/member/applications.php">Your Applications</a>
-      <a href="<?= APP_BASE ?>/member/apply_scholarship.php">Apply for Scholarship</a>
-      <a href="<?= APP_BASE ?>/member/scholarships.php">Browse Scholarships</a>
-      <a href="<?= APP_BASE ?>/member/profile.php">Profile</a>
-      <a href="<?= APP_BASE ?>/member/notifications.php">Notifications <?= (!empty($unreadCount) && $unreadCount>0) ? '<span style="background:#e53935;color:#fff;padding:2px 6px;border-radius:10px;font-size:11px">' . intval($unreadCount) . '</span>' : '' ?></a>
+      <a href="<?= APP_BASE ?>/students/dashboard.php">Dashboard</a>
+      <a href="<?= APP_BASE ?>/students/applications.php">Your Applications</a>
+      <a href="<?= APP_BASE ?>/students/apply_scholarship.php">Apply for Scholarship</a>
+      <a href="<?= APP_BASE ?>/students/scholarships.php">Browse Scholarships</a>
+      <a href="<?= APP_BASE ?>/students/profile.php">Profile</a>
+      <a href="<?= APP_BASE ?>/students/notifications.php">Notifications <?= (!empty($unreadCount) && $unreadCount>0) ? '<span style="background:#e53935;color:#fff;padding:2px 6px;border-radius:10px;font-size:11px">' . intval($unreadCount) . '</span>' : '' ?></a>
       <a href="<?= APP_BASE ?>/auth/logout.php">Logout</a>
     <?php endif; ?>
   </nav>

@@ -1,7 +1,13 @@
 ﻿<?php
+/**
+ * STAFF — POST SCHOLARSHIP
+ * Role: Staff / Admin
+ * Purpose: Create and publish new scholarship listings
+ * URL: /staff/post_scholarship.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-// Audit helper removed
+
 startSecureSession();
 requireLogin();
 requireAnyRole(['admin','staff'], 'Staff access required');
@@ -70,7 +76,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>➕ Post Scholarship</h1>
+  <h1><i class="fas fa-plus"></i> Post Scholarship</h1>
 </div>
 
 <?php if (!empty($errors)): ?>
@@ -132,7 +138,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </div>
 
     <div style="margin-top:var(--space-xl)">
-      <button type="submit" class="btn btn-primary">➕ Post Scholarship</button>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Post Scholarship</button>
     </div>
   </form>
 </div>

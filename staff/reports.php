@@ -119,7 +119,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>📊 Reports & Exports</h1>
+  <h1><i class="fas fa-chart-line"></i> Reports & Exports</h1>
 </div>
 
 <div class="content-card">
@@ -141,8 +141,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" class="form-input">
     </div>
     <button class="btn btn-primary" name="export" value="csv">📥 Export CSV</button>
-    <button class="btn btn-primary" name="export" value="xlsx" style="background:#217346">📊 Export Excel</button>
-    <button class="btn btn-primary" name="export" value="pdf" style="background:#2563eb">📄 Export PDF</button>
+    <button class="btn btn-primary" name="export" value="xlsx" style="background:#217346"><i class="fas fa-chart-line"></i> Export Excel</button>
+    <button class="btn btn-primary" name="export" value="pdf" style="background:#2563eb"><i class="fas fa-file"></i> Export PDF</button>
   </form>
 </div>
 

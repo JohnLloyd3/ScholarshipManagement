@@ -72,7 +72,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>📧 Email Queue</h1>
+  <h1><i class="fas fa-envelope"></i> Email Queue</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -150,7 +150,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="email_id" value="<?= (int)$e['id'] ?>">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;">🗑️</button>
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;"><i class="fas fa-trash"></i></button>
               </form>
             </td>
           </tr>
@@ -159,7 +159,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </table>
   <?php else: ?>
     <div class="empty-state" style="margin-top:var(--space-xl);">
-      <div class="empty-state-icon">📧</div>
+      <div class="empty-state-icon"><i class="fas fa-envelope"></i></div>
       <h3 class="empty-state-title">No Emails Found</h3>
       <p class="empty-state-description">Email logs will appear here once emails are sent.</p>
     </div>

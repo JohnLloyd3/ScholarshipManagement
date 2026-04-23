@@ -13,7 +13,7 @@ function redirectDashboardForRole()
             header("Location: ../staff/dashboard.php");
             break;
         default:
-            header("Location: ../member/dashboard.php");
+            header("Location: ../students/dashboard.php");
             break;
     }
     exit;
@@ -95,7 +95,7 @@ require_once __DIR__ . '/../includes/modern-header.php';
 <div class="auth-container">
   <div class="auth-card fade-in">
     <div class="auth-logo">
-      <div class="auth-logo-icon">🔑</div>
+      <div class="auth-logo-icon">??</div>
       <div class="auth-logo-text">ScholarHub</div>
     </div>
     
@@ -134,12 +134,12 @@ require_once __DIR__ . '/../includes/modern-header.php';
     </form>
     
     <div class="auth-footer">
-      <a href="login.php">← Back to Login</a>
+      <a href="login.php">? Back to Login</a>
     </div>
   </div>
   
   <div style="text-align: center; margin-top: var(--space-xl); color: var(--gray-500); font-size: 0.875rem;">
-    <p>© 2026 ScholarHub. All rights reserved.</p>
+    <p>� 2026 ScholarHub. All rights reserved.</p>
   </div>
 </div>
 

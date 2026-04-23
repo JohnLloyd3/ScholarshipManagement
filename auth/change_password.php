@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     switch ($role) {
         case 'admin': header('Location: ../admin/dashboard.php'); break;
         case 'staff': header('Location: ../staff/dashboard.php'); break;
-        default:      header('Location: ../member/dashboard.php'); break;
+        default:      header('Location: ../students/dashboard.php'); break;
     }
     exit;
 }
@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
   <div class="auth-card fade-in">
     <div style="text-align:center;margin-bottom:var(--space-xl);">
-      <div style="font-size:2.5rem;margin-bottom:var(--space-md);">🔒</div>
+      <div style="font-size:2.5rem;margin-bottom:var(--space-md);">??</div>
       <h2>Set Your New Password</h2>
     </div>
 

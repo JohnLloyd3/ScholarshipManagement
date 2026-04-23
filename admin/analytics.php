@@ -1,4 +1,10 @@
 ﻿<?php
+/**
+ * ADMIN — ANALYTICS
+ * Role: Admin
+ * Purpose: Reports and charts — application trends, disbursement totals, scholarship stats
+ * URL: /admin/analytics.php
+ */
 // Export must run before ANY output — no session_start yet
 if (!empty($_GET['export'])) {
   require_once __DIR__ . '/../config/db.php';
@@ -57,18 +63,18 @@ $stats = getDashboardStats($pdo);
 $page_title = 'Analytics & Reports - Admin';
 $base_path = '../';
 $extra_css = '
-  .compact-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-md); margin-bottom: var(--space-lg); }
-  .compact-stat-card { background: var(--white); padding: var(--space-md); border-radius: var(--r-lg); text-align: center; box-shadow: var(--shadow-sm); border-left: 3px solid var(--red-primary); }
-  .compact-stat-value { font-size: 1.75rem; font-weight: 700; color: var(--peach); line-height: 1; }
-  .compact-stat-label { color: var(--gray-600); margin-top: var(--space-xs); font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-  .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); margin-bottom: var(--space-lg); }
-  .analytics-card { background: var(--white); padding: var(--space-lg); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
-  .analytics-card h3 { font-size: 1rem; margin-bottom: var(--space-md); color: var(--gray-800); }
+  .compact-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+  .compact-stat-card { background: #fff; padding: 1rem; border-radius: 12px; text-align: center; border-left: 3px solid #E53935; border: 1.5px solid #D1D5DB; }
+  .compact-stat-value { font-size: 1.75rem; font-weight: 700; color: #E53935; line-height: 1; }
+  .compact-stat-label { color: #6b7280; margin-top: 0.25rem; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+  .analytics-card { background: #fff; padding: 1.5rem; border-radius: 14px; border: 1.5px solid #D1D5DB; }
+  .analytics-card h3 { font-size: 1rem; margin-bottom: 1rem; color: #1a1a2e; }
   .analytics-card canvas { max-height: 200px; }
   .compact-table { font-size: 0.875rem; }
-  .compact-table th, .compact-table td { padding: var(--space-sm) var(--space-md); }
-  .export-buttons { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-bottom: var(--space-md); }
-  .export-buttons .btn { padding: var(--space-xs) var(--space-sm); font-size: 0.75rem; }
+  .compact-table th, .compact-table td { padding: 0.5rem 1rem; }
+  .export-buttons { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 1rem; }
+  .export-buttons .btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
   @media (max-width: 1400px) {
     .compact-stats-grid { grid-template-columns: repeat(3, 1fr); }
     .analytics-grid { grid-template-columns: 1fr; }
@@ -79,7 +85,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header" style="padding: var(--space-lg); margin-bottom: var(--space-lg);">
-  <h1 style="font-size: 1.5rem; margin-bottom: var(--space-xs);">📊 Analytics & Reports</h1>
+  <h1 style="font-size: 1.5rem; margin-bottom: var(--space-xs);"><i class="fas fa-chart-line"></i> Analytics & Reports</h1>
   <p class="text-muted" style="font-size: 0.875rem;">System statistics and performance metrics</p>
 </div>
 
@@ -123,15 +129,15 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <h3 style="font-size: 1rem; margin: 0;">Export Data</h3>
   </div>
   <div class="export-buttons">
-    <a class="btn btn-primary" href="?export=applications&format=csv">📊 Applications CSV</a>
-    <a class="btn btn-primary" href="?export=applications&format=xlsx">📊 Applications Excel</a>
-    <a class="btn btn-primary" href="?export=applications&format=pdf">📊 Applications PDF</a>
-    <a class="btn btn-primary" href="?export=top_scholarships&format=csv">🎓 Scholarships CSV</a>
-    <a class="btn btn-primary" href="?export=top_scholarships&format=xlsx">🎓 Scholarships Excel</a>
-    <a class="btn btn-primary" href="?export=top_scholarships&format=pdf">🎓 Scholarships PDF</a>
-    <a class="btn btn-primary" href="?export=users_by_role&format=csv">👥 Users CSV</a>
-    <a class="btn btn-primary" href="?export=users_by_role&format=xlsx">👥 Users Excel</a>
-    <a class="btn btn-primary" href="?export=users_by_role&format=pdf">👥 Users PDF</a>
+    <a class="btn btn-primary" href="?export=applications&format=csv"><i class="fas fa-chart-line"></i> Applications CSV</a>
+    <a class="btn btn-primary" href="?export=applications&format=xlsx"><i class="fas fa-chart-line"></i> Applications Excel</a>
+    <a class="btn btn-primary" href="?export=applications&format=pdf"><i class="fas fa-chart-line"></i> Applications PDF</a>
+    <a class="btn btn-primary" href="?export=top_scholarships&format=csv"><i class="fas fa-graduation-cap"></i> Scholarships CSV</a>
+    <a class="btn btn-primary" href="?export=top_scholarships&format=xlsx"><i class="fas fa-graduation-cap"></i> Scholarships Excel</a>
+    <a class="btn btn-primary" href="?export=top_scholarships&format=pdf"><i class="fas fa-graduation-cap"></i> Scholarships PDF</a>
+    <a class="btn btn-primary" href="?export=users_by_role&format=csv"><i class="fas fa-users"></i> Users CSV</a>
+    <a class="btn btn-primary" href="?export=users_by_role&format=xlsx"><i class="fas fa-users"></i> Users Excel</a>
+    <a class="btn btn-primary" href="?export=users_by_role&format=pdf"><i class="fas fa-users"></i> Users PDF</a>
   </div>
   
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg);">

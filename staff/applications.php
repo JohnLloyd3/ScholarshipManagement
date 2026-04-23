@@ -1,10 +1,14 @@
 ﻿<?php
+/**
+ * STAFF — APPLICATIONS REVIEW
+ * Role: Staff / Admin
+ * Purpose: Review, screen, and process student scholarship applications
+ * URL: /staff/applications.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/ScreeningHelper.php';
 
 startSecureSession();
-
 requireLogin();
 requireAnyRole(['staff', 'admin'], 'Staff or Admin access required');
 
@@ -116,19 +120,7 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
 $offset = ($page - 1) * $perPage;
 
-function fraudScoreBadge(int $score): string {
-    if ($score <= 0) return '';
-    if ($score <= 30) {
-        $color = '#16a34a'; $bg = '#dcfce7'; $label = 'Low';
-    } elseif ($score <= 60) {
-        $color = '#ca8a04'; $bg = '#fef9c3'; $label = 'Medium';
-    } else {
-        $color = '#dc2626'; $bg = '#fee2e2'; $label = 'High';
-    }
-    return '<span title="Fraud Score: ' . $score . '" style="display:inline-block;padding:2px 7px;border-radius:9999px;font-size:0.75rem;font-weight:600;background:' . $bg . ';color:' . $color . ';">' . $score . ' ' . $label . '</span>';
-}
-
-$sql = 'SELECT a.id, a.user_id, a.status, a.created_at, COALESCE(a.fraud_score, 0) as fraud_score, s.title as scholarship_title, u.first_name, u.last_name, u.email FROM applications a LEFT JOIN scholarships s ON a.scholarship_id = s.id LEFT JOIN users u ON a.user_id = u.id';
+$sql = 'SELECT a.id, a.user_id, a.status, a.created_at, s.title as scholarship_title, u.first_name, u.last_name, u.email FROM applications a LEFT JOIN scholarships s ON a.scholarship_id = s.id LEFT JOIN users u ON a.user_id = u.id';
 $where = [];
 $params = [];
 if ($statusFilter) { $where[] = 'a.status = :status'; $params[':status']=$statusFilter; }
@@ -179,7 +171,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         }
         ?>
       </select>
-      <button type="submit" class="btn btn-primary">&#128269; Filter</button>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Filter</button>
     </form>
   </div>
 
@@ -191,7 +183,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <th>Applicant</th>
           <th>Scholarship</th>
           <th>Status</th>
-          <th>Fraud</th>
           <th>Submitted</th>
           <th>Actions</th>
         </tr>
@@ -210,10 +201,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $a['status']))) ?>
               </span>
             </td>
-            <td><?= fraudScoreBadge((int)($a['fraud_score'] ?? 0)) ?></td>
             <td><small><?= date('M d, Y', strtotime($a['created_at'])) ?></small></td>
             <td>
-              <a href="application_view.php?id=<?= (int)$a['id'] ?>" class="btn btn-ghost btn-sm">&#128065; View</a>
+              <a href="application_view.php?id=<?= (int)$a['id'] ?>" class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i> View</a>
               <form method="POST" style="display: inline-block; margin-left: var(--space-xs);">
                 <select name="status" class="form-input" style="display: inline-block; width: auto; padding: 4px 8px; font-size: 0.875rem;">
                   <?php foreach($statuses as $st): ?>

@@ -150,7 +150,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>🎓 Manage Scholarships</h1>
+  <h1><i class="fas fa-graduation-cap"></i> Manage Scholarships</h1>
 </div>
 
 <?php if ($message): ?>
@@ -160,68 +160,53 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <?php endif; ?>
 
 <?php if ($action === 'edit' && $editing): ?>
-  <div class="content-card" style="border-left: 4px solid var(--red-primary);">
-    <h3 style="margin-bottom: var(--space-xl);">Edit Scholarship</h3>
-    <form method="POST" style="max-width: 100%;">
+  <div class="content-card">
+    <h3 style="margin-bottom:1rem;">Edit Scholarship</h3>
+    <form method="POST">
       <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
       <input type="hidden" name="action" value="update">
       <input type="hidden" name="id" value="<?= $editing['id'] ?>">
-      
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-        <div style="margin-bottom: 0;">
-          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Title *</label>
-          <input type="text" name="title" value="<?= sanitizeString($editing['title']) ?>" required 
-                 style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9375rem;">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input type="text" name="title" class="form-input" value="<?= htmlspecialchars($editing['title']) ?>" required>
         </div>
-        <div style="margin-bottom: 0;">
-          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Organization</label>
-          <input type="text" name="organization" value="<?= sanitizeString($editing['organization'] ?? '') ?>"
-                 style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9375rem;">
+        <div class="form-group">
+          <label class="form-label">Organization</label>
+          <input type="text" name="organization" class="form-input" value="<?= htmlspecialchars($editing['organization'] ?? '') ?>">
         </div>
       </div>
-
-      <div style="margin-bottom: 1.5rem;">
-        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Description *</label>
-        <textarea name="description" required rows="4"
-                  style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9375rem; resize: vertical;"><?= sanitizeString($editing['description'] ?? '') ?></textarea>
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <textarea name="description" class="form-input" rows="4" required><?= htmlspecialchars($editing['description'] ?? '') ?></textarea>
       </div>
-
-      <div style="margin-bottom: 1.5rem;">
-        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Eligibility Requirements</label>
-        <textarea name="eligibility_requirements" rows="3"
-                  style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9375rem; resize: vertical;"><?= sanitizeString($editing['eligibility_requirements'] ?? '') ?></textarea>
+      <div class="form-group">
+        <label class="form-label">Eligibility Requirements</label>
+        <textarea name="eligibility_requirements" class="form-input" rows="3"><?= htmlspecialchars($editing['eligibility_requirements'] ?? '') ?></textarea>
       </div>
-
-      <div style="margin-bottom: 1.5rem;">
-        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Renewal Requirements</label>
-        <textarea name="renewal_requirements" rows="3"
-                  style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9375rem; resize: vertical;"><?= sanitizeString($editing['renewal_requirements'] ?? '') ?></textarea>
+      <div class="form-group">
+        <label class="form-label">Renewal Requirements</label>
+        <textarea name="renewal_requirements" class="form-input" rows="3"><?= htmlspecialchars($editing['renewal_requirements'] ?? '') ?></textarea>
       </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-        <div style="margin-bottom: 0;">
-          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Amount (₱)</label>
-          <input type="number" name="amount" step="0.01" value="<?= $editing['amount'] ?? 0 ?>"
-                 style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9375rem;">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount (₱)</label>
+          <input type="number" name="amount" class="form-input" step="0.01" value="<?= $editing['amount'] ?? 0 ?>">
         </div>
-        <div style="margin-bottom: 0;">
-          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Deadline *</label>
-          <input type="date" name="deadline" value="<?= $editing['deadline'] ?? '' ?>" required
-                 style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9375rem;">
+        <div class="form-group">
+          <label class="form-label">Deadline *</label>
+          <input type="date" name="deadline" class="form-input" value="<?= $editing['deadline'] ?? '' ?>" required>
         </div>
       </div>
-
-      <div style="margin-bottom: 1.5rem;">
-        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Status *</label>
-        <select name="status" required
-                style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9375rem;">
+      <div class="form-group">
+        <label class="form-label">Status *</label>
+        <select name="status" class="form-input" required>
           <option value="open" <?= $editing['status'] === 'open' ? 'selected' : '' ?>>Open</option>
           <option value="closed" <?= $editing['status'] === 'closed' ? 'selected' : '' ?>>Closed</option>
           <option value="cancelled" <?= $editing['status'] === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
         </select>
       </div>
-
-      <div style="display: flex; gap: 1rem;">
+      <div style="display:flex;gap:0.75rem;">
         <button type="submit" class="btn btn-primary">Update Scholarship</button>
         <a href="scholarships.php" class="btn btn-ghost">Cancel</a>
       </div>
@@ -233,51 +218,47 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <button class="btn btn-primary" onclick="document.getElementById('newForm').style.display = 'block'">+ New Scholarship</button>
   </div>
 
-  <div id="newForm" class="content-card" style="display: none; margin-bottom: var(--space-xl);">
-    <h3 style="margin-bottom: var(--space-xl);">Create New Scholarship</h3>
+  <div id="newForm" class="content-card" style="display: none; margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom:1rem;">Create New Scholarship</h3>
     <form method="POST">
       <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
       <input type="hidden" name="action" value="create">
-      
       <div class="form-row">
         <div class="form-group">
-          <label>Title *</label>
-          <input type="text" name="title" required>
+          <label class="form-label">Title *</label>
+          <input type="text" name="title" class="form-input" required>
         </div>
         <div class="form-group">
-          <label>Organization</label>
-          <input type="text" name="organization">
+          <label class="form-label">Organization</label>
+          <input type="text" name="organization" class="form-input">
         </div>
       </div>
-
       <div class="form-group">
-        <label>Description *</label>
-        <textarea name="description" required></textarea>
+        <label class="form-label">Description *</label>
+        <textarea name="description" class="form-input" rows="3" required></textarea>
       </div>
-
       <div class="form-group">
-        <label>Eligibility Requirements</label>
-        <textarea name="eligibility_requirements"></textarea>
+        <label class="form-label">Eligibility Requirements</label>
+        <textarea name="eligibility_requirements" class="form-input" rows="3"></textarea>
       </div>
-
       <div class="form-group">
-        <label>Renewal Requirements</label>
-        <textarea name="renewal_requirements"></textarea>
+        <label class="form-label">Renewal Requirements</label>
+        <textarea name="renewal_requirements" class="form-input" rows="2"></textarea>
       </div>
-
       <div class="form-row">
         <div class="form-group">
-          <label>Amount (₱)</label>
-          <input type="number" name="amount" step="0.01" min="0">
+          <label class="form-label">Amount (₱)</label>
+          <input type="number" name="amount" class="form-input" step="0.01" min="0">
         </div>
         <div class="form-group">
-          <label>Deadline *</label>
-          <input type="date" name="deadline" required>
+          <label class="form-label">Deadline *</label>
+          <input type="date" name="deadline" class="form-input" required>
         </div>
       </div>
-
-      <button type="submit" class="btn btn-primary">Create Scholarship</button>
-      <button type="button" class="btn btn-ghost" onclick="document.getElementById('newForm').style.display = 'none'">Cancel</button>
+      <div style="display:flex;gap:0.75rem;">
+        <button type="submit" class="btn btn-primary">Create Scholarship</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('newForm').style.display='none'">Cancel</button>
+      </div>
     </form>
   </div>
 
@@ -322,7 +303,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </table>
     <?php else: ?>
       <div class="empty-state">
-        <div class="empty-state-icon">🎓</div>
+        <div class="empty-state-icon"><i class="fas fa-graduation-cap"></i></div>
         <h3 class="empty-state-title">No Scholarships Yet</h3>
         <p class="empty-state-description">Create your first scholarship to get started.</p>
       </div>

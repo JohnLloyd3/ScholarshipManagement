@@ -10,132 +10,183 @@
  * Role-aware: students only see their own records.
  */
 function getDisbursements(PDO $pdo, array $filters = [], string $role = 'admin', int $userId = 0): array {
-    // Check if deleted_at column exists
-    try {
-        $colCheck = $pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'deleted_at'")->fetch();
-        $where = $colCheck ? ['d.deleted_at IS NULL'] : ['1=1'];
-    } catch (Exception $e) {
-        $where = ['1=1'];
-    }
+    // Initialize
+    $where = ['1=1'];
     $params = [];
-
+    
+    // Check column existence
+    $hasDeletedAt = false;
+    $hasDate = false;
+    $hasScholarshipId = false;
+    $hasApplicationId = false;
+    
+    try {
+        $hasDeletedAt = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'deleted_at'")->fetch();
+        $hasDate = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'disbursement_date'")->fetch();
+        $hasScholarshipId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'scholarship_id'")->fetch();
+        $hasApplicationId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'application_id'")->fetch();
+    } catch (Exception $e) {
+        // Ignore column check errors
+    }
+    
+    // Set date column
+    $dateCol = $hasDate ? 'd.disbursement_date' : 'd.created_at';
+    
+    // Build joins
+    if ($hasScholarshipId) {
+        $joins = "JOIN users u ON d.user_id = u.id
+            LEFT JOIN scholarships s ON d.scholarship_id = s.id";
+        $scholarshipSelect = 's.title AS scholarship_title';
+    } elseif ($hasApplicationId) {
+        $joins = "JOIN users u ON d.user_id = u.id
+            LEFT JOIN applications a ON d.application_id = a.id
+            LEFT JOIN scholarships s ON s.id = a.scholarship_id";
+        $scholarshipSelect = 's.title AS scholarship_title';
+    } else {
+        $joins = "JOIN users u ON d.user_id = u.id";
+        $scholarshipSelect = 'NULL AS scholarship_title';
+    }
+    
+    // Apply WHERE conditions
+    if ($hasDeletedAt) {
+        $where[] = 'd.deleted_at IS NULL';
+    }
+    
     if ($role === 'student') {
         $where[] = 'd.user_id = :uid';
         $params[':uid'] = $userId;
     }
+    
+    // Status filter
     if (!empty($filters['status'])) {
         $where[] = 'd.status = :status';
         $params[':status'] = $filters['status'];
     }
+    
+    // Date from filter
     if (!empty($filters['date_from'])) {
-        $where[] = 'd.disbursement_date >= :date_from';
+        $where[] = "{$dateCol} >= :date_from";
         $params[':date_from'] = $filters['date_from'];
     }
+    
+    // Date to filter
     if (!empty($filters['date_to'])) {
-        $where[] = 'd.disbursement_date <= :date_to';
+        $where[] = "{$dateCol} <= :date_to";
         $params[':date_to'] = $filters['date_to'];
     }
+    
+    // Student search filter
     if (!empty($filters['student'])) {
-        $where[] = "(u.first_name LIKE :student OR u.last_name LIKE :student OR CONCAT(u.first_name,' ',u.last_name) LIKE :student)";
+        $where[] = "(u.first_name LIKE :student OR u.last_name LIKE :student OR CONCAT(u.first_name,' ',u.last_name) LIKE :student OR u.student_id LIKE :student OR u.email LIKE :student)";
         $params[':student'] = '%' . $filters['student'] . '%';
     }
-
-    // Check if disbursement_date column exists (may be created_at only)
-    try {
-        $hasDate = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'disbursement_date'")->fetch();
-    } catch (Exception $e) {
-        $hasDate = false;
+    
+    // Scholarship filter
+    if (!empty($filters['scholarship'])) {
+        if ($hasScholarshipId) {
+            $where[] = 'd.scholarship_id = :scholarship';
+            $params[':scholarship'] = (int)$filters['scholarship'];
+        } elseif ($hasApplicationId) {
+            $where[] = 'a.scholarship_id = :scholarship';
+            $params[':scholarship'] = (int)$filters['scholarship'];
+        }
     }
-    $dateCol = $hasDate ? 'd.disbursement_date' : 'd.created_at';
-
-    // Detect whether `disbursements` table has `scholarship_id` and/or `application_id` columns.
-    try {
-        $hasScholarshipId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'scholarship_id'")->fetch();
-    } catch (Exception $e) {
-        $hasScholarshipId = false;
-    }
-    try {
-        $hasApplicationId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'application_id'")->fetch();
-    } catch (Exception $e) {
-        $hasApplicationId = false;
-    }
-
-    // Build joins and scholarship select depending on available columns.
-    $scholarshipSelect = 'NULL AS scholarship_title';
-    if ($hasScholarshipId) {
-        $joins = "JOIN users u ON d.user_id = u.id\n            LEFT JOIN scholarships s ON d.scholarship_id = s.id";
-        $scholarshipSelect = 's.title AS scholarship_title';
-    } elseif ($hasApplicationId) {
-        // join applications first, then scholarships via application.scholarship_id
-        $joins = "JOIN users u ON d.user_id = u.id\n            LEFT JOIN applications a ON d.application_id = a.id\n            LEFT JOIN scholarships s ON s.id = a.scholarship_id";
-        $scholarshipSelect = 's.title AS scholarship_title';
-    } else {
-        // Minimal join: users only. scholarship_title will be NULL.
-        $joins = "JOIN users u ON d.user_id = u.id";
-    }
-
+    
+    // Build final SQL
     $sql = "SELECT d.*,
-                   u.first_name, u.last_name, u.email,
+                   u.first_name, u.last_name, u.email, u.student_id,
                    {$scholarshipSelect},
                    {$dateCol} AS disbursement_date
-            FROM disbursements d\n            " . $joins . "\n            WHERE " . implode(' AND ', $where) . "\n            ORDER BY {$dateCol} DESC, d.id DESC";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            FROM disbursements d
+            {$joins}
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY {$dateCol} DESC, d.id DESC";
+    
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("DisbursementHelper Error: " . $e->getMessage());
+        error_log("SQL: " . $sql);
+        error_log("Params: " . json_encode($params));
+        // Return empty array instead of throwing
+        return [];
+    }
 }
 
 /**
  * Fetch a single disbursement with full joined data.
  */
 function getDisbursement(PDO $pdo, int $id): array|false {
-    // Detect whether `disbursements` table has `scholarship_id` column.
+    // Check column existence
+    $hasScholarshipId = false;
+    $hasApplicationId = false;
+    
     try {
         $hasScholarshipId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'scholarship_id'")->fetch();
+        $hasApplicationId = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'application_id'")->fetch();
     } catch (Exception $e) {
-        $hasScholarshipId = false;
+        // Ignore
     }
 
     if ($hasScholarshipId) {
         $sql = "SELECT d.*,
-                       u.first_name, u.last_name, u.email,
+                       u.first_name, u.last_name, u.email, u.student_id,
                        s.title AS scholarship_title
                 FROM disbursements d
                 JOIN users u ON d.user_id = u.id
                 LEFT JOIN scholarships s ON d.scholarship_id = s.id
                 WHERE d.id = :id";
-    } else {
+    } elseif ($hasApplicationId) {
         $sql = "SELECT d.*,
-                       u.first_name, u.last_name, u.email,
+                       u.first_name, u.last_name, u.email, u.student_id,
                        s.title AS scholarship_title
                 FROM disbursements d
                 JOIN users u ON d.user_id = u.id
                 LEFT JOIN applications a ON d.application_id = a.id
                 LEFT JOIN scholarships s ON s.id = a.scholarship_id
                 WHERE d.id = :id";
+    } else {
+        $sql = "SELECT d.*,
+                       u.first_name, u.last_name, u.email, u.student_id,
+                       NULL AS scholarship_title
+                FROM disbursements d
+                JOIN users u ON d.user_id = u.id
+                WHERE d.id = :id";
     }
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([':id' => $id]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':id' => $id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("getDisbursement Error: " . $e->getMessage());
+        return false;
+    }
 }
 
 /**
  * Fetch approved applications eligible for disbursement (for create form dropdown).
  */
-function getEligibleAwards(PDO $pdo): array {
-    $stmt = $pdo->query("
-        SELECT a.id, a.user_id, s.amount AS award_amount,
-               u.first_name, u.last_name,
-               s.title AS scholarship_title,
-               a.scholarship_id
-        FROM applications a
-        JOIN users u ON a.user_id = u.id
-        JOIN scholarships s ON a.scholarship_id = s.id
-        WHERE a.status = 'approved'
-        ORDER BY a.reviewed_at DESC
-    ");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+function getEligibleApplications(PDO $pdo): array {
+    try {
+        $stmt = $pdo->query("
+            SELECT a.id, a.user_id, s.amount AS application_amount,
+                   u.first_name, u.last_name, u.student_id,
+                   s.title AS scholarship_title,
+                   a.scholarship_id
+            FROM applications a
+            JOIN users u ON a.user_id = u.id
+            JOIN scholarships s ON a.scholarship_id = s.id
+            WHERE a.status = 'approved'
+            ORDER BY a.reviewed_at DESC
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("getEligibleApplications Error: " . $e->getMessage());
+        return [];
+    }
 }
 
 /**
@@ -154,7 +205,7 @@ function createDisbursementNotification(PDO $pdo, int $userId, string $event, ar
     $appId       = (int)($disbursement['application_id'] ?? 0);
 
     $messages = [
-        'disbursement_created'   => "A cash disbursement of ₱{$amount} has been created for your {$scholarship} award.",
+        'disbursement_created'   => "A cash disbursement of ₱{$amount} has been created for your {$scholarship} scholarship.",
         'disbursement_completed' => "Your cash disbursement of ₱{$amount} for {$scholarship} has been completed. Please collect your payment.",
     ];
 
@@ -164,7 +215,12 @@ function createDisbursementNotification(PDO $pdo, int $userId, string $event, ar
     if (!function_exists('notifyStudent')) {
         require_once __DIR__ . '/NotificationHelper.php';
     }
-    notifyStudent($pdo, $userId, $title, $message, 'success', $appId ?: null);
+    
+    try {
+        notifyStudent($pdo, $userId, $title, $message, 'success', $appId ?: null);
+    } catch (Exception $e) {
+        error_log("createDisbursementNotification Error: " . $e->getMessage());
+    }
 }
 
 /**

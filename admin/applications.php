@@ -1,13 +1,16 @@
 ﻿<?php
+/**
+ * ADMIN — APPLICATIONS MANAGEMENT
+ * Role: Admin / Staff
+ * Purpose: View, approve, reject, and manage all scholarship applications
+ * URL: /admin/applications.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../config/email.php';
 
 startSecureSession();
-
-// Authentication
 requireLogin();
-requireAnyRole(['admin', 'staff'], 'Access Denied');
+requireRole('admin', 'Admin access required');
 
 $pdo = getPDO();
 $action = $_GET['action'] ?? '';
@@ -117,8 +120,7 @@ function fraudScoreBadge(int $score): string {
 
 // Fetch applications based on user role
 $query = "
-    SELECT a.*, u.first_name, u.last_name, u.email, s.title as scholarship_title,
-           COALESCE(a.fraud_score, 0) as fraud_score
+    SELECT a.*, u.first_name, u.last_name, u.email, s.title as scholarship_title
     FROM applications a
     JOIN users u ON a.user_id = u.id
     JOIN scholarships s ON a.scholarship_id = s.id
@@ -160,7 +162,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>📝 Applications Management</h1>
+  <h1><i class="fas fa-file-alt"></i> Applications Management</h1>
 </div>
 <?php if ($message): ?>
   <div class="alert alert-success"><?= sanitizeString($message) ?></div>
@@ -256,11 +258,11 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </div>
 
       <!-- Reject modal -->
-      <div id="rejectModal" class="modal" style="display:none;">
-        <div class="modal-content" style="max-width:480px;">
+      <div id="rejectModal" class="modal">
+        <div class="modal-content">
           <div class="modal-header">
-            <h2>✗ Reject Application</h2>
-            <span class="modal-close" onclick="document.getElementById('rejectModal').style.display='none'">&times;</span>
+            <span>Reject Application</span>
+            <button class="modal-close" onclick="document.getElementById('rejectModal').style.display='none'">&times;</button>
           </div>
           <form method="POST">
             <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
@@ -268,11 +270,11 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <input type="hidden" name="app_id" value="<?= $viewing['id'] ?>">
             <div class="form-group">
               <label class="form-label">Reason for Rejection <small class="text-muted">(shown to student)</small></label>
-              <textarea name="reject_reason" class="form-textarea" rows="4" placeholder="e.g. Does not meet GPA requirement, incomplete documents..." required></textarea>
+              <textarea name="reject_reason" class="form-input" rows="4" placeholder="e.g. Does not meet GPA requirement..." required></textarea>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-ghost" onclick="document.getElementById('rejectModal').style.display='none'">Cancel</button>
-              <button type="submit" class="btn btn-primary" style="background:#dc2626;border-color:#dc2626;">Confirm Rejection</button>
+              <button type="submit" class="btn btn-danger">Confirm Rejection</button>
             </div>
           </form>
         </div>
@@ -312,7 +314,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <th>Applicant</th>
           <th>Scholarship</th>
           <th>Status</th>
-          <th>Fraud</th>
           <th>Submitted</th>
           <th>Actions</th>
         </tr>
@@ -324,7 +325,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
               <td><?= sanitizeString($app['first_name'] . ' ' . $app['last_name']) ?></td>
               <td><?= sanitizeString($app['scholarship_title']) ?></td>
               <td><span class="status-badge status-<?= $app['status'] ?>"><?= $app['status'] ?></span></td>
-              <td><?= fraudScoreBadge((int)($app['fraud_score'] ?? 0)) ?></td>
               <td><?= date('M d, Y', strtotime($app['submitted_at'] ?? $app['created_at'])) ?></td>
               <td>
                 <a href="../staff/application_view.php?id=<?= $app['id'] ?>" class="btn btn-primary btn-sm">View & Review</a>
@@ -335,7 +335,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <tr>
             <td colspan="6">
               <div class="empty-state">
-                <div class="empty-state-icon">📝</div>
+                <div class="empty-state-icon"><i class="fas fa-file-alt"></i></div>
                 <h3 class="empty-state-title">No Applications</h3>
                 <p class="empty-state-description">No applications to review at this time.</p>
               </div>

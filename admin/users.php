@@ -37,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $role = $_POST['role'] ?? 'student';
         $phone = trim($_POST['phone'] ?? '');
         $address = trim($_POST['address'] ?? '');
+        $student_id = trim($_POST['student_id'] ?? '');
         
         $errors = [];
         
@@ -82,6 +83,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors['username'] = 'Username can only contain letters, numbers, dots, underscores, and hyphens';
         }
         
+        // Validate student_id (required only for students)
+        if ($role === 'student') {
+            if (empty($student_id)) {
+                $errors['student_id'] = 'Student ID is required for student accounts';
+            } elseif (strlen($student_id) < 3) {
+                $errors['student_id'] = 'Student ID must be at least 3 characters';
+            } elseif (strlen($student_id) > 50) {
+                $errors['student_id'] = 'Student ID must not exceed 50 characters';
+            }
+        }
+        
         // Validate password
         if (empty($password)) {
             $errors['password'] = 'Password is required';
@@ -108,17 +120,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($errors)) {
             try {
-                        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email OR username = :username");
-                        $stmt->execute([':email' => $email, ':username' => $username]);
+                        // Check for duplicate email, username, or student_id
+                        $checkSql = "SELECT id FROM users WHERE email = :email OR username = :username";
+                        $checkParams = [':email' => $email, ':username' => $username];
+                        
+                        if ($role === 'student' && !empty($student_id)) {
+                            $checkSql .= " OR student_id = :student_id";
+                            $checkParams[':student_id'] = $student_id;
+                        }
+                        
+                        $stmt = $pdo->prepare($checkSql);
+                        $stmt->execute($checkParams);
                         if ($stmt->fetch()) {
-                            $_SESSION['message'] = 'Error: Email or username already exists';
+                            $_SESSION['message'] = 'Error: Email, username, or student ID already exists';
                             $_SESSION['message_type'] = 'error';
                         } else {
                             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-                            $stmt = $pdo->prepare("
-                                INSERT INTO users (first_name, last_name, email, username, password, role, phone, address, active, email_verified, must_change_password)
-                                VALUES (:first_name, :last_name, :email, :username, :password, :role, :phone, :address, 1, 1, 1)
-                            ");
+                            
+                            // Check if must_change_password column exists
+                            $hasMustChangePassword = false;
+                            try {
+                                $hasMustChangePassword = (bool)$pdo->query("SHOW COLUMNS FROM `users` LIKE 'must_change_password'")->fetch();
+                            } catch (Exception $e) {}
+                            
+                            if ($hasMustChangePassword) {
+                                $stmt = $pdo->prepare("
+                                    INSERT INTO users (first_name, last_name, email, username, password, role, phone, address, student_id, active, email_verified, must_change_password)
+                                    VALUES (:first_name, :last_name, :email, :username, :password, :role, :phone, :address, :student_id, 1, 1, 1)
+                                ");
+                            } else {
+                                $stmt = $pdo->prepare("
+                                    INSERT INTO users (first_name, last_name, email, username, password, role, phone, address, student_id, active, email_verified)
+                                    VALUES (:first_name, :last_name, :email, :username, :password, :role, :phone, :address, :student_id, 1, 1)
+                                ");
+                            }
+                            
                             $stmt->execute([
                                 ':first_name' => $first_name,
                                 ':last_name' => $last_name,
@@ -128,6 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 ':role' => $role,
                                 ':phone' => $phone,
                                 ':address' => $address,
+                                ':student_id' => ($role === 'student' ? $student_id : null),
                             ]);
                     $_SESSION['message'] = 'User created successfully!';
                     $_SESSION['message_type'] = 'success';
@@ -336,16 +373,17 @@ $countStmt->execute($params);
 $totalUsers_filtered = (int)$countStmt->fetchColumn();
 $totalPages = max(1, (int)ceil($totalUsers_filtered / $perPage));
 
-$query = "SELECT id, username, first_name, last_name, email, role, active, created_at, email_verified FROM users" . $baseWhere . " ORDER BY created_at DESC LIMIT $perPage OFFSET $offset";
+$query = "SELECT id, username, first_name, last_name, email, role, student_id, active, created_at, email_verified FROM users" . $baseWhere . " ORDER BY created_at DESC LIMIT $perPage OFFSET $offset";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // Count by role
 $roleCounts = [];
-foreach (['admin', 'staff', 'student'] as $role) {
-    $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = '$role'");
-    $roleCounts[$role] = $stmt->fetchColumn() ?: 0;
+foreach (['admin', 'staff', 'student'] as $roleKey) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = :role");
+    $stmt->execute([':role' => $roleKey]);
+    $roleCounts[$roleKey] = $stmt->fetchColumn() ?: 0;
 }
 
 // Helper function to get field error class
@@ -367,8 +405,86 @@ require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
+<style>
+  /* Tabs */
+  .tabs { display: flex; gap: 0.25rem; border-bottom: 2px solid #D1D5DB; margin-bottom: 1.25rem; }
+  .tab {
+    padding: 0.5rem 1.1rem; font-size: 0.8375rem; font-weight: 600;
+    color: #9E9E9E; text-decoration: none; border-radius: 8px 8px 0 0;
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab:hover { color: #E53935; }
+  .tab.active { color: #E53935; border-bottom-color: #E53935; background: #FFF5F5; }
+
+  /* Role select in table */
+  .form-select-sm {
+    padding: 0.3rem 0.6rem; border: 1.5px solid #D1D5DB; border-radius: 6px;
+    font-size: 0.8rem; font-family: inherit; color: #1a1a2e;
+    background: #fff; cursor: pointer;
+  }
+  .form-select-sm:focus { outline: none; border-color: #E53935; }
+
+  /* Modal overlay */
+  .modal {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(2px);
+    align-items: center; justify-content: center;
+  }
+  .modal[style*="display: block"] { display: flex !important; }
+  .modal-content {
+    background: #fff; border-radius: 16px; padding: 2rem;
+    width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    border: 1.5px solid #D1D5DB;
+  }
+  .modal-header {
+    font-size: 1.125rem; font-weight: 800; color: #1a1a2e;
+    margin-bottom: 1.5rem; padding-bottom: 0.875rem;
+    border-bottom: 1.5px solid #D1D5DB;
+  }
+  .modal-content .form-group { margin-bottom: 1rem; }
+  .modal-content label {
+    display: block; font-size: 0.8125rem; font-weight: 600;
+    color: #424242; margin-bottom: 0.35rem;
+  }
+  .modal-content label small { font-weight: 400; color: #9E9E9E; }
+  .modal-content input[type=text],
+  .modal-content input[type=email],
+  .modal-content input[type=password],
+  .modal-content input[type=tel],
+  .modal-content textarea,
+  .modal-content select {
+    width: 100%; padding: 0.625rem 0.875rem;
+    border: 1.5px solid #D1D5DB; border-radius: 8px;
+    font-size: 0.875rem; font-family: inherit; color: #1a1a2e;
+    background: #fff; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .modal-content input:focus,
+  .modal-content textarea:focus,
+  .modal-content select:focus {
+    outline: none; border-color: #E53935;
+    box-shadow: 0 0 0 3px rgba(229,57,53,0.08);
+  }
+  .modal-content textarea { resize: vertical; min-height: 80px; }
+  .modal-footer { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+  .modal-footer .btn { flex: 1; }
+
+  /* Password requirements */
+  .password-requirements { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.2rem; }
+  .requirement-item { font-size: 0.75rem; color: #BDBDBD; padding-left: 1rem; position: relative; }
+  .requirement-item::before { content: '?'; position: absolute; left: 0; }
+  .requirement-item.met { color: #4CAF50; }
+  .requirement-item.met::before { content: '?'; }
+  .requirement-item.unmet { color: #E53935; }
+  .requirement-item.unmet::before { content: '?'; }
+
+  /* Field error */
+  .field-error input, .field-error select, .field-error textarea { border-color: #E53935 !important; }
+  .field-error-message { font-size: 0.75rem; color: #E53935; margin-top: 0.25rem; }
+</style>
 <div class="page-header">
-  <h1>👥 User Management</h1>
+  <h1><i class="fas fa-users"></i> User Management</h1>
 </div>
 
 <?php if ($message): ?>
@@ -379,17 +495,17 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-icon">👑</div>
+    <div class="stat-icon"><i class="fas fa-user-shield"></i></div>
     <div class="stat-value"><?= $roleCounts['admin'] ?></div>
     <div class="stat-label">Admins</div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon">💼</div>
+    <div class="stat-icon"><i class="fas fa-user-tie"></i></div>
     <div class="stat-value"><?= $roleCounts['staff'] ?></div>
     <div class="stat-label">Staff</div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon">🎓</div>
+    <div class="stat-icon"><i class="fas fa-user-graduate"></i></div>
     <div class="stat-value"><?= $roleCounts['student'] ?></div>
     <div class="stat-label">Students</div>
   </div>
@@ -415,6 +531,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <th>Name</th>
           <th>Email</th>
           <th>Username</th>
+          <th>Student ID</th>
           <th>Role</th>
           <th>Status</th>
           <th>Email Verified</th>
@@ -428,6 +545,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td><strong><?= sanitizeString($user['first_name'] . ' ' . $user['last_name']) ?></strong></td>
             <td><?= sanitizeString($user['email']) ?></td>
             <td><?= sanitizeString($user['username']) ?></td>
+            <td><?= $user['student_id'] ? sanitizeString($user['student_id']) : '<span class="text-muted">—</span>' ?></td>
             <td>
               <form method="POST" style="display: inline;">
                 <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
@@ -470,7 +588,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </table>
   <?php else: ?>
     <div class="empty-state">
-      <div class="empty-state-icon">👥</div>
+      <div class="empty-state-icon">??</div>
       <h3 class="empty-state-title">No Users Found</h3>
       <p class="empty-state-description">No users match the selected filter.</p>
     </div>
@@ -479,11 +597,11 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php if ($totalPages > 1): ?>
     <div style="display:flex;justify-content:center;align-items:center;gap:var(--space-md);margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--gray-200);">
       <?php if ($page > 1): ?>
-        <a href="?page=<?= $page-1 ?>&role=<?= urlencode($filter) ?>" class="btn btn-ghost">← Previous</a>
+        <a href="?page=<?= $page-1 ?>&role=<?= urlencode($filter) ?>" class="btn btn-ghost">? Previous</a>
       <?php endif; ?>
       <span class="text-muted">Page <?= $page ?> of <?= $totalPages ?> (<?= $totalUsers_filtered ?> total)</span>
       <?php if ($page < $totalPages): ?>
-        <a href="?page=<?= $page+1 ?>&role=<?= urlencode($filter) ?>" class="btn btn-ghost">Next →</a>
+        <a href="?page=<?= $page+1 ?>&role=<?= urlencode($filter) ?>" class="btn btn-ghost">Next ?</a>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -547,7 +665,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 
                 <div class="form-group <?= getFieldErrorClass('password') ?>">
                     <label>Password * <small>(minimum 8 characters)</small></label>
-                    <input type="password" name="password" id="createPassword" required minlength="8" placeholder="••••••••" oninput="validatePassword()">
+                    <input type="password" name="password" id="createPassword" required minlength="8" placeholder="��������" oninput="validatePassword()">
                     <?php if ($error = getFieldError('password')): ?>
                         <div class="field-error-message"><?= sanitizeString($error) ?></div>
                     <?php endif; ?>
@@ -561,7 +679,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 
                 <div class="form-group <?= getFieldErrorClass('confirm_password') ?>">
                     <label>Confirm Password *</label>
-                    <input type="password" name="confirm_password" id="createConfirmPassword" required minlength="8" placeholder="••••••••" oninput="validatePasswordMatch()">
+                    <input type="password" name="confirm_password" id="createConfirmPassword" required minlength="8" placeholder="��������" oninput="validatePasswordMatch()">
                     <?php if ($error = getFieldError('confirm_password')): ?>
                         <div class="field-error-message"><?= sanitizeString($error) ?></div>
                     <?php endif; ?>
@@ -570,7 +688,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                 
                 <div class="form-group <?= getFieldErrorClass('role') ?>">
                     <label>Role *</label>
-                    <select name="role" required>
+                    <select name="role" id="createRole" required onchange="toggleStudentIdField()">
                         <option value="">Select a role</option>
                         <option value="student">Student</option>
                         <option value="staff">Staff</option>
@@ -582,8 +700,18 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <?php endif; ?>
                 </div>
                 
-                <button type="submit" class="btn btn-success">Create User</button>
-                <button type="button" class="btn btn-secondary" onclick="closeCreateModal()" style="background-color: #718096;">Cancel</button>
+                <div class="form-group <?= getFieldErrorClass('student_id') ?>" id="studentIdGroup" style="display:none;">
+                    <label>Student ID * <small>(Required for student accounts)</small></label>
+                    <input type="text" name="student_id" id="createStudentId" maxlength="50" placeholder="e.g., SCC-23-0001234">
+                    <?php if ($error = getFieldError('student_id')): ?>
+                        <div class="field-error-message"><?= sanitizeString($error) ?></div>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="modal-footer">
+                  <button type="submit" class="btn btn-primary">Create User</button>
+                  <button type="button" class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+                </div>
             </form>
         </div>
     </div>
@@ -621,8 +749,10 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     <?php endif; ?>
                 </div>
                 
-                <button type="submit" class="btn btn-success">Update User</button>
-                <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="background-color: #718096;">Cancel</button>
+                <div class="modal-footer">
+                  <button type="submit" class="btn btn-primary">Update User</button>
+                  <button type="button" class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+                </div>
             </form>
         </div>
     </div>
@@ -630,10 +760,10 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <!-- Delete Confirmation Modal -->
     <div id="deleteModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header" style="color: #f56565;">⚠ Delete User</div>
-            <p style="margin-bottom: 15px;">Are you sure you want to delete user <strong id="deleteUserName"></strong>? This action cannot be undone.</p>
-            <div style="margin-bottom: 15px; padding: 10px; background: #f8d7da; border-radius: 4px; border: 1px solid #f5c6cb;">
-                <small>This will permanently remove the user and all associated data.</small>
+            <div class="modal-header" style="color:#E53935;">? Delete User</div>
+            <p style="margin-bottom:1rem;font-size:0.875rem;color:#424242;">Are you sure you want to delete user <strong id="deleteUserName"></strong>? This action cannot be undone.</p>
+            <div style="margin-bottom:1rem;padding:0.75rem 1rem;background:#FFEBEE;border-radius:8px;border:1px solid #D1D5DB;font-size:0.8125rem;color:#C62828;">
+                This will permanently remove the user and all associated data.
             </div>
             <form method="POST" id="deleteForm">
                 <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
@@ -648,13 +778,33 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
                     </label>
                 </div>
                 
-                <button type="submit" class="btn btn-danger" id="deleteSubmitBtn" disabled>Delete User</button>
-                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()" style="background-color: #718096;">Cancel</button>
+                <div class="modal-footer">
+                  <button type="submit" class="btn btn-danger" id="deleteSubmitBtn" disabled>Delete User</button>
+                  <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+                </div>
             </form>
         </div>
     </div>
 
     <script>
+        // Toggle student ID field based on role selection
+        function toggleStudentIdField() {
+            const roleSelect = document.getElementById('createRole');
+            const studentIdGroup = document.getElementById('studentIdGroup');
+            const studentIdInput = document.getElementById('createStudentId');
+            
+            if (roleSelect && studentIdGroup && studentIdInput) {
+                if (roleSelect.value === 'student') {
+                    studentIdGroup.style.display = 'block';
+                    studentIdInput.required = true;
+                } else {
+                    studentIdGroup.style.display = 'none';
+                    studentIdInput.required = false;
+                    studentIdInput.value = '';
+                }
+            }
+        }
+        
         // Password strength validation (safe checks if elements are missing)
         function validatePassword() {
             const pwEl = document.getElementById('createPassword');
@@ -702,7 +852,11 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             const modal = document.getElementById('createModal');
             modal.style.display = 'block';
             // Run validation after modal shown (addresses autofill and prefilled values)
-            setTimeout(function() { validatePassword(); validatePasswordMatch(); }, 30);
+            setTimeout(function() { 
+                validatePassword(); 
+                validatePasswordMatch();
+                toggleStudentIdField();
+            }, 30);
         }
 
         function closeCreateModal() {
@@ -767,6 +921,25 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             if (pwEl && pwEl.value) validatePassword();
             const confEl = document.getElementById('createConfirmPassword');
             if (confEl && confEl.value) validatePasswordMatch();
+            
+            // If there are form errors, reopen the create modal and restore student ID field visibility
+            <?php if (!empty($form_errors) && isset($_POST['action']) && $_POST['action'] === 'create'): ?>
+                openCreateModal();
+                // Restore role selection and student ID field
+                const roleSelect = document.getElementById('createRole');
+                if (roleSelect) {
+                    roleSelect.value = '<?= htmlspecialchars($_POST['role'] ?? '') ?>';
+                    toggleStudentIdField();
+                }
+                // Restore form values
+                <?php if (isset($_POST['first_name'])): ?>document.querySelector('[name="first_name"]').value = '<?= htmlspecialchars($_POST['first_name']) ?>';<?php endif; ?>
+                <?php if (isset($_POST['last_name'])): ?>document.querySelector('[name="last_name"]').value = '<?= htmlspecialchars($_POST['last_name']) ?>';<?php endif; ?>
+                <?php if (isset($_POST['email'])): ?>document.querySelector('[name="email"]').value = '<?= htmlspecialchars($_POST['email']) ?>';<?php endif; ?>
+                <?php if (isset($_POST['username'])): ?>document.querySelector('[name="username"]').value = '<?= htmlspecialchars($_POST['username']) ?>';<?php endif; ?>
+                <?php if (isset($_POST['phone'])): ?>document.querySelector('[name="phone"]').value = '<?= htmlspecialchars($_POST['phone']) ?>';<?php endif; ?>
+                <?php if (isset($_POST['address'])): ?>document.querySelector('[name="address"]').value = '<?= htmlspecialchars($_POST['address']) ?>';<?php endif; ?>
+                <?php if (isset($_POST['student_id'])): ?>document.getElementById('createStudentId').value = '<?= htmlspecialchars($_POST['student_id']) ?>';<?php endif; ?>
+            <?php endif; ?>
         });
 
         // Close modal when clicking outside

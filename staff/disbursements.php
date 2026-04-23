@@ -1,9 +1,15 @@
 ﻿<?php
+/**
+ * STAFF — DISBURSEMENTS
+ * Role: Staff / Admin
+ * Purpose: Process and track scholarship payment disbursements
+ * URL: /staff/disbursements.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-startSecureSession();
 require_once __DIR__ . '/../helpers/DisbursementHelper.php';
 
+startSecureSession();
 requireLogin();
 requireAnyRole(['admin', 'staff'], 'Staff access required');
 
@@ -33,14 +39,18 @@ try {
 unset($_sql, $_e);
 
 $filters = [
-    'status'    => $_GET['status']    ?? null,
-    'date_from' => $_GET['date_from'] ?? null,
-    'date_to'   => $_GET['date_to']   ?? null,
-    'student'   => $_GET['student']   ?? null,
+    'status'      => $_GET['status']      ?? null,
+    'date_from'   => $_GET['date_from']   ?? null,
+    'date_to'     => $_GET['date_to']     ?? null,
+    'student'     => $_GET['student']     ?? null,
+    'scholarship' => $_GET['scholarship'] ?? null,
 ];
 
 $disbursements = getDisbursements($pdo, $filters, 'admin', $userId);
-$awards        = getEligibleAwards($pdo);
+$applications  = getEligibleApplications($pdo);
+
+// Get all scholarships for filter dropdown
+$scholarships = $pdo->query("SELECT DISTINCT id, title FROM scholarships ORDER BY title")->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 $page_title = 'Disbursements - ScholarHub';
 $base_path  = '../';
@@ -49,7 +59,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>💰 Disbursements</h1>
+  <h1><i class="fas fa-money-bill-wave"></i> Disbursements</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -71,6 +81,15 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </select>
     </div>
     <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+      <label>Scholarship</label>
+      <select name="scholarship" class="form-input">
+        <option value="">All</option>
+        <?php foreach($scholarships as $sch): ?>
+          <option value="<?= (int)$sch['id'] ?>" <?= ($filters['scholarship'] == $sch['id']) ? 'selected' : '' ?>><?= htmlspecialchars($sch['title']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:140px;">
       <label>Date From</label>
       <input type="date" name="date_from" class="form-input" value="<?= htmlspecialchars($filters['date_from'] ?? '') ?>">
     </div>
@@ -79,8 +98,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <input type="date" name="date_to" class="form-input" value="<?= htmlspecialchars($filters['date_to'] ?? '') ?>">
     </div>
     <div class="form-group" style="margin:0;flex:2;min-width:180px;">
-      <label>Student</label>
-      <input type="text" name="student" class="form-input" placeholder="Search..." value="<?= htmlspecialchars($filters['student'] ?? '') ?>">
+      <label>Student Name / ID</label>
+      <input type="text" name="student" class="form-input" placeholder="Search by name, ID, or email..." value="<?= htmlspecialchars($filters['student'] ?? '') ?>">
     </div>
     <button type="submit" class="btn btn-primary">Filter</button>
     <a href="disbursements.php" class="btn btn-ghost">Clear</a>
@@ -89,8 +108,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="content-card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);">
-    <h2>📋 Disbursement Records</h2>
-    <button onclick="document.getElementById('createModal').style.display='block'" class="btn btn-primary btn-sm">➕ Record Payment</button>
+    <h2><i class="fas fa-clipboard-list"></i> Disbursement Records</h2>
+    <button onclick="document.getElementById('createModal').style.display='block'" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Record Payment</button>
   </div>
 
   <?php if (!empty($disbursements)): ?>
@@ -101,9 +120,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <tbody>
         <?php foreach($disbursements as $d): ?>
           <tr>
-            <td><strong><?= htmlspecialchars($d['first_name'] . ' ' . $d['last_name']) ?></strong></td>
+            <td>
+              <strong><?= htmlspecialchars($d['first_name'] . ' ' . $d['last_name']) ?></strong><br>
+              <small class="text-muted">ID: <?= htmlspecialchars($d['student_id'] ?? 'N/A') ?></small><br>
+              <small class="text-muted"><?= htmlspecialchars($d['email']) ?></small>
+            </td>
             <td><?= htmlspecialchars($d['scholarship_title']) ?></td>
-            <td>₱<?= number_format((float)$d['amount'], 2) ?></td>
+            <td><strong>₱<?= number_format((float)$d['amount'], 2) ?></strong></td>
             <td><?= !empty($d['disbursement_date']) ? date('M d, Y', strtotime($d['disbursement_date'])) : '—' ?></td>
             <td>
               <?php $step = ['pending'=>1,'processing'=>2,'completed'=>3,'failed'=>0][$d['status']] ?? 0; ?>
@@ -160,7 +183,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </table>
   <?php else: ?>
     <div class="empty-state">
-      <div class="empty-state-icon">💰</div>
+      <div class="empty-state-icon"><i class="fas fa-money-bill-wave"></i></div>
       <h3 class="empty-state-title">No Disbursements</h3>
       <p class="empty-state-description">No records match your filters.</p>
     </div>
@@ -171,19 +194,19 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <div id="createModal" class="modal">
   <div class="modal-content" style="max-width:520px;">
     <div class="modal-header">
-      <h2>➕ Record Payment</h2>
+      <h2><i class="fas fa-plus"></i> Record Payment</h2>
       <span class="modal-close" onclick="document.getElementById('createModal').style.display='none'">&times;</span>
     </div>
     <form method="POST" action="../controllers/DisbursementController.php">
       <input type="hidden" name="action" value="create">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <div class="form-group">
-        <label>Award *</label>
-        <select name="award_id" class="form-input" required>
-          <option value="">Select award...</option>
-          <?php foreach($awards as $aw): ?>
-            <option value="<?= (int)$aw['id'] ?>">
-              <?= htmlspecialchars($aw['first_name'] . ' ' . $aw['last_name']) ?> — <?= htmlspecialchars($aw['scholarship_title']) ?>
+        <label>Application *</label>
+        <select name="application_id" class="form-input" required>
+          <option value="">Select application...</option>
+          <?php foreach($applications as $app): ?>
+            <option value="<?= (int)$app['id'] ?>">
+              <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?> — <?= htmlspecialchars($app['scholarship_title']) ?>
             </option>
           <?php endforeach; ?>
         </select>

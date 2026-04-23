@@ -82,7 +82,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>⚙️ System Settings</h1>
+  <h1><i class="fas fa-cog"></i> System Settings</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -94,7 +94,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <!-- SMTP Settings -->
 <div class="content-card" style="margin-bottom:var(--space-xl);">
-  <h2 style="margin-bottom:var(--space-lg);">📧 Email / SMTP Settings</h2>
+  <h2 style="margin-bottom:var(--space-lg);"><i class="fas fa-envelope"></i> Email / SMTP Settings</h2>
   <p class="text-muted" style="margin-bottom:var(--space-xl);">
     Configure outgoing email. Use Gmail with an <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a>,
     or any SMTP provider. Settings saved here override environment variables.
@@ -149,14 +149,14 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </div>
 
     <div style="margin-top:var(--space-lg);">
-      <button type="submit" class="btn btn-primary">💾 Save Email Settings</button>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Email Settings</button>
     </div>
   </form>
 </div>
 
 <!-- Test Email -->
 <div class="content-card" style="margin-bottom:var(--space-xl);">
-  <h2 style="margin-bottom:var(--space-lg);">🧪 Send Test Email</h2>
+  <h2 style="margin-bottom:var(--space-lg);"><i class="fas fa-flask"></i> Send Test Email</h2>
   <p class="text-muted" style="margin-bottom:var(--space-lg);">Send a test email to verify your SMTP settings are working.</p>
   <form method="POST" style="display:flex;gap:var(--space-md);align-items:flex-end;flex-wrap:wrap;">
     <input type="hidden" name="section" value="test_email">
@@ -165,13 +165,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <label class="form-label">Send test to</label>
       <input type="email" name="test_to" class="form-input" placeholder="your@email.com" required>
     </div>
-    <button type="submit" class="btn btn-primary">📤 Send Test</button>
+    <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Send Test</button>
   </form>
 </div>
 
 <!-- Quick Setup Guide -->
 <div class="content-card">
-  <h2 style="margin-bottom:var(--space-lg);">📖 Quick Setup Guide</h2>
+  <h2 style="margin-bottom:var(--space-lg);"><i class="fas fa-book"></i> Quick Setup Guide</h2>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-xl);">
 
     <div style="padding:var(--space-lg);background:var(--gray-50);border-radius:var(--r-lg);">

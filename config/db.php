@@ -263,7 +263,7 @@ function getPDO()
             INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Awards and disbursements tables intentionally omitted (removed per admin request)
+        // Ensure disbursements table removed - awards feature disabled
 
         // Ensure announcements table exists
         $pdo->exec("CREATE TABLE IF NOT EXISTS announcements (
@@ -355,26 +355,8 @@ function getPDO()
         try { $pdo->exec("ALTER TABLE login_attempts ADD COLUMN email VARCHAR(150) DEFAULT NULL"); } catch (Exception $e) {}
         try { $pdo->exec("ALTER TABLE login_attempts ADD INDEX idx_username_created (username, created_at)"); } catch (Exception $e) {}
 
-        // Ensure fraud_alerts table exists
-        $pdo->exec("CREATE TABLE IF NOT EXISTS fraud_alerts (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            alert_type VARCHAR(100) NOT NULL,
-            severity ENUM('low','medium','high','critical') DEFAULT 'medium',
-            user_id INT NOT NULL,
-            application_id INT NOT NULL,
-            document_id INT DEFAULT NULL,
-            description TEXT DEFAULT NULL,
-            evidence JSON DEFAULT NULL,
-            status ENUM('pending','reviewed','dismissed','confirmed') DEFAULT 'pending',
-            reviewed_by INT DEFAULT NULL,
-            reviewed_at DATETIME DEFAULT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_fa_user (user_id),
-            INDEX idx_fa_app (application_id),
-            INDEX idx_fa_status (status),
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        // Ensure fraud_alerts table removed - feature disabled
+        // Ensure surveys tables removed - feature disabled
 
         // Ensure disbursements table exists
         $pdo->exec("CREATE TABLE IF NOT EXISTS disbursements (
@@ -399,92 +381,55 @@ function getPDO()
             INDEX idx_dis_date (disbursement_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Ensure interview_slots table exists
-        $pdo->exec("CREATE TABLE IF NOT EXISTS interview_slots (
+        // NEW INTERVIEW SYSTEM TABLES
+        // Ensure interview_sessions table exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS interview_sessions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             scholarship_id INT NOT NULL,
-            interview_date DATE NOT NULL,
-            interview_time TIME NOT NULL,
-            duration_minutes INT DEFAULT 30,
-            interview_type ENUM('in-person','online','phone') DEFAULT 'in-person',
-            location VARCHAR(255) DEFAULT NULL,
-            meeting_link VARCHAR(500) DEFAULT NULL,
-            max_applicants INT DEFAULT 1,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
-            INDEX idx_is_scholarship (scholarship_id),
-            INDEX idx_is_date (interview_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-        // Ensure interview_bookings table exists
-        $pdo->exec("CREATE TABLE IF NOT EXISTS interview_bookings (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            slot_id INT NOT NULL,
-            application_id INT NOT NULL,
-            user_id INT NOT NULL,
-            status ENUM('scheduled','confirmed','completed','cancelled','no-show') DEFAULT 'scheduled',
-            booked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            confirmed_at DATETIME DEFAULT NULL,
-            cancelled_at DATETIME DEFAULT NULL,
-            UNIQUE KEY uq_ib_slot_app (slot_id, application_id),
-            FOREIGN KEY (slot_id) REFERENCES interview_slots(id) ON DELETE CASCADE,
-            FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            INDEX idx_ib_user (user_id),
-            INDEX idx_ib_status (status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-        // Ensure surveys table exists
-        $pdo->exec("CREATE TABLE IF NOT EXISTS surveys (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(255) NOT NULL,
-            description TEXT,
-            scholarship_id INT DEFAULT NULL,
-            cycle_label VARCHAR(100) DEFAULT NULL,
-            status ENUM('draft','active','closed') DEFAULT 'draft',
-            created_by INT NOT NULL,
+            session_date DATE NOT NULL,
+            time_block ENUM('AM','PM') NOT NULL,
+            time_start TIME NOT NULL,
+            time_end TIME NOT NULL,
+            status ENUM('scheduled','ongoing','completed','cancelled') DEFAULT 'scheduled',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE SET NULL,
-            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-            INDEX idx_surveys_status (status)
+            UNIQUE KEY uq_session (scholarship_id, session_date, time_block),
+            FOREIGN KEY (scholarship_id) REFERENCES scholarships(id) ON DELETE CASCADE,
+            INDEX idx_session_date (session_date),
+            INDEX idx_time_block (time_block)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        $pdo->exec("CREATE TABLE IF NOT EXISTS survey_questions (
+        // Ensure interview_groups table exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS interview_groups (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            survey_id INT NOT NULL,
-            question VARCHAR(500) NOT NULL,
-            type ENUM('text','multiple_choice','rating_scale','textarea') DEFAULT 'text',
-            options JSON DEFAULT NULL,
-            sort_order INT DEFAULT 0,
-            required TINYINT(1) DEFAULT 1,
+            session_id INT NOT NULL,
+            group_code VARCHAR(10) NOT NULL,
+            max_capacity INT DEFAULT 10,
+            current_count INT DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
-            INDEX idx_sq_survey (survey_id)
+            UNIQUE KEY uq_group (session_id, group_code),
+            FOREIGN KEY (session_id) REFERENCES interview_sessions(id) ON DELETE CASCADE,
+            INDEX idx_group_code (group_code)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        $pdo->exec("CREATE TABLE IF NOT EXISTS survey_responses (
+        // Ensure interview_assignments table exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS interview_assignments (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            survey_id INT NOT NULL,
-            user_id INT NOT NULL,
-            application_id INT DEFAULT NULL,
-            submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_sr_survey_user (survey_id, user_id),
-            FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE SET NULL,
-            INDEX idx_sr_user (user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-        $pdo->exec("CREATE TABLE IF NOT EXISTS survey_answers (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            response_id INT NOT NULL,
-            question_id INT NOT NULL,
-            answer TEXT DEFAULT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (response_id) REFERENCES survey_responses(id) ON DELETE CASCADE,
-            FOREIGN KEY (question_id) REFERENCES survey_questions(id) ON DELETE CASCADE,
-            INDEX idx_sa_response (response_id)
+            application_id INT NOT NULL,
+            group_id INT NOT NULL,
+            assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            locked TINYINT(1) DEFAULT 1,
+            attendance_status ENUM('pending','present','absent') DEFAULT 'pending',
+            orientation_status ENUM('pending','done') DEFAULT 'pending',
+            interview_status ENUM('pending','done') DEFAULT 'pending',
+            final_status ENUM('pending','completed') DEFAULT 'pending',
+            notes TEXT DEFAULT NULL,
+            UNIQUE KEY uq_assignment (application_id),
+            FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+            FOREIGN KEY (group_id) REFERENCES interview_groups(id) ON DELETE CASCADE,
+            INDEX idx_group_id (group_id),
+            INDEX idx_locked (locked),
+            INDEX idx_final_status (final_status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Ensure feedback table exists
@@ -505,8 +450,6 @@ function getPDO()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Add missing columns to applications table
-        try { $pdo->exec("ALTER TABLE applications ADD COLUMN fraud_score INT DEFAULT 0"); } catch (Exception $e) {}
-        try { $pdo->exec("ALTER TABLE applications ADD COLUMN fraud_checked_at DATETIME DEFAULT NULL"); } catch (Exception $e) {}
         try { $pdo->exec("ALTER TABLE applications ADD COLUMN family_income DECIMAL(12,2) DEFAULT NULL"); } catch (Exception $e) {}
         try { $pdo->exec("ALTER TABLE applications ADD COLUMN title VARCHAR(255) DEFAULT NULL"); } catch (Exception $e) {}
         try { $pdo->exec("ALTER TABLE applications ADD COLUMN details TEXT DEFAULT NULL"); } catch (Exception $e) {}
@@ -525,6 +468,8 @@ function getPDO()
 
         // Add missing columns to users table
         try { $pdo->exec("ALTER TABLE users ADD COLUMN profile_picture VARCHAR(500) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN student_id VARCHAR(50) UNIQUE DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE users ADD INDEX idx_student_id (student_id)"); } catch (Exception $e) {}
 
         return $pdo;
     } catch (PDOException $e) {

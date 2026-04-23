@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/FeedbackHelper.php';
@@ -9,7 +9,7 @@ requireLogin();
 requireRole('student', 'Student access required');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: ../member/feedback.php');
+    header('Location: ../students/feedback.php');
     exit;
 }
 
@@ -20,7 +20,7 @@ $action = $_POST['action'] ?? '';
 if ($action === 'submit_feedback') {
     if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
         $_SESSION['flash'] = 'Invalid request token.';
-        header('Location: ../member/feedback.php');
+        header('Location: ../students/feedback.php');
         exit;
     }
 
@@ -30,7 +30,7 @@ if ($action === 'submit_feedback') {
 
     if ($rating < 1 || $rating > 5) {
         $_SESSION['flash'] = 'Rating must be between 1 and 5.';
-        header('Location: ../member/feedback.php');
+        header('Location: ../students/feedback.php');
         exit;
     }
 
@@ -41,13 +41,13 @@ if ($action === 'submit_feedback') {
 
     if (!$app || !in_array($app['status'], ['approved', 'completed'])) {
         $_SESSION['flash'] = 'Application not eligible for feedback.';
-        header('Location: ../member/feedback.php');
+        header('Location: ../students/feedback.php');
         exit;
     }
 
     if (feedbackExists($pdo, $applicationId)) {
         $_SESSION['flash'] = 'You have already submitted feedback for this application.';
-        header('Location: ../member/feedback.php');
+        header('Location: ../students/feedback.php');
         exit;
     }
 
@@ -61,5 +61,5 @@ if ($action === 'submit_feedback') {
     }
 }
 
-header('Location: ../member/feedback.php');
+header('Location: ../students/feedback.php');
 exit;

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/helpers/SecurityHelper.php';
 startSecureSession();
 http_response_code(404);
@@ -25,15 +25,15 @@ $page_title = '404 - Page Not Found | ScholarHub';
     <h2 style="margin-bottom:var(--space-md);">Page Not Found</h2>
     <p class="text-muted" style="margin-bottom:var(--space-xl);">The page you're looking for doesn't exist or has been moved.</p>
     <div style="display:flex;gap:var(--space-md);justify-content:center;flex-wrap:wrap;">
-      <a href="javascript:history.back()" class="btn btn-ghost">← Go Back</a>
+      <a href="javascript:history.back()" class="btn btn-ghost">? Go Back</a>
       <?php if (isset($_SESSION['user_id'])): ?>
         <?php
           $role = $_SESSION['user']['role'] ?? 'student';
-          $dash = match($role) { 'admin' => 'admin/dashboard.php', 'staff' => 'staff/dashboard.php', default => 'member/dashboard.php' };
+          $dash = match($role) { 'admin' => 'admin/dashboard.php', 'staff' => 'staff/dashboard.php', default => 'students/dashboard.php' };
         ?>
-        <a href="<?= $dash ?>" class="btn btn-primary">🏠 Dashboard</a>
+        <a href="<?= $dash ?>" class="btn btn-primary">?? Dashboard</a>
       <?php else: ?>
-        <a href="index.php" class="btn btn-primary">🏠 Home</a>
+        <a href="index.php" class="btn btn-primary">?? Home</a>
       <?php endif; ?>
     </div>
   </div>

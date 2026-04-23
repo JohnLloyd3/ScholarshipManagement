@@ -101,7 +101,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>⚙️ Automation / Cron Control</h1>
+  <h1><i class="fas fa-cog"></i> Automation / Cron Control</h1>
 </div>
 
 <?php if ($message): ?>

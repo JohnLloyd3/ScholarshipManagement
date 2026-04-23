@@ -1,12 +1,17 @@
 ﻿<?php
+/**
+ * ADMIN — DISBURSEMENTS
+ * Role: Admin
+ * Purpose: Track and manage scholarship payment disbursements per student
+ * URL: /admin/disbursements.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/DisbursementHelper.php';
 
 startSecureSession();
-
 requireLogin();
-requireAnyRole(['admin'], 'Admin access required');
+requireRole('admin', 'Admin access required');
 
 $pdo    = getPDO();
 $userId = $_SESSION['user_id'];
@@ -38,14 +43,18 @@ unset($_sql, $_e);
 
 // Filters
 $filters = [
-    'status'    => $_GET['status']    ?? null,
-    'date_from' => $_GET['date_from'] ?? null,
-    'date_to'   => $_GET['date_to']   ?? null,
-    'student'   => $_GET['student']   ?? null,
+    'status'      => !empty($_GET['status']) ? $_GET['status'] : null,
+    'date_from'   => !empty($_GET['date_from']) ? $_GET['date_from'] : null,
+    'date_to'     => !empty($_GET['date_to']) ? $_GET['date_to'] : null,
+    'student'     => !empty($_GET['student']) ? $_GET['student'] : null,
+    'scholarship' => !empty($_GET['scholarship']) ? $_GET['scholarship'] : null,
 ];
 
 $disbursements = getDisbursements($pdo, $filters, 'admin', $userId);
-$awards        = getEligibleAwards($pdo);
+$applications  = getEligibleApplications($pdo);
+
+// Get all scholarships for filter dropdown
+$scholarships = $pdo->query("SELECT DISTINCT id, title FROM scholarships ORDER BY title")->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // Summary stats
 $totalAmount = array_sum(array_column($disbursements, 'amount'));
@@ -58,7 +67,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>💰 Disbursements</h1>
+  <h1><i class="fas fa-money-bill-wave"></i> Disbursements</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -69,34 +78,39 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <?php endif; ?>
 
 <!-- Stats -->
-<div class="stats-grid" style="margin-bottom:var(--space-xl);">
+<div class="stats-grid stats-grid-5" style="margin-bottom:1.5rem;">
   <div class="stat-card">
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div></div>
     <div class="stat-value">₱<?= number_format($totalAmount, 2) ?></div>
     <div class="stat-label">Total Disbursed</div>
   </div>
   <div class="stat-card">
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-clipboard-list"></i></div></div>
     <div class="stat-value"><?= count($disbursements) ?></div>
     <div class="stat-label">Total Records</div>
   </div>
   <div class="stat-card">
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-hourglass-half"></i></div></div>
     <div class="stat-value"><?= $byStatus['pending'] ?? 0 ?></div>
     <div class="stat-label">Pending</div>
   </div>
   <div class="stat-card">
+    <div class="stat-card-top"><div class="stat-icon">🔄</div></div>
     <div class="stat-value"><?= $byStatus['processing'] ?? 0 ?></div>
     <div class="stat-label">Processing</div>
   </div>
   <div class="stat-card">
+    <div class="stat-card-top"><div class="stat-icon">✅</div></div>
     <div class="stat-value"><?= $byStatus['completed'] ?? 0 ?></div>
     <div class="stat-label">Completed</div>
   </div>
 </div>
 
-<!-- Filters + Actions -->
-<div class="content-card" style="margin-bottom:var(--space-lg);">
-  <form method="GET" style="display:flex;flex-wrap:wrap;gap:var(--space-md);align-items:flex-end;">
-    <div class="form-group" style="margin:0;flex:1;min-width:150px;">
-      <label>Status</label>
+<!-- Filters -->
+<div class="filter-bar">
+  <form method="GET" style="display:contents;">
+    <div class="form-group">
+      <label class="form-label">Status</label>
       <select name="status" class="form-input">
         <option value="">All</option>
         <?php foreach(['pending','processing','completed','failed'] as $s): ?>
@@ -104,17 +118,26 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         <?php endforeach; ?>
       </select>
     </div>
-    <div class="form-group" style="margin:0;flex:1;min-width:150px;">
-      <label>Date From</label>
+    <div class="form-group">
+      <label class="form-label">Scholarship</label>
+      <select name="scholarship" class="form-input">
+        <option value="">All</option>
+        <?php foreach($scholarships as $sch): ?>
+          <option value="<?= (int)$sch['id'] ?>" <?= ($filters['scholarship'] == $sch['id']) ? 'selected' : '' ?>><?= htmlspecialchars($sch['title']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date From</label>
       <input type="date" name="date_from" class="form-input" value="<?= htmlspecialchars($filters['date_from'] ?? '') ?>">
     </div>
-    <div class="form-group" style="margin:0;flex:1;min-width:150px;">
-      <label>Date To</label>
+    <div class="form-group">
+      <label class="form-label">Date To</label>
       <input type="date" name="date_to" class="form-input" value="<?= htmlspecialchars($filters['date_to'] ?? '') ?>">
     </div>
-    <div class="form-group" style="margin:0;flex:2;min-width:200px;">
-      <label>Student Name</label>
-      <input type="text" name="student" class="form-input" placeholder="Search student..." value="<?= htmlspecialchars($filters['student'] ?? '') ?>">
+    <div class="form-group" style="flex:2;min-width:180px;">
+      <label class="form-label">Student Name / ID</label>
+      <input type="text" name="student" class="form-input" placeholder="Search by name, ID, or email..." value="<?= htmlspecialchars($filters['student'] ?? '') ?>">
     </div>
     <button type="submit" class="btn btn-primary">Filter</button>
     <a href="disbursements.php" class="btn btn-ghost">Clear</a>
@@ -123,30 +146,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <!-- Table -->
 <div class="content-card">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);flex-wrap:wrap;gap:var(--space-md);">
-    <h2>📋 Disbursement Records</h2>
-    <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;">
-      <!-- Export forms carry current filters -->
-      <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-        <input type="hidden" name="action" value="export_csv">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-        <input type="hidden" name="filter_status" value="<?= htmlspecialchars($filters['status'] ?? '') ?>">
-        <input type="hidden" name="filter_date_from" value="<?= htmlspecialchars($filters['date_from'] ?? '') ?>">
-        <input type="hidden" name="filter_date_to" value="<?= htmlspecialchars($filters['date_to'] ?? '') ?>">
-        <input type="hidden" name="filter_student" value="<?= htmlspecialchars($filters['student'] ?? '') ?>">
-        <button type="submit" class="btn btn-ghost btn-sm">📥 CSV</button>
-      </form>
-      <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-        <input type="hidden" name="action" value="export_pdf">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-        <input type="hidden" name="filter_status" value="<?= htmlspecialchars($filters['status'] ?? '') ?>">
-        <input type="hidden" name="filter_date_from" value="<?= htmlspecialchars($filters['date_from'] ?? '') ?>">
-        <input type="hidden" name="filter_date_to" value="<?= htmlspecialchars($filters['date_to'] ?? '') ?>">
-        <input type="hidden" name="filter_student" value="<?= htmlspecialchars($filters['student'] ?? '') ?>">
-        <button type="submit" class="btn btn-ghost btn-sm">📄 PDF</button>
-      </form>
-      <button onclick="document.getElementById('createModal').style.display='block'" class="btn btn-primary btn-sm">➕ New Disbursement</button>
-    </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h3 style="margin:0;"><i class="fas fa-clipboard-list"></i> Disbursement Records</h3>
+    <button onclick="document.getElementById('createModal').style.display='flex'" class="btn btn-primary btn-sm">+ New Disbursement</button>
   </div>
 
   <?php if (!empty($disbursements)): ?>
@@ -166,6 +168,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <tr>
             <td>
               <strong><?= htmlspecialchars($d['first_name'] . ' ' . $d['last_name']) ?></strong><br>
+              <small class="text-muted">ID: <?= htmlspecialchars($d['student_id'] ?? 'N/A') ?></small><br>
               <small class="text-muted"><?= htmlspecialchars($d['email']) ?></small>
             </td>
             <td><?= htmlspecialchars($d['scholarship_title']) ?></td>
@@ -173,64 +176,40 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td><?= !empty($d['disbursement_date']) ? date('M d, Y', strtotime($d['disbursement_date'])) : '—' ?></td>
             <td>
               <?php
-                $steps = ['pending' => 1, 'processing' => 2, 'completed' => 3, 'failed' => 0];
-                $step  = $steps[$d['status']] ?? 0;
-                $colors = ['pending' => '#d97706', 'processing' => '#2563eb', 'completed' => '#16a34a', 'failed' => '#dc2626'];
-                $sc = $colors[$d['status']] ?? '#6b7280';
+                $statusColors = [
+                  'pending'    => ['bg'=>'#fef3c7','color'=>'#92400e'],
+                  'processing' => ['bg'=>'#dbeafe','color'=>'#1e40af'],
+                  'completed'  => ['bg'=>'#d1fae5','color'=>'#065f46'],
+                  'failed'     => ['bg'=>'#fee2e2','color'=>'#991b1b'],
+                ];
+                $nextStatus = ['pending'=>'processing','processing'=>'completed','completed'=>'completed','failed'=>'processing'];
+                $sc = $statusColors[$d['status']] ?? ['bg'=>'#f3f4f6','color'=>'#6b7280'];
+                $next = $nextStatus[$d['status']] ?? null;
               ?>
-              <div style="display:flex;align-items:center;gap:4px;font-size:0.75rem;">
-                <span style="padding:2px 8px;border-radius:9999px;background:<?= $step>=1?'#fef3c7':'#f3f4f6' ?>;color:<?= $step>=1?'#92400e':'#9ca3af' ?>;font-weight:600;">Pending</span>
-                <span style="color:#d1d5db;">›</span>
-                <span style="padding:2px 8px;border-radius:9999px;background:<?= $step>=2?'#dbeafe':'#f3f4f6' ?>;color:<?= $step>=2?'#1e40af':'#9ca3af' ?>;font-weight:600;">Processing</span>
-                <span style="color:#d1d5db;">›</span>
-                <span style="padding:2px 8px;border-radius:9999px;background:<?= $step>=3?'#d1fae5':'#f3f4f6' ?>;color:<?= $step>=3?'#065f46':'#9ca3af' ?>;font-weight:600;">Completed</span>
-                <?php if ($d['status'] === 'failed'): ?>
-                  <span style="padding:2px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;">Failed</span>
-                <?php endif; ?>
-              </div>
+              <?php if ($d['status'] !== 'completed'): ?>
+                <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
+                  <input type="hidden" name="action" value="update_status">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                  <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
+                  <input type="hidden" name="status" value="<?= htmlspecialchars($next) ?>">
+                  <button type="submit" style="background:<?= $sc['bg'] ?>;color:<?= $sc['color'] ?>;border:none;padding:4px 12px;border-radius:9999px;font-weight:600;font-size:0.78rem;cursor:pointer;" title="Click to advance status">
+                    <?= ucfirst($d['status']) ?> ›
+                  </button>
+                </form>
+              <?php else: ?>
+                <span style="background:<?= $sc['bg'] ?>;color:<?= $sc['color'] ?>;padding:4px 12px;border-radius:9999px;font-weight:600;font-size:0.78rem;">
+                  ✓ Completed
+                </span>
+              <?php endif; ?>
             </td>
             <td>
               <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
-                <?php if ($d['status'] === 'pending'): ?>
-                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="processing">
-                    <button type="submit" class="btn btn-primary btn-sm">Mark Processing</button>
-                  </form>
-                <?php elseif ($d['status'] === 'processing'): ?>
-                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="completed">
-                    <button type="submit" class="btn btn-primary btn-sm" style="background:#16a34a;border-color:#16a34a;" onclick="return confirm('Mark as Completed? This will notify the student.')">✓ Complete</button>
-                  </form>
-                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="failed">
-                    <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;">✗ Failed</button>
-                  </form>
-                <?php elseif ($d['status'] === 'completed'): ?>
-                  <span style="color:#16a34a;font-weight:600;font-size:0.85rem;">✓ Paid</span>
-                <?php elseif ($d['status'] === 'failed'): ?>
-                  <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                    <input type="hidden" name="status" value="processing">
-                    <button type="submit" class="btn btn-ghost btn-sm">↺ Retry</button>
-                  </form>
-                <?php endif; ?>
-                <button onclick="openEditModal(<?= htmlspecialchars(json_encode($d)) ?>)" class="btn btn-ghost btn-sm" title="Edit">✏️</button>
+                <button onclick="openEditModal(<?= htmlspecialchars(json_encode($d)) ?>)" class="btn btn-ghost btn-sm" title="Edit"><i class="fas fa-edit"></i></button>
                 <form method="POST" action="../controllers/DisbursementController.php" style="display:inline;" onsubmit="return confirm('Delete this disbursement?')">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                   <input type="hidden" name="disbursement_id" value="<?= (int)$d['id'] ?>">
-                  <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;" title="Delete" data-tip="Delete">🗑️</button>
+                  <button type="submit" class="btn btn-ghost btn-sm" style="color:#dc2626;" title="Delete"><i class="fas fa-trash"></i></button>
                 </form>
               </div>
             </td>
@@ -240,7 +219,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </table>
   <?php else: ?>
     <div class="empty-state">
-      <div class="empty-state-icon">💰</div>
+      <div class="empty-state-icon"><i class="fas fa-money-bill-wave"></i></div>
       <h3 class="empty-state-title">No Disbursements</h3>
       <p class="empty-state-description">Create the first disbursement record.</p>
     </div>
@@ -249,43 +228,43 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <!-- Create Modal -->
 <div id="createModal" class="modal">
-  <div class="modal-content" style="max-width:560px;">
+  <div class="modal-content">
     <div class="modal-header">
-      <h2>➕ New Disbursement</h2>
-      <span class="modal-close" onclick="document.getElementById('createModal').style.display='none'">&times;</span>
+      <span>New Disbursement</span>
+      <button class="modal-close" onclick="document.getElementById('createModal').style.display='none'">&times;</button>
     </div>
     <form method="POST" action="../controllers/DisbursementController.php">
       <input type="hidden" name="action" value="create">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <div class="form-group">
-        <label>Award (Student / Scholarship) *</label>
-        <select name="award_id" class="form-input" required>
-          <option value="">Select award...</option>
-          <?php foreach($awards as $aw): ?>
-            <option value="<?= (int)$aw['id'] ?>">
-              <?= htmlspecialchars($aw['first_name'] . ' ' . $aw['last_name']) ?> — <?= htmlspecialchars($aw['scholarship_title']) ?> (₱<?= number_format((float)$aw['award_amount'], 2) ?>)
+        <label class="form-label">Application (Student / Scholarship) *</label>
+        <select name="application_id" class="form-input" required>
+          <option value="">Select application...</option>
+          <?php foreach($applications as $app): ?>
+            <option value="<?= (int)$app['id'] ?>">
+              <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?> — <?= htmlspecialchars($app['scholarship_title']) ?> (₱<?= number_format((float)$app['application_amount'], 2) ?>)
             </option>
           <?php endforeach; ?>
         </select>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Amount (₱) *</label>
+          <label class="form-label">Amount (₱) *</label>
           <input type="number" name="amount" class="form-input" step="0.01" min="0.01" required placeholder="0.00">
         </div>
         <div class="form-group">
-          <label>Disbursement Date *</label>
+          <label class="form-label">Disbursement Date *</label>
           <input type="date" name="disbursement_date" class="form-input" required value="<?= date('Y-m-d') ?>">
         </div>
       </div>
       <div class="form-group">
-        <label>Payment Method</label>
+        <label class="form-label">Payment Method</label>
         <input type="text" class="form-input" value="Cash" disabled>
         <input type="hidden" name="payment_method" value="Cash">
       </div>
       <div class="form-group">
-        <label>Notes</label>
-        <textarea name="notes" class="form-textarea" rows="2" placeholder="Optional notes"></textarea>
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-input" rows="2" placeholder="Optional notes"></textarea>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('createModal').style.display='none'">Cancel</button>
@@ -297,10 +276,10 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <!-- Edit Modal -->
 <div id="editModal" class="modal">
-  <div class="modal-content" style="max-width:560px;">
+  <div class="modal-content">
     <div class="modal-header">
-      <h2>✏️ Edit Disbursement</h2>
-      <span class="modal-close" onclick="document.getElementById('editModal').style.display='none'">&times;</span>
+      <span>Edit Disbursement</span>
+      <button class="modal-close" onclick="document.getElementById('editModal').style.display='none'">&times;</button>
     </div>
     <form method="POST" action="../controllers/DisbursementController.php">
       <input type="hidden" name="action" value="update">
@@ -308,23 +287,19 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <input type="hidden" name="disbursement_id" id="edit_id">
       <div class="form-row">
         <div class="form-group">
-          <label>Amount (₱) *</label>
+          <label class="form-label">Amount (₱) *</label>
           <input type="number" name="amount" id="edit_amount" class="form-input" step="0.01" min="0.01" required>
         </div>
         <div class="form-group">
-          <label>Disbursement Date *</label>
+          <label class="form-label">Disbursement Date *</label>
           <input type="date" name="disbursement_date" id="edit_date" class="form-input" required>
         </div>
       </div>
       <div class="form-group">
-        <label>Payment Method</label>
-        <input type="text" class="form-input" value="Cash" disabled>
-        <input type="hidden" name="payment_method" value="Cash">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" id="edit_notes" class="form-input" rows="2"></textarea>
       </div>
-      <div class="form-group">
-        <label>Notes</label>
-        <textarea name="notes" id="edit_notes" class="form-textarea" rows="2"></textarea>
-      </div>
+      <input type="hidden" name="payment_method" value="Cash">
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('editModal').style.display='none'">Cancel</button>
         <button type="submit" class="btn btn-primary">Save Changes</button>

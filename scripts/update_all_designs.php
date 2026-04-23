@@ -10,32 +10,32 @@ echo "🎨 Starting Complete Design System Update...\n\n";
 // Define all files to update with their configurations
 $updates = [
     // MEMBER PAGES
-    'member/applications.php' => [
+    'students/applications.php' => [
         'title' => 'My Applications - ScholarHub',
         'has_sidebar' => true,
         'base_path' => '../'
     ],
-    'member/profile.php' => [
+    'students/profile.php' => [
         'title' => 'My Profile - ScholarHub',
         'has_sidebar' => true,
         'base_path' => '../'
     ],
-    'member/notifications.php' => [
+    'students/notifications.php' => [
         'title' => 'Notifications - ScholarHub',
         'has_sidebar' => true,
         'base_path' => '../'
     ],
-    'member/apply_scholarship.php' => [
+    'students/apply_scholarship.php' => [
         'title' => 'Apply for Scholarship - ScholarHub',
         'has_sidebar' => true,
         'base_path' => '../'
     ],
-    'member/scholarship_view.php' => [
+    'students/scholarship_view.php' => [
         'title' => 'Scholarship Details - ScholarHub',
         'has_sidebar' => true,
         'base_path' => '../'
     ],
-    'member/document_view.php' => [
+    'students/document_view.php' => [
         'title' => 'Document Viewer - ScholarHub',
         'has_sidebar' => true,
         'base_path' => '../'

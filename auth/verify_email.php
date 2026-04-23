@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
@@ -6,7 +6,7 @@ startSecureSession();
 
 // Already logged in
 if (isset($_SESSION['user_id'])) {
-    header('Location: ../member/dashboard.php');
+    header('Location: ../students/dashboard.php');
     exit;
 }
 
@@ -20,18 +20,34 @@ if (!$token) {
     try {
         $pdo = getPDO();
 
-        // Try email_verifications table first
+        // Check activations table
         $userId = null;
         try {
-            $stmt = $pdo->prepare('SELECT user_id FROM email_verifications WHERE token = :token AND expires_at > NOW() LIMIT 1');
+            $stmt = $pdo->prepare('SELECT user_id FROM activations WHERE token = :token LIMIT 1');
             $stmt->execute([':token' => $token]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($row) {
                 $userId = (int)$row['user_id'];
-                $pdo->prepare('DELETE FROM email_verifications WHERE token = :token')->execute([':token' => $token]);
+                // Delete the token after successful verification
+                $pdo->prepare('DELETE FROM activations WHERE token = :token')->execute([':token' => $token]);
             }
         } catch (Exception $e) {
-            // Table may not exist — fall back to verification_token column
+            error_log('[verify_email] activations table error: ' . $e->getMessage());
+        }
+
+        // Fallback: try email_verifications table
+        if (!$userId) {
+            try {
+                $stmt = $pdo->prepare('SELECT user_id FROM email_verifications WHERE token = :token AND expires_at > NOW() LIMIT 1');
+                $stmt->execute([':token' => $token]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($row) {
+                    $userId = (int)$row['user_id'];
+                    $pdo->prepare('DELETE FROM email_verifications WHERE token = :token')->execute([':token' => $token]);
+                }
+            } catch (Exception $e) {
+                // Table may not exist
+            }
         }
 
         // Fallback: check verification_token column on users table
@@ -78,12 +94,12 @@ if (!$token) {
 <body>
   <div class="auth-card fade-in">
     <?php if ($success): ?>
-      <div class="icon">✅</div>
+      <div class="icon">?</div>
       <h2>Email Verified!</h2>
       <p class="text-muted" style="margin: var(--space-lg) 0;">Your account has been activated. You can now log in.</p>
       <a href="login.php" class="btn btn-primary" style="width:100%;">Go to Login</a>
     <?php else: ?>
-      <div class="icon">❌</div>
+      <div class="icon">?</div>
       <h2>Verification Failed</h2>
       <p class="text-muted" style="margin: var(--space-lg) 0;"><?= htmlspecialchars($error) ?></p>
       <a href="register.php" class="btn btn-primary" style="width:100%;">Register Again</a>

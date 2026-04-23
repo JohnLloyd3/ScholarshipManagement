@@ -1,38 +1,88 @@
 ﻿<?php
+/**
+ * STAFF DASHBOARD
+ * Role: Staff / Admin
+ * Purpose: Staff overview — applications, disbursements, feedback stats
+ * URL: /staff/dashboard.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 startSecureSession();
-
 requireLogin();
-requireAnyRole(['admin', 'staff'], 'Staff access required');
+requireAnyRole(['staff', 'admin'], 'Staff access required');
 
 $pdo = getPDO();
 
 try {
+    // Basic stats
     $openScholarships   = (int)$pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn();
     $totalApplications  = (int)$pdo->query("SELECT COUNT(*) FROM applications")->fetchColumn();
     $pendingApplications = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status IN ('submitted','pending','under_review')")->fetchColumn();
     $approvedApplications = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'approved'")->fetchColumn();
 
-    // Disbursements
-    $pendingDisbursements = (int)$pdo->query("SELECT COUNT(*) FROM disbursements WHERE status = 'pending' AND deleted_at IS NULL")->fetchColumn();
-    $totalDisbursed = (float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM disbursements WHERE status = 'completed' AND deleted_at IS NULL")->fetchColumn();
+    // Disbursements - check if deleted_at column exists
+    $hasDeletedAt = false;
+    try {
+        $hasDeletedAt = (bool)$pdo->query("SHOW COLUMNS FROM `disbursements` LIKE 'deleted_at'")->fetch();
+    } catch (Exception $e) {
+        error_log('[staff/dashboard] Column check error: ' . $e->getMessage());
+    }
+    
+    if ($hasDeletedAt) {
+        $pendingDisbursements = (int)$pdo->query("SELECT COUNT(*) FROM disbursements WHERE status = 'pending' AND deleted_at IS NULL")->fetchColumn();
+        $totalDisbursed = (float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM disbursements WHERE status = 'completed' AND deleted_at IS NULL")->fetchColumn();
+    } else {
+        $pendingDisbursements = (int)$pdo->query("SELECT COUNT(*) FROM disbursements WHERE status = 'pending'")->fetchColumn();
+        $totalDisbursed = (float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM disbursements WHERE status = 'completed'")->fetchColumn();
+    }
 
-    // Feedback
-    $totalFeedback = (int)$pdo->query("SELECT COUNT(*) FROM feedback")->fetchColumn();
-    $avgRating = round((float)$pdo->query("SELECT COALESCE(AVG(rating),0) FROM feedback")->fetchColumn(), 1);
+    // Feedback stats
+    try {
+        $totalFeedback = (int)$pdo->query("SELECT COUNT(*) FROM feedback")->fetchColumn();
+        $avgRating = round((float)$pdo->query("SELECT COALESCE(AVG(rating),0) FROM feedback")->fetchColumn(), 1);
+    } catch (Exception $e) {
+        error_log('[staff/dashboard] Feedback stats error: ' . $e->getMessage());
+        $totalFeedback = 0;
+        $avgRating = 0;
+    }
+    
+    // Interview stats - NEW SYSTEM
+    try {
+        $totalInterviewSessions = (int)$pdo->query("SELECT COUNT(*) FROM interview_sessions")->fetchColumn();
+        $totalInterviewAssignments = (int)$pdo->query("SELECT COUNT(*) FROM interview_assignments")->fetchColumn();
+        $upcomingInterviews = (int)$pdo->query("SELECT COUNT(*) FROM interview_sessions WHERE session_date >= CURDATE()")->fetchColumn();
+    } catch (Exception $e) {
+        error_log('[staff/dashboard] Interview stats error: ' . $e->getMessage());
+        $totalInterviewSessions = 0;
+        $totalInterviewAssignments = 0;
+        $upcomingInterviews = 0;
+    }
 
     // Recent applications
-    $stmt = $pdo->query("SELECT a.id, a.status, a.created_at, u.first_name, u.last_name, s.title AS scholarship_title FROM applications a JOIN users u ON a.user_id = u.id JOIN scholarships s ON a.scholarship_id = s.id WHERE a.status != 'draft' ORDER BY a.created_at DESC LIMIT 8");
-    $recentApps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->query("SELECT a.id, a.status, a.created_at, u.first_name, u.last_name, s.title AS scholarship_title 
+                             FROM applications a 
+                             JOIN users u ON a.user_id = u.id 
+                             JOIN scholarships s ON a.scholarship_id = s.id 
+                             WHERE a.status != 'draft' 
+                             ORDER BY a.created_at DESC 
+                             LIMIT 8");
+        $recentApps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log('[staff/dashboard] Recent apps error: ' . $e->getMessage());
+        $recentApps = [];
+    }
 
 } catch (Exception $e) {
-    error_log('[staff/dashboard] ' . $e->getMessage());
+    error_log('[staff/dashboard] Critical error: ' . $e->getMessage());
     $openScholarships = $totalApplications = $pendingApplications = $approvedApplications = 0;
     $pendingDisbursements = $totalDisbursed = $totalFeedback = $avgRating = 0;
+    $totalInterviewSessions = $totalInterviewAssignments = $upcomingInterviews = 0;
     $recentApps = [];
 }
+
+$staffName = trim(($_SESSION['user']['first_name'] ?? '') . ' ' . ($_SESSION['user']['last_name'] ?? '')) ?: 'Staff';
 
 $page_title = 'Staff Dashboard - ScholarHub';
 $base_path  = '../';
@@ -40,115 +90,123 @@ require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
+<!-- Welcome Banner -->
 <div class="page-header">
-  <h1>📊 Staff Dashboard</h1>
+  <div>
+    <h1>Welcome, <?= htmlspecialchars($staffName) ?>!</h1>
+    <p>Staff Dashboard</p>
+  </div>
+  <div class="page-header-icon"><i class="fas fa-chart-line"></i></div>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
   <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
 <?php endif; ?>
 <?php if (!empty($_SESSION['flash'])): ?>
-  <div class="alert alert-danger"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
+  <div class="alert alert-error"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
 <?php endif; ?>
 
-<div class="stats-grid" style="margin-bottom:var(--space-xl);">
+<!-- Stats Grid -->
+<div class="stats-grid stats-grid-4" style="margin-bottom:var(--space-xl);">
   <div class="stat-card">
-    <div class="stat-icon">🎓</div>
-    <div class="stat-value"><?= $openScholarships ?></div>
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-graduation-cap"></i></div></div>
+    <div class="stat-value"><?= number_format($openScholarships) ?></div>
     <div class="stat-label">Open Scholarships</div>
+    <div class="stat-sub">active programs</div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon">📝</div>
-    <div class="stat-value"><?= $totalApplications ?></div>
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-file-alt"></i></div></div>
+    <div class="stat-value"><?= number_format($totalApplications) ?></div>
     <div class="stat-label">Total Applications</div>
+    <div class="stat-sub">all time</div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon">⏳</div>
-    <div class="stat-value"><?= $pendingApplications ?></div>
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-hourglass-half"></i></div><span class="stat-trend <?= $pendingApplications > 0 ? 'down' : '' ?>"><?= $pendingApplications > 0 ? 'needs review' : 'all clear' ?></span></div>
+    <div class="stat-value"><?= number_format($pendingApplications) ?></div>
     <div class="stat-label">Pending Review</div>
+    <div class="stat-sub">awaiting action</div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon">✅</div>
-    <div class="stat-value"><?= $approvedApplications ?></div>
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-check-circle"></i></div></div>
+    <div class="stat-value"><?= number_format($approvedApplications) ?></div>
     <div class="stat-label">Approved</div>
+    <div class="stat-sub">this academic year</div>
   </div>
+</div>
+
+<div class="stats-grid stats-grid-4" style="margin-bottom:var(--space-xl);">
   <div class="stat-card">
-    <div class="stat-icon">💰</div>
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div></div>
     <div class="stat-value">₱<?= number_format($totalDisbursed, 0) ?></div>
     <div class="stat-label">Total Disbursed</div>
+    <div class="stat-sub">completed payments</div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon">⚠️</div>
-    <div class="stat-value"><?= $pendingDisbursements ?></div>
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div><span class="stat-trend <?= $pendingDisbursements > 0 ? 'down' : '' ?>"><?= $pendingDisbursements > 0 ? 'pending' : 'all clear' ?></span></div>
+    <div class="stat-value"><?= number_format($pendingDisbursements) ?></div>
     <div class="stat-label">Pending Disbursements</div>
+    <div class="stat-sub">awaiting processing</div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon">⭐</div>
-    <div class="stat-value"><?= $avgRating > 0 ? $avgRating : '—' ?></div>
-    <div class="stat-label">Avg Feedback Rating</div>
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-calendar-alt"></i></div></div>
+    <div class="stat-value"><?= number_format($totalInterviewSessions) ?></div>
+    <div class="stat-label">Interview Sessions</div>
+    <div class="stat-sub"><?= $upcomingInterviews ?> upcoming</div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon">💬</div>
-    <div class="stat-value"><?= $totalFeedback ?></div>
-    <div class="stat-label">Feedback Received</div>
+    <div class="stat-card-top"><div class="stat-icon"><i class="fas fa-users"></i></div></div>
+    <div class="stat-value"><?= number_format($totalInterviewAssignments) ?></div>
+    <div class="stat-label">Interview Assignments</div>
+    <div class="stat-sub">total assigned</div>
   </div>
 </div>
 
+<!-- Alerts -->
 <?php
 $staffAlerts = [];
-if ($pendingApplications > 0) $staffAlerts[] = ['msg' => "$pendingApplications application(s) waiting for review", 'link' => 'applications.php', 'label' => 'Review Now'];
-if ($pendingDisbursements > 0) $staffAlerts[] = ['msg' => "$pendingDisbursements disbursement(s) pending processing", 'link' => 'disbursements.php', 'label' => 'Process Now'];
+if ($pendingApplications > 0) $staffAlerts[] = ['msg' => "$pendingApplications application(s) waiting for review", 'link' => 'applications.php', 'label' => 'Review Now', 'type' => 'warning'];
+if ($pendingDisbursements > 0) $staffAlerts[] = ['msg' => "$pendingDisbursements disbursement(s) pending processing", 'link' => 'disbursements.php', 'label' => 'Process Now', 'type' => 'warning'];
 try {
     $underReview = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'under_review'")->fetchColumn();
-    if ($underReview > 0) $staffAlerts[] = ['msg' => "$underReview application(s) under review awaiting decision", 'link' => 'applications.php', 'label' => 'Decide Now'];
+    if ($underReview > 0) $staffAlerts[] = ['msg' => "$underReview application(s) under review awaiting decision", 'link' => 'applications.php', 'label' => 'Decide Now', 'type' => 'info'];
 } catch (Exception $e) {}
 ?>
-<?php if (!empty($staffAlerts)): ?>
-<div style="display:flex;flex-direction:column;gap:var(--space-sm);margin-bottom:var(--space-xl);">
-  <?php foreach ($staffAlerts as $al): ?>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);background:#fffbeb;border-left:4px solid #f59e0b;border-radius:var(--r-lg);">
-      <span style="color:#92400e;font-weight:500;">⚠️ <?= htmlspecialchars($al['msg']) ?></span>
-      <a href="<?= htmlspecialchars($al['link']) ?>" class="btn btn-primary btn-sm"><?= htmlspecialchars($al['label']) ?></a>
-    </div>
-  <?php endforeach; ?>
-</div>
-<?php endif; ?>
-
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--space-xl);margin-bottom:var(--space-xl);">
-
-  <!-- Recent Applications -->
-  <div class="content-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);">
-      <h2>📝 Recent Applications</h2>
-      <a href="applications.php" class="btn btn-ghost btn-sm">View All</a>
-    </div>
-    <?php if (!empty($recentApps)): ?>
-      <?php foreach ($recentApps as $a): ?>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-sm) 0;border-bottom:1px solid var(--gray-100);">
-          <div>
-            <div style="font-weight:600;font-size:0.875rem;"><?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?></div>
-            <small class="text-muted"><?= htmlspecialchars($a['scholarship_title']) ?></small>
-          </div>
-          <span class="status-badge status-<?= $a['status'] ?>"><?= ucfirst(str_replace('_', ' ', $a['status'])) ?></span>
-        </div>
-      <?php endforeach; ?>
-    <?php else: ?>
-    <?php endif; ?>
+<?php foreach ($staffAlerts as $al): ?>
+  <div class="alert alert-<?= $al['type'] ?>" style="justify-content:space-between;">
+    <span><i class="fas fa-exclamation-triangle"></i> <?= htmlspecialchars($al['msg']) ?></span>
+    <a href="<?= htmlspecialchars($al['link']) ?>" class="btn btn-primary btn-sm"><?= htmlspecialchars($al['label']) ?></a>
   </div>
+<?php endforeach; ?>
 
-  <!-- Quick Actions -->
-  <div class="content-card">
-    <h2 style="margin-bottom:var(--space-lg);">⚡ Quick Actions</h2>
-    <div style="display:flex;flex-direction:column;gap:var(--space-md);">
-      <a href="post_scholarship.php" class="btn btn-primary" style="text-align:center;">➕ Post Scholarship</a>
-      <a href="applications.php" class="btn btn-ghost" style="text-align:center;">📝 Review Applications</a>
-      <a href="disbursements.php" class="btn btn-ghost" style="text-align:center;">💰 Record Disbursement <?= $pendingDisbursements > 0 ? "<span style='background:var(--peach);color:white;border-radius:999px;padding:1px 7px;font-size:0.75rem;margin-left:4px;'>$pendingDisbursements</span>" : '' ?></a>
-      <a href="feedback.php" class="btn btn-ghost" style="text-align:center;">⭐ View Feedback</a>
-      <a href="survey_results.php" class="btn btn-ghost" style="text-align:center;">📋 Survey Results</a>
-      <a href="reports.php" class="btn btn-ghost" style="text-align:center;">📊 Reports</a>
-    </div>
+<!-- Recent Applications -->
+<div class="content-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h3 style="margin:0;">Recent Applications</h3>
+    <a href="applications.php" class="btn btn-secondary btn-sm">View All</a>
   </div>
-
+  <?php if (!empty($recentApps)): ?>
+    <table class="modern-table">
+      <thead>
+        <tr><th>Applicant</th><th>Scholarship</th><th>Status</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        <?php foreach ($recentApps as $a): ?>
+          <tr>
+            <td><?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?></td>
+            <td><?= htmlspecialchars($a['scholarship_title']) ?></td>
+            <td><span class="status-badge status-<?= strtolower($a['status']) ?>"><?= ucfirst(str_replace('_', ' ', $a['status'])) ?></span></td>
+            <td style="color:#9E9E9E;font-size:0.8rem;"><?= date('M d, Y', strtotime($a['created_at'])) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php else: ?>
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="fas fa-file-alt"></i></div>
+      <div class="empty-state-title">No Applications Yet</div>
+      <div class="empty-state-description">Applications will appear here once students start applying.</div>
+    </div>
+  <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

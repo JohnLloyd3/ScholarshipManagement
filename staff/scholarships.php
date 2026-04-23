@@ -1,193 +1,314 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+
 startSecureSession();
+
+// Authentication
 requireLogin();
-requireAnyRole(['staff','admin'], 'Staff access required');
+requireAnyRole(['staff', 'admin'], 'Staff access required');
 
 $pdo = getPDO();
+$action = $_GET['action'] ?? '';
+$message = $_SESSION['message'] ?? '';
+unset($_SESSION['message']);
 
-// Get all scholarships with requirements
-$stmt = $pdo->query('SELECT s.*, COUNT(e.id) as requirement_count FROM scholarships s LEFT JOIN eligibility_requirements e ON s.id = e.scholarship_id GROUP BY s.id ORDER BY s.created_at DESC');
-$scholarships = $stmt->fetchAll();
+// Handle POST requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF protection
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['message'] = 'Invalid request (CSRF token missing or incorrect).';
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
 
-// Get scholarship for editing
-$edit_id = $_GET['edit'] ?? 0;
-$edit_scholarship = null;
-$edit_requirements = [];
-if ($edit_id) {
-		$stmt = $pdo->prepare('SELECT * FROM scholarships WHERE id = :id');
-		$stmt->execute([':id' => $edit_id]);
-		$edit_scholarship = $stmt->fetch();
-		if ($edit_scholarship) {
-				$stmt = $pdo->prepare('SELECT requirement FROM eligibility_requirements WHERE scholarship_id = :id');
-				$stmt->execute([':id' => $edit_id]);
-				$edit_requirements = $stmt->fetchAll(PDO::FETCH_COLUMN);
-		}
+    $post_action = $_POST['action'] ?? '';
+    
+    if ($post_action === 'create') {
+        $title = sanitizeString($_POST['title'] ?? '');
+        $description = sanitizeString($_POST['description'] ?? '');
+        $organization = sanitizeString($_POST['organization'] ?? '');
+        $eligibility_requirements = sanitizeString($_POST['eligibility_requirements'] ?? '');
+        $renewal_requirements = sanitizeString($_POST['renewal_requirements'] ?? '');
+        $amount = sanitizeFloat($_POST['amount'] ?? 0);
+        $deadline = $_POST['deadline'] ?? '';
+        
+        if ($title && $description && $deadline) {
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO scholarships (title, description, organization, eligibility_requirements, renewal_requirements, amount, deadline, status, created_by)
+                    VALUES (:title, :description, :organization, :eligibility_requirements, :renewal_requirements, :amount, :deadline, 'open', :created_by)
+                ");
+                $stmt->execute([
+                    ':title' => $title,
+                    ':description' => $description,
+                    ':organization' => $organization,
+                    ':eligibility_requirements' => $eligibility_requirements,
+                    ':renewal_requirements' => $renewal_requirements,
+                    ':amount' => $amount,
+                    ':deadline' => $deadline,
+                    ':created_by' => $_SESSION['user_id']
+                ]);
+                $newId = (int)$pdo->lastInsertId();
+                // Sync to relational eligibility_requirements table
+                if ($eligibility_requirements && $newId) {
+                    try {
+                        $pdo->prepare("DELETE FROM eligibility_requirements WHERE scholarship_id = :sid")->execute([':sid' => $newId]);
+                        foreach (array_filter(array_map('trim', explode("\n", $eligibility_requirements))) as $req) {
+                            $pdo->prepare("INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)")->execute([':sid' => $newId, ':req' => $req]);
+                        }
+                    } catch (Exception $e) { /* table may not exist yet */ }
+                }
+                $_SESSION['message'] = 'Scholarship created successfully!';
+            } catch (Exception $e) {
+                $_SESSION['message'] = 'Error: ' . $e->getMessage();
+            }
+        }
+    } elseif ($post_action === 'update') {
+        $id = sanitizeInt($_POST['id'] ?? 0);
+        $title = sanitizeString($_POST['title'] ?? '');
+        $description = sanitizeString($_POST['description'] ?? '');
+        $organization = sanitizeString($_POST['organization'] ?? '');
+        $eligibility_requirements = sanitizeString($_POST['eligibility_requirements'] ?? '');
+        $renewal_requirements = sanitizeString($_POST['renewal_requirements'] ?? '');
+        $amount = sanitizeFloat($_POST['amount'] ?? 0);
+        $deadline = $_POST['deadline'] ?? '';
+        $status = $_POST['status'] ?? 'open';
+        
+        if ($id && $title) {
+            try {
+                $stmt = $pdo->prepare("
+                    UPDATE scholarships
+                    SET title = :title, description = :description, organization = :organization,
+                        eligibility_requirements = :eligibility_requirements, renewal_requirements = :renewal_requirements,
+                        amount = :amount, deadline = :deadline, status = :status
+                    WHERE id = :id
+                ");
+                $stmt->execute([
+                    ':id' => $id,
+                    ':title' => $title,
+                    ':description' => $description,
+                    ':organization' => $organization,
+                    ':eligibility_requirements' => $eligibility_requirements,
+                    ':renewal_requirements' => $renewal_requirements,
+                    ':amount' => $amount,
+                    ':deadline' => $deadline,
+                    ':status' => $status
+                ]);
+                // Sync to relational eligibility_requirements table
+                try {
+                    $pdo->prepare("DELETE FROM eligibility_requirements WHERE scholarship_id = :sid")->execute([':sid' => $id]);
+                    foreach (array_filter(array_map('trim', explode("\n", $eligibility_requirements))) as $req) {
+                        $pdo->prepare("INSERT INTO eligibility_requirements (scholarship_id, requirement) VALUES (:sid, :req)")->execute([':sid' => $id, ':req' => $req]);
+                    }
+                } catch (Exception $e) { /* table may not exist yet */ }
+                $_SESSION['message'] = 'Scholarship updated successfully!';
+                header('Location: scholarships.php');
+                exit;
+            } catch (Exception $e) {
+                $_SESSION['message'] = 'Error: ' . $e->getMessage();
+            }
+        }
+    } elseif ($post_action === 'delete') {
+        $id = sanitizeInt($_POST['id'] ?? 0);
+        if ($id) {
+            try {
+                $pdo->prepare("DELETE FROM scholarships WHERE id = :id")->execute([':id' => $id]);
+                $_SESSION['message'] = 'Scholarship deleted successfully!';
+            } catch (Exception $e) {
+                $_SESSION['message'] = 'Error: ' . $e->getMessage();
+            }
+        }
+    }
+}
+
+// Fetch scholarships
+$scholarships = $pdo->query("
+    SELECT s.*, COUNT(a.id) as app_count
+    FROM scholarships s
+    LEFT JOIN applications a ON a.scholarship_id = s.id
+    GROUP BY s.id
+    ORDER BY s.created_at DESC
+")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+// Fetch scholarship for editing
+$editing = null;
+if ($action === 'edit') {
+    $id = sanitizeInt($_GET['id'] ?? 0);
+    if ($id) {
+        $stmt = $pdo->prepare("SELECT * FROM scholarships WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+        $editing = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 }
 ?>
 <?php
-$page_title = 'Scholarship Management - ScholarHub';
+$page_title = 'Manage Scholarships - Staff';
 $base_path = '../';
-$csrf_token = generateCSRFToken();
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-	<h1>🎓 Scholarship Management</h1>
+  <h1><i class="fas fa-graduation-cap"></i> Scholarships</h1>
 </div>
-				</div>
-			</div>
-			<nav>
-				<a href="dashboard.php">Dashboard</a>
-				<a href="scholarships.php">Manage Scholarships</a>
-				<a href="applications.php">View Applications</a>
-				<a href="dashboard.php">Back to Dashboard</a>
-				<a href="../auth/logout.php">Logout</a>
-			</nav>
-		</aside>
 
-		<main class="main">
-			<div class="header-row">
-				<div>
-					<h2>Scholarship Management</h2>
-					<p class="muted">Create, edit, and manage scholarships</p>
-				</div>
-			</div>
+<?php if ($message): ?>
+  <div class="alert alert-<?= strpos($message, 'Error') !== false ? 'error' : 'success' ?>">
+    <?= sanitizeString($message) ?>
+  </div>
+<?php endif; ?>
 
-			<?php if (!empty($_SESSION['success'])): ?>
-				<div class="flash success-flash"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
-			<?php endif; ?>
+<?php if ($action === 'edit' && $editing): ?>
+  <div class="content-card">
+    <h3 style="margin-bottom:1rem;">Edit Scholarship</h3>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+      <input type="hidden" name="action" value="update">
+      <input type="hidden" name="id" value="<?= $editing['id'] ?>">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input type="text" name="title" class="form-input" value="<?= htmlspecialchars($editing['title']) ?>" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Organization</label>
+          <input type="text" name="organization" class="form-input" value="<?= htmlspecialchars($editing['organization'] ?? '') ?>">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <textarea name="description" class="form-input" rows="4" required><?= htmlspecialchars($editing['description'] ?? '') ?></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Eligibility Requirements</label>
+        <textarea name="eligibility_requirements" class="form-input" rows="3"><?= htmlspecialchars($editing['eligibility_requirements'] ?? '') ?></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Renewal Requirements</label>
+        <textarea name="renewal_requirements" class="form-input" rows="3"><?= htmlspecialchars($editing['renewal_requirements'] ?? '') ?></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount (₱)</label>
+          <input type="number" name="amount" class="form-input" step="0.01" value="<?= $editing['amount'] ?? 0 ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deadline *</label>
+          <input type="date" name="deadline" class="form-input" value="<?= $editing['deadline'] ?? '' ?>" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status *</label>
+        <select name="status" class="form-input" required>
+          <option value="open" <?= $editing['status'] === 'open' ? 'selected' : '' ?>>Open</option>
+          <option value="closed" <?= $editing['status'] === 'closed' ? 'selected' : '' ?>>Closed</option>
+          <option value="cancelled" <?= $editing['status'] === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:0.75rem;">
+        <button type="submit" class="btn btn-primary">Update Scholarship</button>
+        <a href="scholarships.php" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+<?php else: ?>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
+    <h2>All Scholarships</h2>
+    <button class="btn btn-primary" onclick="document.getElementById('newForm').style.display = 'block'">+ New Scholarship</button>
+  </div>
 
-			<?php if (!empty($_SESSION['flash'])): ?>
-				<div class="flash error-flash"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
-			<?php endif; ?>
+  <div id="newForm" class="content-card" style="display: none; margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom:1rem;">Create New Scholarship</h3>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+      <input type="hidden" name="action" value="create">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input type="text" name="title" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Organization</label>
+          <input type="text" name="organization" class="form-input">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <textarea name="description" class="form-input" rows="3" required></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Eligibility Requirements</label>
+        <textarea name="eligibility_requirements" class="form-input" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Renewal Requirements</label>
+        <textarea name="renewal_requirements" class="form-input" rows="2"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount (₱)</label>
+          <input type="number" name="amount" class="form-input" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deadline *</label>
+          <input type="date" name="deadline" class="form-input" required>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;">
+        <button type="submit" class="btn btn-primary">Create Scholarship</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('newForm').style.display='none'">Cancel</button>
+      </div>
+    </form>
+  </div>
 
-			<section class="panel">
-				<h3><?= $edit_scholarship ? 'Edit Scholarship' : 'Create New Scholarship' ?></h3>
-				<div class="form-modal">
-					<form method="POST" action="../controllers/AdminController.php">
-						<input type="hidden" name="action" value="<?= $edit_scholarship ? 'update_scholarship' : 'create_scholarship' ?>">
-						<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-						<?php if ($edit_scholarship): ?>
-							<input type="hidden" name="id" value="<?= $edit_scholarship['id'] ?>">
-						<?php endif; ?>
+  <div class="content-card">
+    <h3 style="margin-bottom: var(--space-xl);">Scholarship List</h3>
+    <?php if (!empty($scholarships)): ?>
+      <table class="modern-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Organization</th>
+            <th>Amount</th>
+            <th>Deadline</th>
+            <th>Applications</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($scholarships as $sch): ?>
+            <tr>
+              <td><?= sanitizeString($sch['title']) ?></td>
+              <td><?= sanitizeString($sch['organization'] ?? 'N/A') ?></td>
+              <td>₱<?= number_format($sch['amount'] ?? 0, 2) ?></td>
+              <td><?= $sch['deadline'] ?? 'N/A' ?></td>
+              <td><?= $sch['app_count'] ?? 0 ?></td>
+              <td><span class="status-badge status-<?= $sch['status'] ?>"><?= $sch['status'] ?></span></td>
+              <td>
+                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center">
+                  <a href="?action=edit&id=<?= $sch['id'] ?>" class="btn btn-primary btn-sm">Edit</a>
+                  <form style="display:contents" method="POST" onsubmit="return confirm('Delete this scholarship?');">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="id" value="<?= $sch['id'] ?>">
+                    <button type="submit" class="btn btn-primary btn-sm" style="background:#dc2626">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php else: ?>
+      <div class="empty-state">
+        <div class="empty-state-icon"><i class="fas fa-graduation-cap"></i></div>
+        <h3 class="empty-state-title">No Scholarships Yet</h3>
+        <p class="empty-state-description">Create your first scholarship to get started.</p>
+      </div>
+    <?php endif; ?>
+  </div>
+<?php endif; ?>
 
-						<div class="form-group">
-							<label>Title *</label>
-							<input type="text" name="title" value="<?= htmlspecialchars($edit_scholarship['title'] ?? '') ?>" required>
-						</div>
-
-						<div class="form-group">
-							<label>Description</label>
-							<textarea name="description" rows="4"><?= htmlspecialchars($edit_scholarship['description'] ?? '') ?></textarea>
-						</div>
-
-						<div class="form-group">
-							<label>Organization</label>
-							<input type="text" name="organization" value="<?= htmlspecialchars($edit_scholarship['organization'] ?? '') ?>">
-						</div>
-
-						<div class="form-group">
-							<label>Status</label>
-							<select name="status">
-								<option value="open" <?= ($edit_scholarship['status'] ?? 'open') == 'open' ? 'selected' : '' ?>>Open</option>
-								<option value="closed" <?= ($edit_scholarship['status'] ?? '') == 'closed' ? 'selected' : '' ?>>Closed</option>
-							</select>
-						</div>
-
-						<div class="form-group">
-							<label>Eligibility Requirements</label>
-							<div id="requirements-container">
-								<?php if ($edit_scholarship && count($edit_requirements) > 0): ?>
-									<?php foreach ($edit_requirements as $req): ?>
-										<div class="requirement-item">
-											<input type="text" name="requirements[]" value="<?= htmlspecialchars($req) ?>" placeholder="e.g., GPA >= 3.5">
-											<button type="button" class="btn-remove-req" onclick="this.parentElement.remove()">Remove</button>
-										</div>
-									<?php endforeach; ?>
-								<?php else: ?>
-									<div class="requirement-item">
-										<input type="text" name="requirements[]" placeholder="e.g., GPA >= 3.5">
-										<button type="button" class="btn-remove-req" onclick="this.parentElement.remove()">Remove</button>
-									</div>
-								<?php endif; ?>
-							</div>
-							<button type="button" class="btn-add-req" onclick="addRequirement()">Add Requirement</button>
-						</div>
-
-						<button type="submit" class="submit-btn"><?= $edit_scholarship ? 'Update Scholarship' : 'Create Scholarship' ?></button>
-						<?php if ($edit_scholarship): ?>
-							<a href="scholarships.php" style="margin-left:10px">Cancel</a>
-						<?php endif; ?>
-					</form>
-				</div>
-			</section>
-
-			<section class="panel">
-				<h3>All Scholarships</h3>
-				<table style="width:100%;border-collapse:collapse">
-					<thead>
-						<tr>
-							<th>ID</th>
-							<th>Title</th>
-							<th>Organization</th>
-							<th>Status</th>
-							<th>Requirements</th>
-							<th>Created</th>
-							<th>Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ($scholarships as $s): ?>
-							<tr style="border-top:1px solid #eee">
-								<td><?= htmlspecialchars($s['id']) ?></td>
-								<td><?= htmlspecialchars($s['title']) ?></td>
-								<td><?= htmlspecialchars($s['organization'] ?? 'N/A') ?></td>
-								<td>
-									<span style="color:<?= $s['status'] == 'open' ? 'green' : 'red' ?>">
-										<?= ucfirst($s['status']) ?>
-									</span>
-									<form method="POST" action="../controllers/AdminController.php" style="display:inline">
-										<input type="hidden" name="action" value="update_status">
-										<input type="hidden" name="id" value="<?= $s['id'] ?>">
-										<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-										<select name="status" onchange="this.form.submit()">
-											<option value="open" <?= $s['status']=='open'?'selected':'' ?>>Open</option>
-											<option value="closed" <?= $s['status']=='closed'?'selected':'' ?>>Closed</option>
-										</select>
-									</form>
-								</td>
-								<td><?= htmlspecialchars($s['requirement_count']) ?> requirements</td>
-								<td><small><?= htmlspecialchars($s['created_at']) ?></small></td>
-								<td>
-									<a href="?edit=<?= $s['id'] ?>" style="margin-right:10px">Edit</a>
-									<form style="display:inline" method="POST" action="../controllers/AdminController.php" onsubmit="return confirm('Delete this scholarship?')">
-										<input type="hidden" name="action" value="delete_scholarship">
-										<input type="hidden" name="id" value="<?= $s['id'] ?>">
-										<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-										<button type="submit" style="background:none;border:none;color:red;cursor:pointer;text-decoration:underline">Delete</button>
-									</form>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
-			</section>
-		</main>
-	</div>
-
-	<script>
-		function addRequirement() {
-			const container = document.getElementById('requirements-container');
-			const div = document.createElement('div');
-			div.className = 'requirement-item';
-			div.innerHTML = '<input type="text" name="requirements[]" placeholder="e.g., GPA >= 3.5">' +
-				'<button type="button" class="btn-remove-req" onclick="this.parentElement.remove()">Remove</button>';
-			container.appendChild(div);
-		}
-	</script>
-</body>
-</html>
-
+<?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

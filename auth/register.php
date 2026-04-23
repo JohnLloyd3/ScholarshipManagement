@@ -1,26 +1,19 @@
 ﻿<?php
+/**
+ * REGISTRATION PAGE
+ * Role: New Students
+ */
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 startSecureSession();
 
-function redirectDashboardForRole()
-{
+if (isset($_SESSION['user_id'])) {
     $role = $_SESSION['user']['role'] ?? 'student';
     switch ($role) {
-        case 'admin':
-            header("Location: ../admin/dashboard.php");
-            break;
-        case 'staff':
-            header("Location: ../staff/dashboard.php");
-            break;
-        default:
-            header("Location: ../member/dashboard.php");
-            break;
+        case 'admin': header("Location: ../admin/dashboard.php"); break;
+        case 'staff':  header("Location: ../staff/dashboard.php"); break;
+        default:       header("Location: ../students/dashboard.php"); break;
     }
     exit;
-}
-
-if (isset($_SESSION['user_id'])) {
-    redirectDashboardForRole();
 }
 ?>
 <!DOCTYPE html>
@@ -28,240 +21,193 @@ if (isset($_SESSION['user_id'])) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Register - ScholarHub</title>
+  <title>Create Account - ScholarHub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/modern-theme.css?v=20260418">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
-    body {
-      background: linear-gradient(135deg, var(--peach-ghost) 0%, var(--white) 50%, var(--peach-ghost) 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: var(--space-xl);
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { display: flex; height: 100vh; overflow: hidden; background: #fff; }
+
+    .left-panel {
+      width: 42%; flex-shrink: 0;
+      background: linear-gradient(145deg, #E8192C 0%, #b0001a 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 3rem 2.5rem; position: relative; overflow: hidden;
     }
-    
-    .auth-container {
-      width: 100%;
-      max-width: 520px;
+    .left-panel::before {
+      content: ''; position: absolute;
+      width: 420px; height: 420px; border-radius: 50%;
+      border: 60px solid rgba(255,255,255,0.07);
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
     }
-    
-    .auth-card {
-      background: var(--white);
-      border-radius: var(--r-2xl);
-      padding: var(--space-2xl);
-      box-shadow: var(--shadow-xl);
-      border: 1px solid var(--gray-200);
+    .left-panel::after {
+      content: ''; position: absolute;
+      width: 620px; height: 620px; border-radius: 50%;
+      border: 60px solid rgba(255,255,255,0.05);
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
     }
-    
-    .auth-logo {
-      text-align: center;
-      margin-bottom: var(--space-2xl);
+    .left-content { position: relative; z-index: 1; text-align: center; width: 100%; max-width: 320px; }
+    .brand-icon {
+      width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.25rem; margin: 0 auto 1.5rem; backdrop-filter: blur(4px);
     }
-    
-    .auth-logo-icon {
-      font-size: 3rem;
-      margin-bottom: var(--space-md);
+    .brand-name { font-size: 2rem; font-weight: 800; color: #fff; margin-bottom: 0.75rem; }
+    .brand-tagline { font-size: 0.9375rem; color: rgba(255,255,255,0.8); line-height: 1.6; margin-bottom: 2.5rem; }
+    .feature-list { display: flex; flex-direction: column; gap: 0.75rem; text-align: left; }
+    .feature-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      background: rgba(255,255,255,0.15); border-radius: 10px;
+      padding: 0.75rem 1rem; backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.2);
+      font-size: 0.875rem; color: #fff; font-weight: 500;
     }
-    
-    .auth-logo-text {
-      font-size: 1.75rem;
-      font-weight: 800;
-      color: var(--peach);
-      font-family: var(--font-display);
+    .feature-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.9); flex-shrink: 0; }
+
+    .right-panel {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem 2rem; overflow-y: auto; background: #fff;
     }
-    
-    .auth-title {
-      text-align: center;
-      margin-bottom: var(--space-sm);
+    .form-box { width: 100%; max-width: 440px; padding: 0.5rem 0; }
+    .form-title { font-size: 1.625rem; font-weight: 800; color: #1a1a2e; margin-bottom: 0.35rem; }
+    .form-subtitle { font-size: 0.875rem; color: #888; margin-bottom: 1.5rem; }
+    .field { margin-bottom: 1rem; }
+    .field label { display: block; font-size: 0.875rem; font-weight: 600; color: #333; margin-bottom: 0.35rem; }
+    .input-wrap { position: relative; }
+    .input-icon {
+      position: absolute; left: 0.875rem; top: 50%; transform: translateY(-50%);
+      color: #bbb; font-size: 0.875rem; pointer-events: none;
     }
-    
-    .auth-subtitle {
-      text-align: center;
-      color: var(--gray-600);
-      margin-bottom: var(--space-2xl);
+    .form-input {
+      width: 100%; padding: 0.7rem 0.875rem 0.7rem 2.4rem;
+      border: 1.5px solid #D1D5DB; border-radius: 10px;
+      font-size: 0.875rem; font-family: inherit; color: #1a1a2e;
+      background: #fafafa; transition: border-color 0.2s, box-shadow 0.2s;
     }
-    
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-md);
+    .form-input:focus { outline: none; border-color: #E8192C; background: #fff; box-shadow: 0 0 0 3px rgba(232,25,44,0.08); }
+    .form-input::placeholder { color: #bbb; }
+    .toggle-pw {
+      position: absolute; right: 0.875rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: #bbb; font-size: 0.875rem; padding: 0;
     }
-    
-    .divider {
-      display: flex;
-      align-items: center;
-      text-align: center;
-      margin: var(--space-xl) 0;
-      color: var(--gray-500);
-      font-size: 0.875rem;
+    .toggle-pw:hover { color: #888; }
+    .btn-submit {
+      width: 100%; padding: 0.825rem; border-radius: 10px; border: none; cursor: pointer;
+      font-size: 0.9375rem; font-weight: 700; color: #fff; background: #E8192C;
+      font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 16px rgba(232,25,44,0.3); margin-top: 0.5rem;
     }
-    
-    .divider::before,
-    .divider::after {
-      content: '';
-      flex: 1;
-      border-bottom: 1px solid var(--gray-200);
-    }
-    
-    .divider span {
-      padding: 0 var(--space-md);
-    }
-    
-    .auth-footer {
-      text-align: center;
-      margin-top: var(--space-xl);
-      color: var(--gray-600);
-    }
-    
-    .auth-footer a {
-      color: var(--peach);
-      font-weight: 600;
-    }
-    
-    @media (max-width: 640px) {
-      .form-row {
-        grid-template-columns: 1fr;
-      }
+    .btn-submit:hover { background: #c0001f; transform: translateY(-1px); }
+    .form-footer { text-align: center; margin-top: 1.25rem; font-size: 0.875rem; color: #888; }
+    .form-footer a { color: #E8192C; font-weight: 600; text-decoration: none; }
+    .form-footer a:hover { text-decoration: underline; }
+    .alert { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.8125rem; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+
+    @media (max-width: 768px) {
+      body { flex-direction: column; overflow-y: auto; height: auto; }
+      .left-panel { width: 100%; min-height: 45vh; padding: 2.5rem 1.5rem; }
+      .right-panel { padding: 2rem 1.5rem; }
     }
   </style>
 </head>
 <body>
 
-  <div class="auth-container">
-    <div class="auth-card fade-in">
-      <div class="auth-logo">
-        <img src="../assets/image/logo.svg" alt="ScholarHub" style="width:80px;height:80px;margin-bottom:var(--space-md);">
-        <div class="auth-logo-text">ScholarHub</div>
+  <div class="left-panel">
+    <div class="left-content">
+      <div class="brand-icon"><i class="fas fa-graduation-cap"></i></div>
+      <div class="brand-name">ScholarHub</div>
+      <div class="brand-tagline">Your gateway to educational opportunities and scholarship success</div>
+      <div class="feature-list">
+        <div class="feature-item"><span class="feature-dot"></span>Access 2,400+ scholarships instantly</div>
+        <div class="feature-item"><span class="feature-dot"></span>Smart matching based on your profile</div>
+        <div class="feature-item"><span class="feature-dot"></span>Real-time application tracking</div>
+        <div class="feature-item"><span class="feature-dot"></span>Expert tips &amp; guidance</div>
       </div>
-      
-      <h2 class="auth-title">Create Your Account</h2>
-      <p class="auth-subtitle">Start your scholarship journey today</p>
-      
-      <?php if (!empty($_SESSION['flash'])): ?>
-        <div class="alert alert-error">
-          <?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?>
-        </div>
-      <?php endif; ?>
-      
-      <form method="POST" action="../controllers/AuthController.php">
-        <input type="hidden" name="action" value="register">
-        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-        
-        <div class="form-group">
-          <label for="username" class="form-label">Username</label>
-          <input 
-            type="text" 
-            id="username" 
-            name="username" 
-            class="form-input" 
-            placeholder="Choose a username"
-            required
-            autofocus
-          >
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label for="first_name" class="form-label">First Name</label>
-            <input 
-              type="text" 
-              id="first_name" 
-              name="first_name" 
-              class="form-input" 
-              placeholder="John"
-              required
-            >
-          </div>
-          
-          <div class="form-group">
-            <label for="last_name" class="form-label">Last Name</label>
-            <input 
-              type="text" 
-              id="last_name" 
-              name="last_name" 
-              class="form-input" 
-              placeholder="Doe"
-              required
-            >
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label for="email" class="form-label">Email Address</label>
-          <input 
-            type="email" 
-            id="email" 
-            name="email" 
-            class="form-input" 
-            placeholder="you@example.com"
-            required
-          >
-          <p class="form-help">We'll send verification and updates to this email</p>
-        </div>
-        
-        <div class="form-group">
-          <label for="phone" class="form-label">Phone Number</label>
-          <input 
-            type="tel" 
-            id="phone" 
-            name="phone" 
-            class="form-input" 
-            placeholder="+63 912 345 6789"
-          >
-        </div>
-        
-        <div class="form-group">
-          <label for="address" class="form-label">Address</label>
-          <textarea 
-            id="address" 
-            name="address" 
-            class="form-textarea" 
-            placeholder="Your complete address"
-            rows="3"
-          ></textarea>
-        </div>
-        
-        <div class="form-group">
-          <label for="password" class="form-label">Password</label>
-          <input 
-            type="password" 
-            id="password" 
-            name="password" 
-            class="form-input" 
-            placeholder="Create a strong password"
-            required
-            minlength="8"
-          >
-          <p class="form-help">Must be at least 8 characters</p>
-        </div>
-        
-        <input type="hidden" name="role" value="student">
-        
-        <button type="submit" class="btn btn-primary" style="width: 100%;">
-          Create Account
-        </button>
-      </form>
-      
-      <div class="divider">
-        <span>Already have an account?</span>
-      </div>
-      
-      <a href="login.php" class="btn btn-secondary" style="width: 100%; text-align: center;">
-        Sign In Instead
-      </a>
-      
-      <div class="auth-footer">
-        <a href="../index.php">← Back to Home</a>
-      </div>
-    </div>
-    
-    <div style="text-align: center; margin-top: var(--space-xl); color: var(--gray-500); font-size: 0.875rem;">
-      <p>© 2026 ScholarHub. All rights reserved.</p>
     </div>
   </div>
 
+  <div class="right-panel">
+    <div class="form-box">
+      <h1 class="form-title">Create Your Account</h1>
+      <p class="form-subtitle">Start your scholarship journey today</p>
+
+      <?php if (!empty($_SESSION['flash'])): ?>
+        <div class="alert"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
+      <?php endif; ?>
+
+      <form method="POST" action="../controllers/AuthController.php">
+        <input type="hidden" name="action" value="register">
+        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+        <input type="hidden" name="role" value="student">
+
+        <div class="field">
+          <label for="student_id">Student ID</label>
+          <div class="input-wrap">
+            <span class="input-icon"><i class="fas fa-id-card"></i></span>
+            <input type="text" id="student_id" name="student_id" class="form-input" placeholder="e.g. SCC-21-00031044" required autofocus>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="last_name">Last Name</label>
+          <div class="input-wrap">
+            <span class="input-icon"><i class="fas fa-user"></i></span>
+            <input type="text" id="last_name" name="last_name" class="form-input" placeholder="Doe" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="first_name">First Name</label>
+          <div class="input-wrap">
+            <span class="input-icon"><i class="fas fa-user"></i></span>
+            <input type="text" id="first_name" name="first_name" class="form-input" placeholder="John" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="email">Email Address</label>
+          <div class="input-wrap">
+            <span class="input-icon"><i class="fas fa-envelope"></i></span>
+            <input type="email" id="email" name="email" class="form-input" placeholder="you@example.com" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone Number</label>
+          <div class="input-wrap">
+            <span class="input-icon"><i class="fas fa-phone"></i></span>
+            <input type="tel" id="phone" name="phone" class="form-input" placeholder="+63 912 345 6789">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="input-wrap">
+            <span class="input-icon"><i class="fas fa-lock"></i></span>
+            <input type="password" id="password" name="password" class="form-input" placeholder="Min. 8 characters" required minlength="8">
+            <button type="button" class="toggle-pw" onclick="togglePw(this)" data-target="password"><i class="fas fa-eye"></i></button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit">Create Account &rarr;</button>
+      </form>
+
+      <p class="form-footer">
+        Already have an account? <a href="login.php">Sign in instead</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    function togglePw(btn) {
+      const input = document.getElementById(btn.dataset.target);
+      input.type = input.type === 'password' ? 'text' : 'password';
+      btn.innerHTML = input.type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+    }
+  </script>
 </body>
 </html>

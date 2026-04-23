@@ -41,7 +41,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>🗄️ Scholarship Archive</h1>
+  <h1><i class="fas fa-archive"></i> Scholarship Archive</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -51,7 +51,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <div class="content-card">
   <?php if (empty($archived)): ?>
     <div class="empty-state">
-      <div class="empty-state-icon">🗄️</div>
+      <div class="empty-state-icon"><i class="fas fa-archive"></i></div>
       <h3 class="empty-state-title">No Archived Scholarships</h3>
       <p class="empty-state-description">Archived scholarships will appear here.</p>
     </div>

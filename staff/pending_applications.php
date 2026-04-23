@@ -24,7 +24,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>⏳ Pending Applications</h1>
+  <h1><i class="fas fa-hourglass-half"></i> Pending Applications</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>

@@ -40,7 +40,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>🎓 Manage Scholarships</h1>
+  <h1><i class="fas fa-graduation-cap"></i> Manage Scholarships</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -49,7 +49,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="content-card">
   <div style="margin-bottom:var(--space-xl)">
-    <a class="btn btn-primary" href="scholarship_form.php">➕ Create New Scholarship</a>
+    <a class="btn btn-primary" href="scholarship_form.php"><i class="fas fa-plus"></i> Create New Scholarship</a>
   </div>
   
   <table class="modern-table">
@@ -63,20 +63,20 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <td><small><?= htmlspecialchars($s['deadline'] ?? '—') ?></small></td>
           <td><span class="status-badge status-<?= strtolower($s['status'] ?? 'pending') ?>"><?= htmlspecialchars(ucfirst($s['status'] ?? '')) ?></span></td>
           <td>
-            <a class="btn btn-ghost btn-sm" href="scholarship_form.php?id=<?= (int)$s['id'] ?>">✏️ Edit</a>
+            <a class="btn btn-ghost btn-sm" href="scholarship_form.php?id=<?= (int)$s['id'] ?>"><i class="fas fa-edit"></i> Edit</a>
             <form method="post" style="display:inline-block;margin-left:var(--space-sm)">
               <input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
               <?php if (($s['status'] ?? '')==='open'): ?>
                 <button class="btn btn-secondary btn-sm" name="action" value="unpublish">📴 Unpublish</button>
               <?php else: ?>
-                <button class="btn btn-primary btn-sm" name="action" value="publish">📢 Publish</button>
+                <button class="btn btn-primary btn-sm" name="action" value="publish"><i class="fas fa-bullhorn"></i> Publish</button>
               <?php endif; ?>
             </form>
             <form method="post" style="display:inline-block;margin-left:var(--space-sm)" onsubmit="return confirm('Delete this scholarship?');">
               <input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-              <button class="btn btn-ghost btn-sm" name="action" value="delete" style="color:var(--peach)">🗑️ Delete</button>
+              <button class="btn btn-ghost btn-sm" name="action" value="delete" style="color:var(--peach)"><i class="fas fa-trash"></i> Delete</button>
             </form>
           </td>
         </tr>

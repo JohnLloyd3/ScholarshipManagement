@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $emailBody .= '<p><strong>Reason:</strong> ' . htmlspecialchars($rejectReason) . '</p>';
                     }
                     $emailBody .= '<p>Log in to your account for more details.</p>';
-                    queueEmail($u['email'], 'Application ' . ucfirst($status) . ' — ' . $app['scholarship_title'], $emailBody, $app['user_id']);
+                    queueEmail($u['email'], 'Application ' . ucfirst($status) . ' � ' . $app['scholarship_title'], $emailBody, $app['user_id']);
                 }
             } catch (Exception $e) { /* ignore */ }
 
@@ -162,7 +162,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>📋 Application #<?= (int)$app['id'] ?></h1>
+  <h1>Application #<?= (int)$app['id'] ?></h1>
   <p class="text-muted"><?= htmlspecialchars($app['scholarship_title']) ?></p>
 </div>
 
@@ -170,7 +170,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
 <?php endif; ?>
 
-<a href="applications.php" class="btn btn-secondary" style="margin-bottom:var(--space-xl)">← Back to Queue</a>
+<a href="applications.php" class="btn btn-secondary" style="margin-bottom:var(--space-xl)">? Back to Queue</a>
 
 <div class="content-card">
   <h3 style="margin-bottom:var(--space-lg)">Applicant Information</h3>
@@ -182,7 +182,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <div style="display:grid;gap:var(--space-md)">
     <div><strong>Status:</strong> <span class="status-badge status-<?= strtolower($app['status']) ?>"><?= htmlspecialchars($app['status']) ?></span></div>
     <div><strong>Submitted:</strong> <?= htmlspecialchars($app['created_at']) ?></div>
-    <div><strong>Last Updated:</strong> <?= htmlspecialchars($app['updated_at'] ?? '—') ?></div>
+    <div><strong>Last Updated:</strong> <?= htmlspecialchars($app['updated_at'] ?? '�') ?></div>
   </div>
 </div>
 
@@ -192,7 +192,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <ul style="list-style:none;padding:0;margin:0">
       <?php foreach($docs as $d): ?>
         <li style="padding:var(--space-md);border-bottom:1px solid var(--gray-200)">
-          <a href="../member/document_view.php?id=<?= (int)$d['id'] ?>" target="_blank" class="text-primary"><?= htmlspecialchars($d['document_type'].' — '.$d['file_name']) ?></a>
+          <a href="../students/document_view.php?id=<?= (int)$d['id'] ?>" target="_blank" class="text-primary"><?= htmlspecialchars($d['document_type'].' � '.$d['file_name']) ?></a>
         </li>
       <?php endforeach; ?>
     </ul>
@@ -226,7 +226,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <textarea name="comments" rows="4" class="form-input" placeholder="Add your review comments here..."></textarea>
     </div>
     
-    <button class="btn btn-primary">✅ Submit Review</button>
+    <button class="btn btn-primary">? Submit Review</button>
   </form>
 
   <?php
@@ -273,46 +273,50 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         <?php $statuses=['submitted','under_review','pending','approved','rejected','waitlisted','draft']; foreach($statuses as $st) echo '<option '.($app['status']==$st?'selected':'').' value="'.$st.'">'.ucfirst($st).'</option>'; ?>
       </select>
     </div>
-    <button class="btn btn-primary">💾 Save Status</button>
+    <button class="btn btn-primary">Save Status</button>
   </form>
   
   <?php if (strtolower($app['status']) === 'approved'): ?>
     <?php
+    // Check if applicant has been assigned to an interview group
     $interviewStmt = $pdo->prepare('
-        SELECT ib.*, s.interview_date, s.interview_time, s.duration_minutes, s.interview_type, s.location, s.meeting_link
-        FROM interview_bookings ib
-        JOIN interview_slots s ON ib.slot_id = s.id
-        WHERE ib.application_id = :app_id
-        ORDER BY ib.booked_at DESC LIMIT 1
+        SELECT 
+            ia.*,
+            g.group_code,
+            s.session_date,
+            s.time_block,
+            s.time_start,
+            s.time_end
+        FROM interview_assignments ia
+        JOIN interview_groups g ON ia.group_id = g.id
+        JOIN interview_sessions s ON g.session_id = s.id
+        WHERE ia.application_id = :app_id
+        LIMIT 1
     ');
     $interviewStmt->execute([':app_id' => $id]);
     $interview = $interviewStmt->fetch(PDO::FETCH_ASSOC);
     ?>
-    <?php if ($interview && $interview['status'] === 'completed'): ?>
+    <?php if ($interview && $interview['final_status'] === 'completed'): ?>
       <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#e8f5e9;border-radius:var(--r-lg);border-left:4px solid #4CAF50;">
-        <h4 style="margin:0 0 var(--space-sm) 0;color:#2e7d32;">✅ Interview Completed</h4>
-        <p style="margin:0;color:#555;">Interview was completed on <?= date('M d, Y', strtotime($interview['interview_date'])) ?>. Disbursement is pending.</p>
+        <h4 style="margin:0 0 var(--space-sm) 0;color:#2e7d32;">✓ Interview Completed</h4>
+        <p style="margin:0;color:#555;">Interview was completed on <?= date('M d, Y', strtotime($interview['session_date'])) ?>. Disbursement is pending.</p>
       </div>
     <?php elseif ($interview): ?>
       <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#e3f2fd;border-radius:var(--r-lg);border-left:4px solid #2196F3;">
-        <h4 style="margin:0 0 var(--space-md) 0;color:#1976D2;">📅 Interview Scheduled</h4>
+        <h4 style="margin:0 0 0.75rem 0;color:#1976D2;">Interview Assigned</h4>
         <div style="display:grid;gap:var(--space-sm);color:#555;">
-          <div><strong>Date:</strong> <?= date('F d, Y', strtotime($interview['interview_date'])) ?></div>
-          <div><strong>Time:</strong> <?= date('g:i A', strtotime($interview['interview_time'])) ?></div>
-          <div><strong>Type:</strong> <?= ucfirst($interview['interview_type']) ?></div>
-          <?php if ($interview['interview_type'] === 'online' && $interview['meeting_link']): ?>
-            <div><strong>Link:</strong> <a href="<?= htmlspecialchars($interview['meeting_link']) ?>" target="_blank">Join Meeting</a></div>
-          <?php elseif ($interview['location']): ?>
-            <div><strong>Location:</strong> <?= htmlspecialchars($interview['location']) ?></div>
-          <?php endif; ?>
-          <div><strong>Status:</strong> <span class="status-badge status-<?= $interview['status'] ?>"><?= ucfirst($interview['status']) ?></span></div>
+          <div><strong>Date:</strong> <?= date('F d, Y', strtotime($interview['session_date'])) ?></div>
+          <div><strong>Session:</strong> <?= $interview['time_block'] === 'AM' ? 'Morning' : 'Afternoon' ?> (<?= date('g:i A', strtotime($interview['time_start'])) ?> - <?= date('g:i A', strtotime($interview['time_end'])) ?>)</div>
+          <div><strong>Group:</strong> <?= htmlspecialchars($interview['group_code']) ?></div>
+          <div><strong>Attendance:</strong> <span class="status-badge status-<?= $interview['attendance_status'] ?>"><?= ucfirst($interview['attendance_status']) ?></span></div>
+          <div><strong>Progress:</strong> Orientation: <?= ucfirst($interview['orientation_status']) ?>, Interview: <?= ucfirst($interview['interview_status']) ?></div>
         </div>
       </div>
     <?php else: ?>
       <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#fff8e1;border-radius:var(--r-lg);border-left:4px solid #FFC107;">
-        <h4 style="margin:0 0 var(--space-sm) 0;color:#e65100;">📅 No Interview Scheduled Yet</h4>
-        <p style="margin:0 0 var(--space-md) 0;color:#555;">Schedule an interview slot for this approved applicant.</p>
-        <a href="../admin/interview_slots.php?scholarship_id=<?= (int)$app['scholarship_id'] ?>&app_id=<?= (int)$app['id'] ?>" class="btn btn-primary">📅 Schedule Interview</a>
+        <h4 style="margin:0 0 0.5rem 0;color:#e65100;">No Interview Assigned Yet</h4>
+        <p style="margin:0 0 1rem 0;color:#555;">Use Interview Management to auto-assign this applicant to an interview group.</p>
+        <a href="../staff/interview_management.php?scholarship_id=<?= (int)$app['scholarship_id'] ?>" class="btn btn-primary">Go to Interview Management</a>
       </div>
     <?php endif; ?>
 
@@ -324,7 +328,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     ?>
     <div style="margin-top:var(--space-lg);padding:var(--space-lg);background:#eff6ff;border-radius:var(--r-lg);border-left:4px solid <?= $urgentColor ?>;">
       <h4 style="margin:0 0 var(--space-sm) 0;color:<?= $urgentColor ?>;">
-        ⏳ Under Review — <?= $daysUnderReview ?> day<?= $daysUnderReview !== 1 ? 's' : '' ?> waiting
+        ? Under Review � <?= $daysUnderReview ?> day<?= $daysUnderReview !== 1 ? 's' : '' ?> waiting
         <?php if ($daysUnderReview >= 7): ?> <span style="font-size:0.8rem;font-weight:400;">(Action recommended)</span><?php endif; ?>
       </h4>
       <p style="margin:0 0 var(--space-md) 0;color:#555;">Make a final decision on this application.</p>
@@ -333,14 +337,14 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <input type="hidden" name="action" value="update_status">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
           <input type="hidden" name="status" value="approved">
-          <button type="submit" class="btn btn-primary" onclick="return confirm('Approve this application? A disbursement will be created automatically.')">✅ Approve</button>
+          <button type="submit" class="btn btn-primary" onclick="return confirm('Approve this application? A disbursement will be created automatically.')">? Approve</button>
         </form>
-        <button type="button" class="btn btn-ghost" style="color:#dc2626;" onclick="document.getElementById('rejectModal').style.display='block'">❌ Reject</button>
+        <button type="button" class="btn btn-ghost" style="color:#dc2626;" onclick="document.getElementById('rejectModal').style.display='block'">? Reject</button>
         <form method="post" style="display:inline;">
           <input type="hidden" name="action" value="update_status">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
           <input type="hidden" name="status" value="waitlisted">
-          <button type="submit" class="btn btn-ghost" onclick="return confirm('Waitlist this application?')">⏸ Waitlist</button>
+          <button type="submit" class="btn btn-ghost" onclick="return confirm('Waitlist this application?')">? Waitlist</button>
         </form>
       </div>
     </div>
@@ -349,7 +353,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <div id="rejectModal" class="modal" style="display:none;">
       <div class="modal-content" style="max-width:480px;">
         <div class="modal-header">
-          <h2>❌ Reject Application</h2>
+          <h2>? Reject Application</h2>
           <span class="modal-close" onclick="document.getElementById('rejectModal').style.display='none'">&times;</span>
         </div>
         <form method="post">

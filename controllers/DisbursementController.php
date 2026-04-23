@@ -1,7 +1,12 @@
-﻿<?php
+<?php
+/**
+ * DISBURSEMENT CONTROLLER
+ * Role: Admin / Staff
+ * Purpose: Handles create, update status, delete, and export of disbursement records
+ * URL: /controllers/DisbursementController.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-// Audit helper removed
 require_once __DIR__ . '/../helpers/DisbursementHelper.php';
 
 startSecureSession();
@@ -18,14 +23,14 @@ $action = $_POST['action'] ?? '';
 $userId = $_SESSION['user_id'];
 $role   = $_SESSION['user']['role'] ?? 'student';
 
-// ── CSRF validation ───────────────────────────────────────────────────────────
+// -- CSRF validation -----------------------------------------------------------
 if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
     $_SESSION['flash'] = 'Invalid request token.';
-    header('Location: ' . (match($role) { 'admin' => '../admin/disbursements.php', 'staff' => '../staff/disbursements.php', default => '../member/payouts.php' }));
+    header('Location: ' . (match($role) { 'admin' => '../admin/disbursements.php', 'staff' => '../staff/disbursements.php', default => '../students/payouts.php' }));
     exit;
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// -- helpers ------------------------------------------------------------------
 function flashAndRedirect(string $msg, string $url, string $key = 'flash'): never {
     $_SESSION[$key] = $msg;
     header("Location: $url");
@@ -36,24 +41,24 @@ function backUrl(string $role): string {
     return match($role) {
         'admin' => '../admin/disbursements.php',
         'staff' => '../staff/disbursements.php',
-        default => '../member/payouts.php',
+        default => '../students/payouts.php',
     };
 }
 
-// ── create ────────────────────────────────────────────────────────────────────
+// -- create --------------------------------------------------------------------
 if ($action === 'create') {
     if (!in_array($role, ['admin', 'staff'])) {
         flashAndRedirect('Access denied.', backUrl($role));
     }
 
-    $awardId   = (int)($_POST['award_id'] ?? 0);
-    $amount    = trim($_POST['amount'] ?? '');
-    $date      = trim($_POST['disbursement_date'] ?? '');
-    $method    = 'Cash';
-    $reference = trim($_POST['transaction_reference'] ?? '');
-    $notes     = trim($_POST['notes'] ?? '');
+    $applicationId = (int)($_POST['application_id'] ?? 0);
+    $amount        = trim($_POST['amount'] ?? '');
+    $date          = trim($_POST['disbursement_date'] ?? '');
+    $method        = 'Cash';
+    $reference     = trim($_POST['transaction_reference'] ?? '');
+    $notes         = trim($_POST['notes'] ?? '');
 
-    if (!$awardId || !is_numeric($amount) || (float)$amount <= 0) {
+    if (!$applicationId || !is_numeric($amount) || (float)$amount <= 0) {
         flashAndRedirect('Amount must be a positive number.', backUrl($role));
     }
     if (!$date) {
@@ -61,11 +66,11 @@ if ($action === 'create') {
     }
 
     // Validate application exists and is approved
-    $awardStmt = $pdo->prepare("SELECT a.id, a.user_id, a.scholarship_id, s.title AS scholarship_title FROM applications a JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id AND a.status = 'approved'");
-    $awardStmt->execute([':id' => $awardId]);
-    $award = $awardStmt->fetch(PDO::FETCH_ASSOC);
+    $appStmt = $pdo->prepare("SELECT a.id, a.user_id, a.scholarship_id, s.title AS scholarship_title FROM applications a JOIN scholarships s ON a.scholarship_id = s.id WHERE a.id = :id AND a.status = 'approved'");
+    $appStmt->execute([':id' => $applicationId]);
+    $application = $appStmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$award) {
+    if (!$application) {
         flashAndRedirect('Selected application is not eligible for disbursement.', backUrl($role));
     }
 
@@ -78,18 +83,10 @@ if ($action === 'create') {
             "ALTER TABLE `disbursements` ADD COLUMN `deleted_at` DATETIME DEFAULT NULL",
             "ALTER TABLE `disbursements` ADD COLUMN `created_by` INT DEFAULT NULL",
             "ALTER TABLE `disbursements` MODIFY COLUMN `payment_method` VARCHAR(100) NOT NULL DEFAULT 'Cash'",
-            "ALTER TABLE `disbursements` MODIFY COLUMN `award_id` INT DEFAULT NULL",
         ];
         foreach ($alterStatements as $sql) {
-            try { $pdo->exec($sql); } catch (Exception $e) { /* column already exists — ignore */ }
+            try { $pdo->exec($sql); } catch (Exception $e) { /* column already exists – ignore */ }
         }
-        // Drop award_id FK constraint (old schema)
-        try {
-            $fkRow = $pdo->query("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
-                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'disbursements'
-                AND COLUMN_NAME = 'award_id' AND REFERENCED_TABLE_NAME IS NOT NULL LIMIT 1")->fetch();
-            if ($fkRow) { $pdo->exec("ALTER TABLE `disbursements` DROP FOREIGN KEY `{$fkRow['CONSTRAINT_NAME']}`"); }
-        } catch (Exception $e) { /* ignore */ }
         // Fix status ENUM
         try {
             $pdo->exec("ALTER TABLE `disbursements` MODIFY COLUMN `status` ENUM('pending','processing','completed','failed') DEFAULT 'pending'");
@@ -100,9 +97,9 @@ if ($action === 'create') {
             VALUES (:app_id, :user_id, :sch_id, :amount, :date, :method, 'pending', :notes, :created_by, NOW())
         ");
         $stmt->execute([
-            ':app_id'     => $award['id'],
-            ':user_id'    => $award['user_id'],
-            ':sch_id'     => $award['scholarship_id'],
+            ':app_id'     => $application['id'],
+            ':user_id'    => $application['user_id'],
+            ':sch_id'     => $application['scholarship_id'],
             ':amount'     => (float)$amount,
             ':date'       => $date,
             ':method'     => $method,
@@ -114,7 +111,7 @@ if ($action === 'create') {
         // Notify student
         $disbursement = getDisbursement($pdo, $disbId);
         if ($disbursement) {
-            createDisbursementNotification($pdo, $award['user_id'], 'disbursement_created', $disbursement);
+            createDisbursementNotification($pdo, $application['user_id'], 'disbursement_created', $disbursement);
         }
 
         flashAndRedirect('Disbursement created successfully.', backUrl($role), 'success');
@@ -124,7 +121,7 @@ if ($action === 'create') {
     }
 }
 
-// ── update ────────────────────────────────────────────────────────────────────
+// -- update --------------------------------------------------------------------
 if ($action === 'update') {
     if ($role !== 'admin') {
         flashAndRedirect('Access denied.', backUrl($role));
@@ -168,7 +165,7 @@ if ($action === 'update') {
     }
 }
 
-// ── delete (soft) ─────────────────────────────────────────────────────────────
+// -- delete (soft) -------------------------------------------------------------
 if ($action === 'delete') {
     if ($role !== 'admin') {
         flashAndRedirect('Access denied.', backUrl($role));
@@ -186,7 +183,7 @@ if ($action === 'delete') {
     }
 }
 
-// ── update_status ─────────────────────────────────────────────────────────────
+// -- update_status -------------------------------------------------------------
 if ($action === 'update_status') {
     if (!in_array($role, ['admin', 'staff'])) {
         flashAndRedirect('Access denied.', backUrl($role));
@@ -217,7 +214,7 @@ if ($action === 'update_status') {
     }
 }
 
-// ── export_csv ────────────────────────────────────────────────────────────────
+// -- export_csv ----------------------------------------------------------------
 if ($action === 'export_csv') {
     if ($role !== 'admin') {
         flashAndRedirect('Access denied.', backUrl($role));
@@ -254,7 +251,7 @@ if ($action === 'export_csv') {
     exit;
 }
 
-// ── export_pdf ────────────────────────────────────────────────────────────────
+// -- export_pdf ----------------------------------------------------------------
 if ($action === 'export_pdf') {
     if ($role !== 'admin') {
         flashAndRedirect('Access denied.', backUrl($role));

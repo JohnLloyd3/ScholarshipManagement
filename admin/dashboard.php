@@ -1,145 +1,135 @@
 ﻿<?php
+/**
+ * ADMIN DASHBOARD
+ * Role: Admin
+ * Purpose: Overview of system stats — students, scholarships, applications, disbursements
+ * URL: /admin/dashboard.php
+ */
 error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 require_once __DIR__ . '/../helpers/AnalyticsHelper.php';
 
 startSecureSession();
-
-// Authentication
 requireLogin();
 requireRole('admin', 'Admin access required');
 
 $pdo = getPDO();
 
 try {
-    // Stats
-    $totalApplications = (int) $pdo->query('SELECT COUNT(*) FROM applications')->fetchColumn() ?: 0;
-    // Treat submitted / pending / under_review as pending workload
-    $pendingApplications = (int) $pdo->query("SELECT COUNT(*) FROM applications WHERE status IN ('submitted','pending','under_review')")->fetchColumn() ?: 0;
-    $totalUsers = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() ?: 0;
-    $totalStudents = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn() ?: 0;
-    $totalScholarships = (int) $pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn() ?: 0;
-    $approvedCount = (int) $pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'approved'")->fetchColumn() ?: 0;
-    $rejectedCount = (int) $pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'rejected'")->fetchColumn() ?: 0;
+    $totalStudents       = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn();
+    $totalScholarships   = (int)$pdo->query("SELECT COUNT(*) FROM scholarships WHERE status = 'open'")->fetchColumn();
+    $pendingApplications = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status IN ('submitted','pending','under_review')")->fetchColumn();
+    $approvedCount       = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'approved'")->fetchColumn();
+    $rejectedCount       = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'rejected'")->fetchColumn();
+    $totalUsers          = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 
-    // Recent applications
-    $stmt = $pdo->query('SELECT a.id, a.title, a.status, a.created_at, a.submitted_at, u.first_name, u.last_name, s.title as scholarship_title 
-                         FROM applications a 
-                         LEFT JOIN users u ON a.user_id = u.id 
-                         LEFT JOIN scholarships s ON a.scholarship_id = s.id 
+    $stmt = $pdo->query('SELECT a.id, a.status, a.created_at, u.first_name, u.last_name, s.title as scholarship_title
+                         FROM applications a
+                         LEFT JOIN users u ON a.user_id = u.id
+                         LEFT JOIN scholarships s ON a.scholarship_id = s.id
                          ORDER BY a.created_at DESC LIMIT 12');
     $recent = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Exception $e) {
     error_log('Admin Dashboard Error: ' . $e->getMessage());
-    $totalApplications = 0;
-    $pendingApplications = 0;
-    $totalUsers = 0;
-    $totalStudents = 0;
-    $totalScholarships = 0;
-    $approvedCount = 0;
-    $rejectedCount = 0;
+    $totalStudents = $totalScholarships = $pendingApplications = $approvedCount = $rejectedCount = $totalUsers = 0;
     $recent = [];
 }
-?>
-<?php
+
+$adminName = trim(($_SESSION['user']['first_name'] ?? '') . ' ' . ($_SESSION['user']['last_name'] ?? '')) ?: 'Admin';
+
 $page_title = 'Admin Dashboard - ScholarHub';
-$base_path = '../';
+$base_path  = '../';
 require_once __DIR__ . '/../includes/modern-header.php';
 require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
+<!-- Welcome Banner -->
 <div class="page-header">
-  <h1>⚙️ Admin Dashboard</h1>
+  <div>
+    <h1>Welcome, <?= htmlspecialchars($adminName) ?>!</h1>
+    <p>Admin Dashboard</p>
+  </div>
+  <div class="page-header-icon"><i class="fas fa-cog"></i></div>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
   <div class="alert alert-success"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
 <?php endif; ?>
-
 <?php if (!empty($_SESSION['flash'])): ?>
   <div class="alert alert-error"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
 <?php endif; ?>
 
+<!-- Stats Grid -->
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-icon">👥</div>
-    <div class="stat-value"><?= htmlspecialchars($totalStudents) ?></div>
-    <div class="stat-label">Registered Students</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">🎓</div>
-    <div class="stat-value"><?= htmlspecialchars($totalScholarships) ?></div>
-    <div class="stat-label">Scholarships Available</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">⏳</div>
-    <div class="stat-value"><?= htmlspecialchars($pendingApplications) ?></div>
-    <div class="stat-label">Pending Applications</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">✅</div>
-    <div class="stat-value"><?= htmlspecialchars($approvedCount) ?></div>
-    <div class="stat-label">Approved Scholars</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">❌</div>
-    <div class="stat-value"><?= htmlspecialchars($rejectedCount) ?></div>
-    <div class="stat-label">Rejected Applications</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">👤</div>
-    <div class="stat-value"><?= htmlspecialchars($totalUsers) ?></div>
-    <div class="stat-label">Total Users</div>
-  </div>
-</div>
-
-<?php
-// Actionable alerts
-$alerts = [];
-if ($pendingApplications > 0) $alerts[] = ['msg' => "$pendingApplications application(s) waiting for review", 'link' => 'applications.php', 'label' => 'Review Now'];
-try {
-    $pendingDisb = (int)$pdo->query("SELECT COUNT(*) FROM disbursements WHERE status = 'pending' AND deleted_at IS NULL")->fetchColumn();
-    if ($pendingDisb > 0) $alerts[] = ['msg' => "$pendingDisb disbursement(s) pending processing", 'link' => 'disbursements.php', 'label' => 'Process Now'];
-} catch (Exception $e) {}
-try {
-    $underReview = (int)$pdo->query("SELECT COUNT(*) FROM applications WHERE status = 'under_review'")->fetchColumn();
-    if ($underReview > 0) $alerts[] = ['msg' => "$underReview application(s) under review awaiting decision", 'link' => 'applications.php', 'label' => 'Decide Now'];
-} catch (Exception $e) {}
-?>
-<?php if (!empty($alerts)): ?>
-<div style="display:flex;flex-direction:column;gap:var(--space-sm);margin-bottom:var(--space-xl);">
-  <?php foreach ($alerts as $al): ?>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);background:#fffbeb;border-left:4px solid #f59e0b;border-radius:var(--r-lg);">
-      <span style="color:#92400e;font-weight:500;">⚠️ <?= htmlspecialchars($al['msg']) ?></span>
-      <a href="<?= htmlspecialchars($al['link']) ?>" class="btn btn-primary btn-sm"><?= htmlspecialchars($al['label']) ?></a>
+    <div class="stat-card-top">
+      <div class="stat-icon"><i class="fas fa-graduation-cap"></i></div>
     </div>
-  <?php endforeach; ?>
-</div>
-<?php endif; ?>
+    <div class="stat-value"><?= number_format($totalStudents) ?></div>
+    <div class="stat-label">Registered Students</div>
+    <div class="stat-sub">vs. last semester</div>
+  </div>
 
-<div class="content-card">
-  <p class="text-muted" style="margin-bottom: var(--space-xl);">Quick access to manage every part of the system.</p>
-  <div style="display: flex; gap: var(--space-md); flex-wrap: wrap;">
-    <a class="btn btn-primary" href="users.php">👥 Manage Users</a>
-    <a class="btn btn-primary" href="scholarships.php">🎓 Manage Scholarships</a>
-    <a class="btn btn-primary" href="applications.php">📝 Manage Applications</a>
-    <a class="btn btn-primary" href="analytics.php">📊 Analytics</a>
-    <a class="btn btn-primary" href="disbursements.php">💰 Disbursements</a>
-    <a class="btn btn-primary" href="fraud_detection.php">🔍 Fraud Detection</a>
-    <a class="btn btn-primary" href="interview_slots.php">📅 Interview Slots</a>
-    <a class="btn btn-primary" href="interview_bookings.php">📆 Interview Bookings</a>
-    <a class="btn btn-primary" href="announcements.php">📢 Announcements</a>
+  <div class="stat-card">
+    <div class="stat-card-top">
+      <div class="stat-icon">📚</div>
+    </div>
+    <div class="stat-value"><?= number_format($totalScholarships) ?></div>
+    <div class="stat-label">Scholarships</div>
+    <div class="stat-sub">active programs</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card-top">
+      <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
+    </div>
+    <div class="stat-value"><?= number_format($pendingApplications) ?></div>
+    <div class="stat-label">Pending Applications</div>
+    <div class="stat-sub">awaiting review</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card-top">
+      <div class="stat-icon">✅</div>
+    </div>
+    <div class="stat-value"><?= number_format($approvedCount) ?></div>
+    <div class="stat-label">Approved</div>
+    <div class="stat-sub">this academic year</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card-top">
+      <div class="stat-icon"><i class="fas fa-times"></i></div>
+    </div>
+    <div class="stat-value"><?= number_format($rejectedCount) ?></div>
+    <div class="stat-label">Rejected</div>
+    <div class="stat-sub">this academic year</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card-top">
+      <div class="stat-icon"><i class="fas fa-users"></i></div>
+    </div>
+    <div class="stat-value"><?= number_format($totalUsers) ?></div>
+    <div class="stat-label">Total Users</div>
+    <div class="stat-sub">all roles combined</div>
   </div>
 </div>
 
+
+<!-- Recent Applications -->
 <div class="content-card">
-  <h3 style="margin-bottom: var(--space-xl);">Recent Applications</h3>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h3 style="margin:0;">Recent Applications</h3>
+    <a href="applications.php" class="btn btn-secondary btn-sm">View All</a>
+  </div>
+
   <?php if (empty($recent)): ?>
     <div class="empty-state">
-      <div class="empty-state-icon">📝</div>
-      <h3 class="empty-state-title">No Applications Yet</h3>
-      <p class="empty-state-description">Applications will appear here once students start applying.</p>
+      <div class="empty-state-icon"><i class="fas fa-file-alt"></i></div>
+      <div class="empty-state-title">No Applications Yet</div>
+      <div class="empty-state-description">Applications will appear here once students start applying.</div>
     </div>
   <?php else: ?>
     <table class="modern-table">
@@ -157,16 +147,16 @@ try {
         <?php foreach ($recent as $r): ?>
           <tr>
             <td><?= htmlspecialchars($r['id']) ?></td>
-            <td><?= htmlspecialchars(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? '')) ?></td>
-            <td><?= htmlspecialchars($r['scholarship_title'] ?? $r['title']) ?></td>
+            <td><?= htmlspecialchars(trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''))) ?></td>
+            <td><?= htmlspecialchars($r['scholarship_title'] ?? '—') ?></td>
             <td><span class="status-badge status-<?= strtolower($r['status']) ?>"><?= htmlspecialchars($r['status']) ?></span></td>
-            <td><small><?= htmlspecialchars($r['created_at']) ?></small></td>
+            <td style="color:#9E9E9E;font-size:0.8rem;"><?= htmlspecialchars(date('M d, Y', strtotime($r['created_at']))) ?></td>
             <td>
               <form style="display:inline" method="POST" action="../controllers/AdminController.php" onsubmit="return confirm('Delete this application?');">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" value="<?= $r['id'] ?>">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCSRFToken()) ?>">
-                <button type="submit" class="btn btn-ghost btn-sm">🗑️ Delete</button>
+                <button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
               </form>
             </td>
           </tr>

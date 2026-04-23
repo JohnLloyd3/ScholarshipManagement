@@ -1,9 +1,15 @@
 ﻿<?php
+/**
+ * ADMIN — FEEDBACK
+ * Role: Admin
+ * Purpose: View and manage student feedback submitted for approved applications
+ * URL: /admin/feedback.php
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-startSecureSession();
 require_once __DIR__ . '/../helpers/FeedbackHelper.php';
 
+startSecureSession();
 requireLogin();
 requireAnyRole(['admin'], 'Admin access required');
 
@@ -21,7 +27,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>⭐ Student Feedback</h1>
+  <h1><i class="fas fa-star"></i> Student Feedback</h1>
 </div>
 
 <!-- Analytics -->
@@ -87,7 +93,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </table>
   <?php else: ?>
     <div class="empty-state" style="margin-top:var(--space-xl);">
-      <div class="empty-state-icon">⭐</div>
+      <div class="empty-state-icon"><i class="fas fa-star"></i></div>
       <h3 class="empty-state-title">No Feedback Yet</h3>
       <p class="empty-state-description">Student feedback will appear here once submitted.</p>
     </div>

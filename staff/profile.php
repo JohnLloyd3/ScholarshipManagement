@@ -5,9 +5,19 @@ require_once __DIR__ . '/../helpers/SecurityHelper.php';
 startSecureSession();
 
 requireLogin();
-requireRole('staff', 'Staff access required');
+requireAnyRole(['staff', 'admin'], 'Staff access required');
 $pdo = getPDO();
 $user_id = $_SESSION['user_id'];
+
+// Ensure user session data is populated
+if (!isset($_SESSION['user']) || !is_array($_SESSION['user'])) {
+    $stmt = $pdo->prepare('SELECT id, username, first_name, last_name, email, role FROM users WHERE id = :id');
+    $stmt->execute([':id' => $user_id]);
+    $sessionUser = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($sessionUser) {
+        $_SESSION['user'] = $sessionUser;
+    }
+}
 
 // Handle profile picture upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) {
@@ -111,6 +121,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt = $pdo->prepare('SELECT id, username, first_name, last_name, email, phone, address, role, profile_picture, created_at FROM users WHERE id = :id');
 $stmt->execute([':id' => $user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// If user not found, show error but don't destroy session yet
+if (!$user || !is_array($user)) {
+    // Try to get user info from session as fallback
+    if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
+        $user = $_SESSION['user'];
+        // Add missing fields with defaults
+        $user['phone'] = $user['phone'] ?? '';
+        $user['address'] = $user['address'] ?? '';
+        $user['profile_picture'] = $user['profile_picture'] ?? '';
+        $user['created_at'] = $user['created_at'] ?? date('Y-m-d H:i:s');
+    } else {
+        // Only destroy session if we really can't find the user
+        $_SESSION['flash'] = 'Unable to load profile. Please try logging in again.';
+        header('Location: ../auth/logout.php');
+        exit;
+    }
+}
 ?>
 <?php
 $page_title = 'My Profile - Staff';
@@ -120,7 +148,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>👤 My Profile</h1>
+  <h1><i class="fas fa-user"></i> My Profile</h1>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -149,14 +177,14 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </h2>
       <p style="margin: 0 0 var(--space-sm) 0; color: var(--gray-600); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
         <span style="display: inline-block; background: var(--peach-ghost); color: var(--peach); padding: 4px 12px; border-radius: var(--r-md);">
-          💼 <?= htmlspecialchars(ucfirst($user['role'] ?? 'Staff')) ?>
+          <i class="fas fa-user-tie"></i> <?= htmlspecialchars(ucfirst($user['role'] ?? ($_SESSION['user']['role'] ?? 'Staff'))) ?>
         </span>
       </p>
       <form method="POST" enctype="multipart/form-data" style="margin-top: var(--space-md);">
         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
         <input type="file" name="profile_picture" accept="image/*" id="profilePicInput" style="display: none;" onchange="this.form.submit()">
         <label for="profilePicInput" class="btn btn-primary btn-sm" style="cursor: pointer;">
-          📷 Change Photo
+          <i class="fas fa-camera"></i> Change Photo
         </label>
         <small class="text-muted" style="display: block; margin-top: var(--space-xs);">JPG, PNG or GIF (Max 2MB)</small>
       </form>
@@ -208,7 +236,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     </div>
 
     <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
-      <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
       <a href="dashboard.php" class="btn btn-ghost">Cancel</a>
     </div>
   </form>
@@ -230,7 +258,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <label class="form-label">Confirm New Password *</label>
       <input type="password" name="confirm_new_password" class="form-input" required minlength="8" placeholder="Repeat new password">
     </div>
-    <button type="submit" class="btn btn-primary">🔒 Update Password</button>
+    <button type="submit" class="btn btn-primary"><i class="fas fa-lock"></i> Update Password</button>
   </form>
 </div>
 

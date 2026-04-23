@@ -35,7 +35,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1>🔍 Global Search</h1>
+  <h1>Global Search</h1>
 </div>
 
 <div class="content-card">
@@ -46,7 +46,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
   <?php if ($q === ''): ?>
     <div class="empty-state">
-      <div class="empty-state-icon">🔍</div>
+      <div class="empty-state-icon">??</div>
       <h3 class="empty-state-title">Start Searching</h3>
       <p class="empty-state-description">Enter a search term to find users, scholarships, or applications.</p>
     </div>
@@ -59,7 +59,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <?php foreach($users as $u): ?>
               <li style="padding:var(--space-md);border-bottom:1px solid var(--gray-200)">
                 <a href="../admin/users.php?view=<?= (int)$u['id'] ?>" class="text-primary"><?= htmlspecialchars($u['first_name'].' '.$u['last_name']) ?></a>
-                <span class="text-muted"> — <?= htmlspecialchars($u['email']) ?></span>
+                <span class="text-muted"> � <?= htmlspecialchars($u['email']) ?></span>
               </li>
             <?php endforeach; ?>
           </ul>
@@ -73,8 +73,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <ul style="list-style:none;padding:0;margin:0">
             <?php foreach($scholarships as $s): ?>
               <li style="padding:var(--space-md);border-bottom:1px solid var(--gray-200)">
-                <a href="../member/scholarship_view.php?id=<?= (int)$s['id'] ?>" class="text-primary"><?= htmlspecialchars($s['title']) ?></a>
-                <span class="text-muted"> — <?= htmlspecialchars($s['organization']) ?></span>
+                <a href="../students/scholarship_view.php?id=<?= (int)$s['id'] ?>" class="text-primary"><?= htmlspecialchars($s['title']) ?></a>
+                <span class="text-muted"> � <?= htmlspecialchars($s['organization']) ?></span>
                 <span class="status-badge status-<?= strtolower($s['status']) ?>"><?= htmlspecialchars($s['status']) ?></span>
               </li>
             <?php endforeach; ?>
@@ -90,7 +90,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <?php foreach($applications as $a): ?>
               <li style="padding:var(--space-md);border-bottom:1px solid var(--gray-200)">
                 <a href="application_view.php?id=<?= (int)$a['id'] ?>" class="text-primary">Application #<?= (int)$a['id'] ?></a>
-                <span class="text-muted"> — <?= htmlspecialchars($a['first_name'].' '.$a['last_name']) ?> — <?= htmlspecialchars($a['scholarship_title']) ?></span>
+                <span class="text-muted"> � <?= htmlspecialchars($a['first_name'].' '.$a['last_name']) ?> � <?= htmlspecialchars($a['scholarship_title']) ?></span>
                 <span class="status-badge status-<?= strtolower($a['status']) ?>"><?= htmlspecialchars($a['status']) ?></span>
               </li>
             <?php endforeach; ?>
