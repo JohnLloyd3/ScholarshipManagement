@@ -167,7 +167,7 @@ if ($action === 'create') {
     $collectedUploads = [];
 
     // Collect individually named file fields from the form
-    $namedFiles = ['cert_indigency', 'id_picture', 'report_card', 'birth_certificate', 'proof_income'];
+    $namedFiles = ['cert_indigency', 'proof_enrollment', 'id_picture', 'report_card', 'birth_certificate', 'proof_income'];
     foreach ($namedFiles as $fieldName) {
         if (!empty($_FILES[$fieldName]['name']) && $_FILES[$fieldName]['error'] === UPLOAD_ERR_OK) {
             $_FILES['documents']['name'][]     = $_FILES[$fieldName]['name'];
@@ -206,13 +206,10 @@ if ($action === 'create') {
             $target = $up . '/' . $safe;
             $file_size = $file['size'];
 
-            // duplicate check (without file hash)
-            $dupStmt = $pdo->prepare('SELECT id FROM documents WHERE user_id = :uid AND file_name = :fname AND file_size = :fsize');
-            $dupStmt->execute([
-                ':uid' => $user_id,
-                ':fname' => $name,
-                ':fsize' => $file_size
-            ]);
+            // duplicate check by file hash
+            $fileHash = md5_file($file['tmp_name']);
+            $dupStmt = $pdo->prepare('SELECT id FROM documents WHERE application_id IS NOT NULL AND file_hash = :fhash');
+            $dupStmt->execute([':fhash' => $fileHash]);
             if ($dupStmt->fetch()) {
                 continue; // skip duplicates silently
             }
@@ -224,7 +221,8 @@ if ($action === 'create') {
                     'name' => $name,
                     'path' => $pathRel,
                     'size' => $file_size,
-                    'mime' => $file['type'] ?? ''
+                    'mime' => $file['type'] ?? '',
+                    'hash' => $fileHash,
                 ];
             }
         }
@@ -233,33 +231,30 @@ if ($action === 'create') {
         }
     }
 
-    // Extract GWA for gpa field, store all form data as motivational_letter (JSON)
-    $gwa = floatval($posted['gwa'] ?? 0);
-    $motivational_letter = json_encode($posted, JSON_UNESCAPED_UNICODE);
+    // Extract GWA for gpa field, store all form data as details (JSON)
+    $motivational_letter = json_encode($posted, JSON_UNESCAPED_UNICODE); // kept for compat
 
     // Use transaction to ensure application and document inserts are atomic
     try {
         $pdo->beginTransaction();
 
-        // Determine status and submitted_at for draft vs final
         $db_status = $is_draft ? 'draft' : 'submitted';
+        $detailsJson = json_encode($posted, JSON_UNESCAPED_UNICODE);
         if ($is_draft) {
-            $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, gpa, motivational_letter, status, created_at, updated_at) VALUES (:uid, :sid, :gpa, :motiv, :status, NOW(), NOW())');
+            $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, status, details, created_at, updated_at) VALUES (:uid, :sid, :status, :details, NOW(), NOW())');
             $stmt->execute([
-                ':uid' => $user_id,
-                ':sid' => $scholarship_id,
-                ':gpa' => $gwa,
-                ':motiv' => $motivational_letter,
-                ':status' => $db_status
+                ':uid'     => $user_id,
+                ':sid'     => $scholarship_id,
+                ':status'  => $db_status,
+                ':details' => $detailsJson,
             ]);
         } else {
-            $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, gpa, motivational_letter, status, submitted_at) VALUES (:uid, :sid, :gpa, :motiv, :status, NOW())');
+            $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, status, details, submitted_at, created_at, updated_at) VALUES (:uid, :sid, :status, :details, NOW(), NOW(), NOW())');
             $stmt->execute([
-                ':uid' => $user_id,
-                ':sid' => $scholarship_id,
-                ':gpa' => $gwa,
-                ':motiv' => $motivational_letter,
-                ':status' => $db_status
+                ':uid'     => $user_id,
+                ':sid'     => $scholarship_id,
+                ':status'  => $db_status,
+                ':details' => $detailsJson,
             ]);
         }
 
@@ -267,26 +262,25 @@ if ($action === 'create') {
 
         // Insert any uploaded documents and link to application
         if (!empty($collectedUploads)) {
-            $ins = $pdo->prepare('INSERT INTO documents (application_id, user_id, document_type, file_name, file_path, file_size, mime_type, verification_status, uploaded_at) VALUES (:appid, :uid, :doctype, :fname, :fpath, :fsize, :mime, :vstatus, NOW())');
+            $ins = $pdo->prepare('INSERT INTO documents (application_id, document_type, file_path, file_hash, uploaded_at) VALUES (:appid, :doctype, :fpath, :fhash, NOW())');
             foreach ($collectedUploads as $u) {
                 $ins->execute([
-                    ':appid' => $application_id,
-                    ':uid' => $user_id,
+                    ':appid'   => $application_id,
                     ':doctype' => 'supporting',
-                    ':fname' => $u['name'],
-                    ':fpath' => $u['path'],
-                    ':fsize' => $u['size'],
-                    ':mime' => $u['mime'],
-                    ':vstatus' => 'pending'
+                    ':fpath'   => $u['path'],
+                    ':fhash'   => $u['hash'] ?? null,
                 ]);
             }
         }
 
-        // Perform intelligent application screening only for final submissions
         if (!$is_draft) {
-            $screening_result = screenApplication($application_id, $user_id, $scholarship_id, $pdo);
-            $final_status = $screening_result['status'] ?? 'submitted';
-
+            try {
+                $screening_result = screenApplication($application_id, $user_id, $scholarship_id, $pdo);
+                $final_status = $screening_result['status'] ?? 'submitted';
+            } catch (Exception $e) {
+                $final_status = 'submitted';
+                $screening_result = [];
+            }
             $updateStmt = $pdo->prepare('UPDATE applications SET status = :status WHERE id = :id');
             $updateStmt->execute([':status' => $final_status, ':id' => $application_id]);
         } else {

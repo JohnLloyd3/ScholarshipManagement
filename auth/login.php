@@ -148,10 +148,10 @@ if (isset($_SESSION['user_id'])) {
         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
 
         <div class="field">
-          <label for="username">Student ID</label>
+          <label for="username">Email</label>
           <div class="input-wrap">
-            <span class="input-icon"><i class="fas fa-id-card"></i></span>
-            <input type="text" id="username" name="username" class="form-input" placeholder="e.g. SCC-21-00031044" required autofocus>
+            <span class="input-icon"><i class="fas fa-envelope"></i></span>
+            <input type="email" id="username" name="username" class="form-input" placeholder="e.g. juan@email.com" required autofocus>
           </div>
         </div>
 

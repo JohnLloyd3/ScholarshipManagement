@@ -398,9 +398,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <input type="file" name="cert_indigency" id="cert_indigency" required accept=".pdf,.jpg,.jpeg,.png">
         </div>
         <div class="form-group">
-          <label>2x2 ID Picture *</label>
-          <input type="file" name="id_picture" id="id_picture" required accept=".jpg,.jpeg,.png">
+          <label>Proof of Enrollment *</label>
+          <input type="file" name="proof_enrollment" id="proof_enrollment" required accept=".pdf,.jpg,.jpeg,.png">
         </div>
+      </div>
+      <div class="form-group">
+        <label>2x2 ID Picture *</label>
+        <input type="file" name="id_picture" id="id_picture" required accept=".jpg,.jpeg,.png">
       </div>
     </div>
 
@@ -468,7 +472,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     const isDraft = e.submitter && e.submitter.name === 'save_draft';
     
     if (!isDraft) {
-      const requiredFiles = ['cert_indigency', 'id_picture'];
+      const requiredFiles = ['cert_indigency', 'proof_enrollment', 'id_picture'];
       let missingFiles = [];
       
       for (const fileId of requiredFiles) {

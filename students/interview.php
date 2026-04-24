@@ -14,18 +14,18 @@ $stmt = $pdo->prepare('
     SELECT 
         ia.id as assignment_id,
         ia.attendance_status,
-        ia.orientation_status,
-        ia.interview_status,
+        ia.orientation_completed,
+        ia.interview_completed,
         ia.final_status,
-        ia.assigned_at,
-        ia.locked,
+        ia.created_at as assigned_at,
+        ia.notes,
         g.group_code,
-        g.max_capacity,
+        g.capacity as max_capacity,
         g.current_count,
         s.session_date,
-        s.time_block,
-        s.time_start,
-        s.time_end,
+        s.session_period as time_block,
+        s.start_time as time_start,
+        s.end_time as time_end,
         s.status as session_status,
         sch.id as scholarship_id,
         sch.title as scholarship_title,
@@ -36,7 +36,7 @@ $stmt = $pdo->prepare('
     JOIN applications a ON ia.application_id = a.id
     JOIN scholarships sch ON a.scholarship_id = sch.id
     WHERE a.user_id = :uid
-    ORDER BY s.session_date ASC, s.time_block ASC
+    ORDER BY s.session_date ASC, s.session_period ASC
 ');
 $stmt->execute([':uid' => $userId]);
 $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -84,11 +84,9 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </div>
       
       <!-- Important Notice -->
-      <?php if ($assignment['locked']): ?>
-        <div class="alert alert-warning" style="margin-bottom: var(--space-lg);">
-          <i class="fas fa-lock"></i> <strong>Assignment Locked:</strong> Your interview group assignment is final and cannot be changed. Please arrive on time for your scheduled session.
-        </div>
-      <?php endif; ?>
+      <div class="alert alert-warning" style="margin-bottom: var(--space-lg);">
+        <i class="fas fa-lock"></i> <strong>Assignment Locked:</strong> Your interview group assignment is final and cannot be changed. Please arrive on time for your scheduled session.
+      </div>
       
       <!-- Progress Tracker -->
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: var(--space-xl); border-radius: var(--r-lg); margin-bottom: var(--space-lg);">
@@ -114,34 +112,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             </div>
           </div>
           
-          <!-- Orientation -->
-          <div style="background: rgba(255,255,255,0.1); padding: var(--space-lg); border-radius: var(--r-md); backdrop-filter: blur(10px);">
-            <div style="font-size: 2rem; margin-bottom: var(--space-sm);">
-              <?php if ($assignment['orientation_status'] === 'done'): ?>
-                ✓
-              <?php else: ?>
-                ⏳
-              <?php endif; ?>
-            </div>
-            <div style="font-weight: 600; margin-bottom: var(--space-xs);">Orientation</div>
-            <div style="opacity: 0.9; font-size: 0.9rem;">
-              <?= ucfirst($assignment['orientation_status']) ?>
-            </div>
-          </div>
-          
           <!-- Individual Interview -->
           <div style="background: rgba(255,255,255,0.1); padding: var(--space-lg); border-radius: var(--r-md); backdrop-filter: blur(10px);">
             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">
-              <?php if ($assignment['interview_status'] === 'done'): ?>
-                ✓
-              <?php else: ?>
-                ⏳
-              <?php endif; ?>
+              <?= $assignment['interview_completed'] ? '✓' : '⏳' ?>
             </div>
             <div style="font-weight: 600; margin-bottom: var(--space-xs);">Individual Interview</div>
-            <div style="opacity: 0.9; font-size: 0.9rem;">
-              <?= ucfirst($assignment['interview_status']) ?>
-            </div>
+            <div style="opacity: 0.9; font-size: 0.9rem;"><?= $assignment['interview_completed'] ? 'Done' : 'Pending' ?></div>
           </div>
           
           <!-- Final Status -->

@@ -48,22 +48,22 @@ function getPDO()
         // Ensure users table exists (non-destructive)
         $pdo->exec("CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(100) NOT NULL UNIQUE,
+            student_id VARCHAR(50) UNIQUE DEFAULT NULL,
             password VARCHAR(255) NOT NULL,
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NOT NULL,
             email VARCHAR(150) NOT NULL UNIQUE,
-            phone VARCHAR(50),
-            address TEXT,
             role ENUM('admin','student','staff') DEFAULT 'student',
             active TINYINT(1) DEFAULT 1,
-            email_verified TINYINT(1) DEFAULT 0,
+            email_verified TINYINT(1) DEFAULT 1,
+            must_change_password TINYINT(1) DEFAULT 0,
+            profile_picture VARCHAR(500) DEFAULT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_email (email),
             INDEX idx_role (role),
             INDEX idx_active (active),
-            INDEX idx_created_at (created_at)
+            INDEX idx_student_id (student_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
         
         // Add missing columns if they don't exist

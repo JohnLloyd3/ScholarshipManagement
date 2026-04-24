@@ -33,7 +33,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <div class="content-card" style="margin-bottom:1.5rem;">
   <form method="get" style="display:flex;gap:0.75rem;">
-    <input name="q" value="<?= htmlspecialchars($q) ?>" placeholder="Search by title or organization" class="form-input" style="flex:1;">
+    <input name="q" value="<?= htmlspecialchars($q) ?>" placeholder="Search by Scholarship" class="form-input" style="flex:1;">
     <button class="btn btn-primary" type="submit">Search</button>
   </form>
 </div>
@@ -48,11 +48,14 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <?php foreach ($scholarships as $s): ?>
       <?php
         // Get average rating for this scholarship
-        $ratingStmt = $pdo->prepare("SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM feedback WHERE scholarship_id = :sid");
-        $ratingStmt->execute([':sid' => $s['id']]);
-        $ratingData = $ratingStmt->fetch(PDO::FETCH_ASSOC);
-        $avgRating = $ratingData['avg_rating'] ? round($ratingData['avg_rating'], 1) : 0;
-        $ratingCount = $ratingData['rating_count'] ?? 0;
+        $avgRating = 0; $ratingCount = 0;
+        try {
+          $ratingStmt = $pdo->prepare("SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM feedback WHERE scholarship_id = :sid");
+          $ratingStmt->execute([':sid' => $s['id']]);
+          $ratingData = $ratingStmt->fetch(PDO::FETCH_ASSOC);
+          $avgRating = $ratingData['avg_rating'] ? round($ratingData['avg_rating'], 1) : 0;
+          $ratingCount = $ratingData['rating_count'] ?? 0;
+        } catch (Exception $e) { /* feedback table schema differs */ }
       ?>
       <div class="content-card" style="display:flex;flex-direction:column;justify-content:space-between;gap:1rem;padding:1.25rem;">
         <div>

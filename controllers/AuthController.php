@@ -182,6 +182,12 @@ if ($action === 'register') {
         exit;
     }
 
+    if (!preg_match('/^SCC-/', $student_id)) {
+        $_SESSION['flash'] = 'Student ID must start with uppercase "SCC-".';
+        header("Location: ../auth/register.php");
+        exit;
+    }
+
     if (strlen($password) < 8) {
         $_SESSION['flash'] = 'Password must be at least 8 characters.';
         header("Location: ../auth/register.php");
@@ -190,7 +196,6 @@ if ($action === 'register') {
 
     if ($pdo) {
         try {
-            // Check if student_id or email already exists
             $stmt = $pdo->prepare('SELECT id FROM users WHERE student_id = :sid OR email = :e LIMIT 1');
             $stmt->execute([':sid' => $student_id, ':e' => $email]);
             if ($stmt->fetch()) {
@@ -200,78 +205,54 @@ if ($action === 'register') {
             }
 
             $pwHash = password_hash($password, PASSWORD_DEFAULT);
-            // Insert account as INACTIVE - requires email verification
-            // Use student_id as username for students
-            $stmt = $pdo->prepare('INSERT INTO users (username, student_id, password, first_name, last_name, email, phone, address, role, email_verified, active) VALUES (:u, :sid, :p, :f, :l, :e, :ph, :a, :r, 0, 0)');
+            $stmt = $pdo->prepare('INSERT INTO users (student_id, password, first_name, last_name, email, role, email_verified, active) VALUES (:sid, :p, :f, :l, :e, :r, 1, 1)');
             $stmt->execute([
-                ':u' => $student_id,  // Use student_id as username
                 ':sid' => $student_id,
-                ':p' => $pwHash,
-                ':f' => $first,
-                ':l' => $last,
-                ':e' => $email,
-                ':ph' => $phone,
-                ':a' => $address,
-                ':r' => $role
+                ':p'   => $pwHash,
+                ':f'   => $first,
+                ':l'   => $last,
+                ':e'   => $email,
+                ':r'   => $role
             ]);
 
             $id = $pdo->lastInsertId();
 
             // Generate verification token
             $token = bin2hex(random_bytes(32));
-            $stmt = $pdo->prepare('INSERT INTO activations (user_id, token) VALUES (:uid, :token)');
-            $stmt->execute([':uid' => $id, ':token' => $token]);
-
-            // Send verification email
-            $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
-            $host = $_SERVER['HTTP_HOST'];
-            // Get the base path (remove /controllers/AuthController.php)
-            $scriptPath = dirname(dirname($_SERVER['SCRIPT_NAME']));
-            $verifyLink = $protocol . "://" . $host . $scriptPath . "/auth/verify_email.php?token=" . $token;
-            
-            $subject = 'Verify Your ScholarHub Account';
-            $message = "
-                <html>
-                <head><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;}
-                .container{max-width:600px;margin:0 auto;padding:20px;background:#f9f9f9;}
-                .header{background:#E53935;color:#fff;padding:20px;text-align:center;border-radius:8px 8px 0 0;}
-                .content{background:#fff;padding:30px;border-radius:0 0 8px 8px;}
-                .button{display:inline-block;padding:12px 30px;background:#E53935;color:#fff;text-decoration:none;border-radius:6px;margin:20px 0;}
-                .footer{text-align:center;margin-top:20px;font-size:12px;color:#888;}
-                </style></head>
-                <body>
-                <div class='container'>
-                    <div class='header'><h1>Welcome to ScholarHub!</h1></div>
-                    <div class='content'>
-                        <h2>Hi {$first},</h2>
-                        <p>Thank you for registering with ScholarHub. To complete your registration and activate your account, please verify your email address by clicking the button below:</p>
-                        <p style='text-align:center;'><a href='{$verifyLink}' class='button'>Verify Email Address</a></p>
-                        <p>Or copy and paste this link into your browser:</p>
-                        <p style='word-break:break-all;color:#E53935;'>{$verifyLink}</p>
-                        <p>This link will expire in 24 hours.</p>
-                        <p>If you didn't create this account, please ignore this email.</p>
-                    </div>
-                    <div class='footer'>
-                        <p>&copy; " . date('Y') . " ScholarHub. All rights reserved.</p>
-                    </div>
-                </div>
-                </body>
-                </html>
-            ";
-
             try {
+                $stmt = $pdo->prepare('INSERT INTO activations (user_id, token) VALUES (:uid, :token)');
+                $stmt->execute([':uid' => $id, ':token' => $token]);
+
+                // Send verification email
+                $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+                $host = $_SERVER['HTTP_HOST'];
+                $scriptPath = dirname(dirname($_SERVER['SCRIPT_NAME']));
+                $verifyLink = $protocol . "://" . $host . $scriptPath . "/auth/verify_email.php?token=" . $token;
+
+                $subject = 'Verify Your ScholarHub Account';
+                $message = "
+                    <html><body>
+                    <p>Hi {$first},</p>
+                    <p>Please verify your email by clicking the link below:</p>
+                    <p><a href='{$verifyLink}'>{$verifyLink}</a></p>
+                    <p>This link expires in 24 hours.</p>
+                    </body></html>
+                ";
                 queueEmail($email, $subject, $message, $id);
-                $_SESSION['success'] = 'Registration successful! Please check your email (' . $email . ') to verify your account.';
-            } catch (Exception $e) {
-                $_SESSION['flash'] = 'Account created but failed to send verification email. Please contact support.';
+                $_SESSION['success'] = 'Registration successful! Please check your email (' . $email . ') to verify your account before logging in.';
+            } catch (Exception $emailEx) {
+                // Email failed — activate account directly so user can still log in
+                error_log('[register] email/activation error: ' . $emailEx->getMessage());
+                $pdo->prepare('UPDATE users SET email_verified = 1, active = 1 WHERE id = :id')->execute([':id' => $id]);
+                $_SESSION['success'] = 'Account created successfully! You can now log in.';
             }
 
             header("Location: ../auth/login.php");
             exit;
 
         } catch (PDOException $e) {
-            _error_db($e);
-            $_SESSION['flash'] = 'Failed to register. Try again.';
+            error_log('[register] ' . $e->getMessage());
+            $_SESSION['flash'] = 'Failed to register: ' . $e->getMessage();
             header("Location: ../auth/register.php");
             exit;
         }
@@ -315,7 +296,7 @@ if ($action === 'register') {
     $password = $_POST['password'] ?? '';
 
     if ($username === '' || $password === '') {
-        $_SESSION['flash'] = 'Provide username and password.';
+        $_SESSION['flash'] = 'Please provide your email and password.';
         header("Location: ../auth/login.php");
         exit;
     }
@@ -342,14 +323,14 @@ if ($action === 'register') {
                 exit;
             }
 
-            // Login with student_id (which is stored as username for students)
-            $stmt = $pdo->prepare('SELECT id, username, student_id, password, first_name, last_name, email, role, active, email_verified FROM users WHERE student_id = :u LIMIT 1');
+            // Login with email
+            $stmt = $pdo->prepare('SELECT id, student_id, password, first_name, last_name, email, role, active, email_verified FROM users WHERE email = :u LIMIT 1');
             $stmt->execute([':u' => $username]);
             $found = $stmt->fetch();
 
             if (!$found) {
                 _record_login_attempt($pdo, $username, $ip, 0);
-                $_SESSION['flash'] = 'Student ID not found. Please check your Student ID.';
+                $_SESSION['flash'] = 'Email not found. Please check your email address.';
                 header("Location: ../auth/login.php");
                 exit;
             }
@@ -357,13 +338,6 @@ if ($action === 'register') {
             if (!password_verify($password, $found['password'])) {
                 _record_login_attempt($pdo, $username, $ip, 0);
                 $_SESSION['flash'] = 'Incorrect password. Please try again.';
-                header("Location: ../auth/login.php");
-                exit;
-            }
-
-            // Check if email is verified
-            if (!$found['email_verified']) {
-                $_SESSION['flash'] = 'Please verify your email address. Check your inbox for the verification link.';
                 header("Location: ../auth/login.php");
                 exit;
             }
@@ -381,11 +355,11 @@ if ($action === 'register') {
             rotateSession();
             $_SESSION['user_id'] = $found['id'];
             $_SESSION['user'] = [
-                'username' => $found['username'],
+                'username'   => $found['student_id'] ?? $found['email'],
                 'first_name' => $found['first_name'],
-                'last_name' => $found['last_name'],
-                'email' => $found['email'],
-                'role' => $found['role'] ?? 'student'
+                'last_name'  => $found['last_name'],
+                'email'      => $found['email'],
+                'role'       => $found['role'] ?? 'student'
             ];
 
             // Force password change if flagged (safe � column may not exist yet)

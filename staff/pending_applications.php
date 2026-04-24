@@ -8,7 +8,7 @@ $pdo = getPDO();
 $csrf_token = generateCSRFToken();
 
 // Fetch pending/submitted/under_review applications
-$stmt = $pdo->query("SELECT a.id, a.title, a.status, a.created_at, u.username, u.first_name, u.last_name, s.title as scholarship_title
+$stmt = $pdo->query("SELECT a.id, a.title, a.status, a.created_at, u.first_name, u.last_name, u.email, s.title as scholarship_title
                      FROM applications a
                      LEFT JOIN users u ON a.user_id = u.id
                      LEFT JOIN scholarships s ON a.scholarship_id = s.id
@@ -53,7 +53,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <tr>
               <td><input type="checkbox" name="application_ids[]" value="<?= (int)$a['id'] ?>"></td>
               <td><?= htmlspecialchars($a['id']) ?></td>
-              <td><?= htmlspecialchars(($a['first_name'] ?? '') . ' ' . ($a['last_name'] ?? '') ?: ($a['username'] ?? '')) ?></td>
+              <td><?= htmlspecialchars(($a['first_name'] ?? '') . ' ' . ($a['last_name'] ?? '') ?: ($a['email'] ?? 'N/A')) ?></td>
               <td><?= htmlspecialchars($a['title'] ?? 'Application') ?></td>
               <td><?= htmlspecialchars($a['scholarship_title'] ?? '—') ?></td>
               <td><span class="status-badge status-<?= strtolower($a['status']) ?>"><?= htmlspecialchars($a['status']) ?></span></td>

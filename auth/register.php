@@ -150,6 +150,7 @@ if (isset($_SESSION['user_id'])) {
             <span class="input-icon"><i class="fas fa-id-card"></i></span>
             <input type="text" id="student_id" name="student_id" class="form-input" placeholder="e.g. SCC-21-00031044" required autofocus>
           </div>
+          <div id="sid-error" style="color:#dc2626;font-size:0.78rem;margin-top:0.3rem;display:none;">Student ID must start with uppercase "SCC-"</div>
         </div>
 
         <div class="field">
@@ -208,6 +209,36 @@ if (isset($_SESSION['user_id'])) {
       input.type = input.type === 'password' ? 'text' : 'password';
       btn.innerHTML = input.type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
     }
+
+    const sidInput = document.getElementById('student_id');
+    const sidError = document.getElementById('sid-error');
+
+    // Auto-uppercase as user types
+    sidInput.addEventListener('input', function () {
+      this.value = this.value.toUpperCase();
+    });
+
+    // Validate on blur
+    sidInput.addEventListener('blur', function () {
+      if (this.value && !this.value.startsWith('SCC-')) {
+        sidError.style.display = 'block';
+        this.style.borderColor = '#dc2626';
+      } else {
+        sidError.style.display = 'none';
+        this.style.borderColor = '';
+      }
+    });
+
+    // Block submit if invalid
+    document.querySelector('form').addEventListener('submit', function (e) {
+      const val = sidInput.value.trim();
+      if (!val.startsWith('SCC-')) {
+        e.preventDefault();
+        sidError.style.display = 'block';
+        sidInput.style.borderColor = '#dc2626';
+        sidInput.focus();
+      }
+    });
   </script>
 </body>
 </html>

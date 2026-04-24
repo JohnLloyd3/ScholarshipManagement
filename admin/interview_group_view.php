@@ -66,18 +66,41 @@ $groupStmt = $pdo->prepare('
     SELECT 
         g.*,
         s.session_date,
-        s.time_block,
-        s.time_start,
-        s.time_end,
-        sch.id as scholarship_id,
-        sch.title as scholarship_title
+        s.session_period as time_block,
+        s.start_time as time_start,
+        s.end_time as time_end
     FROM interview_groups g
     JOIN interview_sessions s ON g.session_id = s.id
-    JOIN scholarships sch ON s.scholarship_id = sch.id
     WHERE g.id = :gid
 ');
 $groupStmt->execute([':gid' => $groupId]);
 $group = $groupStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$group) {
+    $_SESSION['flash'] = 'Group not found.';
+    header('Location: interview_management.php');
+    exit;
+}
+
+// Get scholarship info from the first applicant in this group
+$scholarshipStmt = $pdo->prepare('
+    SELECT DISTINCT sch.id as scholarship_id, sch.title as scholarship_title
+    FROM interview_assignments ia
+    JOIN applications a ON ia.application_id = a.id
+    JOIN scholarships sch ON a.scholarship_id = sch.id
+    WHERE ia.group_id = :gid
+    LIMIT 1
+');
+$scholarshipStmt->execute([':gid' => $groupId]);
+$scholarshipInfo = $scholarshipStmt->fetch(PDO::FETCH_ASSOC);
+
+if ($scholarshipInfo) {
+    $group['scholarship_id'] = $scholarshipInfo['scholarship_id'];
+    $group['scholarship_title'] = $scholarshipInfo['scholarship_title'];
+} else {
+    $group['scholarship_id'] = null;
+    $group['scholarship_title'] = 'N/A';
+}
 
 if (!$group) {
     $_SESSION['flash'] = 'Group not found.';
@@ -125,19 +148,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <div>
       <div class="text-muted" style="font-size: 0.9rem;">Total Applicants</div>
       <div style="font-size: 2rem; font-weight: 700; color: var(--primary-color);">
-        <?= count($applicants) ?> / <?= (int)$group['max_capacity'] ?>
+        <?= count($applicants) ?> / <?= (int)$group['capacity'] ?>
       </div>
     </div>
     <div>
       <div class="text-muted" style="font-size: 0.9rem;">Present</div>
       <div style="font-size: 2rem; font-weight: 700; color: #10b981;">
         <?= count(array_filter($applicants, fn($a) => $a['attendance_status'] === 'present')) ?>
-      </div>
-    </div>
-    <div>
-      <div class="text-muted" style="font-size: 0.9rem;">Orientation Done</div>
-      <div style="font-size: 2rem; font-weight: 700; color: #3b82f6;">
-        <?= count(array_filter($applicants, fn($a) => $a['orientation_status'] === 'done')) ?>
       </div>
     </div>
     <div>
@@ -166,7 +183,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
           <th>Student ID</th>
           <th>Name</th>
           <th>Attendance</th>
-          <th>Orientation</th>
           <th>Interview</th>
           <th>Final Status</th>
           <th>Actions</th>
@@ -183,11 +199,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             <td>
               <span class="status-badge status-<?= $applicant['attendance_status'] ?>">
                 <?= ucfirst($applicant['attendance_status']) ?>
-              </span>
-            </td>
-            <td>
-              <span class="status-badge status-<?= $applicant['orientation_status'] ?>">
-                <?= ucfirst($applicant['orientation_status']) ?>
               </span>
             </td>
             <td>
@@ -245,14 +256,6 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       </div>
       
       <div class="form-group">
-        <label>Orientation Status</label>
-        <select name="orientation_status" class="form-input" id="update_orientation_status">
-          <option value="pending">Pending</option>
-          <option value="done">Done</option>
-        </select>
-      </div>
-      
-      <div class="form-group">
         <label>Interview Status</label>
         <select name="interview_status" class="form-input" id="update_interview_status">
           <option value="pending">Pending</option>
@@ -287,7 +290,6 @@ function openUpdateModal(assignmentId, applicant) {
   document.getElementById('update_applicant_name').textContent = applicant.first_name + ' ' + applicant.last_name;
   document.getElementById('update_applicant_email').textContent = applicant.email;
   document.getElementById('update_attendance_status').value = applicant.attendance_status;
-  document.getElementById('update_orientation_status').value = applicant.orientation_status;
   document.getElementById('update_interview_status').value = applicant.interview_status;
   document.getElementById('update_final_status').value = applicant.final_status;
   document.getElementById('update_notes').value = applicant.notes || '';

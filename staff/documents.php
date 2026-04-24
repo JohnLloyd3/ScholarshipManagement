@@ -7,14 +7,14 @@ requireAnyRole(['staff','admin'], 'Staff access required');
 $pdo = getPDO();
 $csrf_token = generateCSRFToken();
 
-// Fetch pending documents
-$stmt = $pdo->query("SELECT d.id, d.file_name, d.file_path, d.document_type, d.verification_status, d.uploaded_at, u.username, a.id as application_id, s.title as scholarship_title
+// Fetch all documents with application info
+$stmt = $pdo->query("SELECT d.id, d.file_path, d.document_type, d.uploaded_at, d.application_id,
+                     u.first_name, u.last_name, u.email, a.id as application_id, s.title as scholarship_title
                      FROM documents d
-                     LEFT JOIN users u ON d.user_id = u.id
                      LEFT JOIN applications a ON d.application_id = a.id
+                     LEFT JOIN users u ON a.user_id = u.id
                      LEFT JOIN scholarships s ON a.scholarship_id = s.id
-                     WHERE d.verification_status = 'pending'
-                     ORDER BY d.uploaded_at ASC");
+                     ORDER BY d.uploaded_at DESC");
 $docs = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 ?>
 <?php
@@ -25,7 +25,8 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1><i class="fas fa-file"></i> Pending Documents</h1>
+  <h1><i class="fas fa-file"></i> Application Documents</h1>
+  <p class="text-muted">View all submitted documents from applicants</p>
 </div>
 
 <?php if (!empty($_SESSION['success'])): ?>
@@ -40,58 +41,30 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   <?php if (empty($docs)): ?>
     <div class="empty-state">
       <div class="empty-state-icon"><i class="fas fa-file"></i></div>
-      <h3 class="empty-state-title">No Pending Documents</h3>
-      <p class="empty-state-description">All documents have been reviewed!</p>
+      <h3 class="empty-state-title">No Documents</h3>
+      <p class="empty-state-description">No documents have been submitted yet.</p>
     </div>
   <?php else: ?>
-    <form method="POST" action="../controllers/DocumentController.php">
-      <input type="hidden" name="action" value="verify_documents_bulk">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <table class="modern-table">
-        <thead><tr><th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th><th>File</th><th>Applicant</th><th>Scholarship</th><th>Uploaded</th></tr></thead>
+        <thead><tr><th>#</th><th>File</th><th>Applicant</th><th>Scholarship</th><th>Uploaded</th><th>Action</th></tr></thead>
         <tbody>
-          <?php foreach ($docs as $d): ?>
+          <?php foreach ($docs as $i => $d): ?>
             <tr>
-              <td><input type="checkbox" name="document_ids[]" value="<?= (int)$d['id'] ?>"></td>
-              <td><a href="../<?= htmlspecialchars($d['file_path']) ?>" target="_blank" class="text-primary"><?= htmlspecialchars($d['file_name']) ?></a><br><small class="text-muted"><?= htmlspecialchars($d['document_type']) ?></small></td>
-              <td><?= htmlspecialchars($d['username']) ?></td>
+              <td><?= $i + 1 ?></td>
+              <td><a href="../<?= htmlspecialchars($d['file_path']) ?>" target="_blank" class="text-primary"><?= htmlspecialchars(basename($d['file_path'])) ?></a><br><small class="text-muted"><?= htmlspecialchars($d['document_type']) ?></small></td>
+              <td><?= htmlspecialchars(($d['first_name'] ?? '') . ' ' . ($d['last_name'] ?? '')) ?></td>
               <td><?= htmlspecialchars($d['scholarship_title'] ?? '—') ?></td>
               <td><small><?= htmlspecialchars($d['uploaded_at']) ?></small></td>
+              <td>
+                <?php if ($d['application_id']): ?>
+                  <a href="application_view.php?id=<?= (int)$d['application_id'] ?>" class="btn btn-ghost btn-sm">View Application</a>
+                <?php endif; ?>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
-
-      <div style="margin-top:var(--space-xl);display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="selectAll()"><i class="fas fa-check-square"></i> Select All</button>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="deselectAll()"><i class="far fa-square"></i> Deselect All</button>
-        <div style="width:1px;height:24px;background:#e5e7eb;margin:0 var(--space-sm);"></div>
-        <select name="new_status" class="form-select" style="width:auto">
-          <option value="verified">Mark as Verified</option>
-          <option value="rejected">Mark as Rejected</option>
-          <option value="needs_resubmission">Mark as Needs Resubmission</option>
-        </select>
-        <input type="text" name="notes" placeholder="Optional note for applicants" class="form-input" style="flex:1;min-width:300px">
-        <button class="btn btn-primary" type="submit">✅ Apply to Selected</button>
-      </div>
-    </form>
   <?php endif; ?>
 </div>
-
-<script>
-  function toggleAll(cb){
-    document.querySelectorAll('input[name="document_ids[]"]').forEach(function(i){ i.checked = cb.checked; });
-  }
-  
-  function selectAll() {
-    document.querySelectorAll('input[name="document_ids[]"]').forEach(function(i){ i.checked = true; });
-    document.getElementById('select_all').checked = true;
-  }
-  
-  function deselectAll() {
-    document.querySelectorAll('input[name="document_ids[]"]').forEach(function(i){ i.checked = false; });
-    document.getElementById('select_all').checked = false;
-  }
-</script>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

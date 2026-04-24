@@ -154,8 +154,11 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   </div>
 </div>
 
-<!-- Auto-Assignment Button -->
-<div style="display:flex;justify-content:flex-end;margin-bottom:1.5rem;">
+<!-- Auto-Assignment and View Schedule Buttons -->
+<div style="display:flex;justify-content:flex-end;gap:1rem;margin-bottom:1.5rem;">
+  <button class="btn btn-ghost" onclick="document.getElementById('viewScheduleSection').scrollIntoView({behavior:'smooth'})">
+    <i class="fas fa-calendar-alt"></i> View Schedule
+  </button>
   <button class="btn btn-primary" onclick="document.getElementById('autoAssignModal').style.display='flex'">
     <i class="fas fa-magic"></i> Auto-Assign Applicants
   </button>
@@ -196,10 +199,10 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 </div>
 
 <!-- View Schedule -->
-<?php if (!empty($scholarshipsWithInterviews)): ?>
-<div class="content-card" style="margin-top: var(--space-xl);">
+<div id="viewScheduleSection" class="content-card" style="margin-top: var(--space-xl);">
   <h2><i class="fas fa-calendar-alt"></i> View Interview Schedule</h2>
   
+  <?php if (!empty($scholarshipsWithInterviews)): ?>
   <div class="form-group" style="max-width: 400px;">
     <label>Select Scholarship</label>
     <select class="form-input" onchange="window.location.href='interview_management.php?scholarship_id='+this.value">
@@ -250,15 +253,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <p class="empty-state-description">Use the auto-assign form above to create sessions and assign applicants.</p>
     </div>
   <?php endif; ?>
-</div>
-<?php else: ?>
-<div class="content-card" style="margin-top: var(--space-xl);">
+  <?php else: ?>
   <div class="empty-state">
     <div class="empty-state-icon"><i class="fas fa-users"></i></div>
     <h3 class="empty-state-title">No Approved Applicants</h3>
     <p class="empty-state-description">There are no scholarships with approved applicants yet.</p>
   </div>
+  <?php endif; ?>
 </div>
-<?php endif; ?>
 
 <?php require_once __DIR__ . '/../includes/modern-footer.php'; ?>

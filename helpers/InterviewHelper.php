@@ -52,7 +52,7 @@ class InterviewHelper {
             $groups = [];
             foreach ($sessions as $session) {
                 $groupsStmt = $this->pdo->prepare('
-                    SELECT id, group_code, max_capacity, current_count
+                    SELECT id, session_id, group_code, capacity as max_capacity, current_count
                     FROM interview_groups
                     WHERE session_id = :sid
                     ORDER BY group_code ASC
@@ -70,6 +70,7 @@ class InterviewHelper {
             // Assign applicants sequentially to groups
             $assignedCount = 0;
             $groupIndex = 0;
+            $assignmentNumber = 1;
             
             foreach ($applicants as $applicant) {
                 // Find next available group
@@ -80,12 +81,15 @@ class InterviewHelper {
                         // Assign to this group
                         $assignStmt = $this->pdo->prepare('
                             INSERT INTO interview_assignments 
-                            (application_id, group_id, assigned_at, locked)
-                            VALUES (:app_id, :group_id, NOW(), 1)
+                            (application_id, user_id, session_id, group_id, assignment_number)
+                            VALUES (:app_id, :user_id, :session_id, :group_id, :assignment_number)
                         ');
                         $assignStmt->execute([
                             ':app_id' => $applicant['id'],
-                            ':group_id' => $group['id']
+                            ':user_id' => $applicant['user_id'],
+                            ':session_id' => $group['session_id'],
+                            ':group_id' => $group['id'],
+                            ':assignment_number' => $assignmentNumber
                         ]);
                         
                         // Update group count
@@ -98,6 +102,7 @@ class InterviewHelper {
                         
                         $groups[$groupIndex]['current_count']++;
                         $assignedCount++;
+                        $assignmentNumber++;
                         break;
                     }
                     
@@ -145,10 +150,9 @@ class InterviewHelper {
             // Check if session exists
             $checkStmt = $this->pdo->prepare('
                 SELECT id FROM interview_sessions
-                WHERE scholarship_id = :sid AND session_date = :date AND time_block = :block
+                WHERE session_date = :date AND session_period = :block
             ');
             $checkStmt->execute([
-                ':sid' => $scholarshipId,
                 ':date' => $sessionDate,
                 ':block' => $block
             ]);
@@ -160,11 +164,10 @@ class InterviewHelper {
                 // Create session
                 $createStmt = $this->pdo->prepare('
                     INSERT INTO interview_sessions 
-                    (scholarship_id, session_date, time_block, time_start, time_end)
-                    VALUES (:sid, :date, :block, :start, :end)
+                    (session_date, session_period, start_time, end_time)
+                    VALUES (:date, :block, :start, :end)
                 ');
                 $createStmt->execute([
-                    ':sid' => $scholarshipId,
                     ':date' => $sessionDate,
                     ':block' => $block,
                     ':start' => $times['start'],
@@ -173,7 +176,7 @@ class InterviewHelper {
                 $sessionId = $this->pdo->lastInsertId();
             }
             
-            $sessions[] = ['id' => $sessionId, 'time_block' => $block];
+            $sessions[] = ['id' => $sessionId, 'session_period' => $block];
             
             // Create groups for this session
             $groupCodes = $block === 'AM' ? ['A1', 'A2'] : ['B1', 'B2'];
@@ -190,7 +193,7 @@ class InterviewHelper {
                     // Create group
                     $createGroupStmt = $this->pdo->prepare('
                         INSERT INTO interview_groups 
-                        (session_id, group_code, max_capacity, current_count)
+                        (session_id, group_code, capacity, current_count)
                         VALUES (:sid, :code, 10, 0)
                     ');
                     $createGroupStmt->execute([':sid' => $sessionId, ':code' => $code]);
@@ -211,20 +214,19 @@ class InterviewHelper {
             SELECT 
                 s.id as session_id,
                 s.session_date,
-                s.time_block,
-                s.time_start,
-                s.time_end,
+                s.session_period as time_block,
+                s.start_time as time_start,
+                s.end_time as time_end,
                 s.status as session_status,
                 g.id as group_id,
                 g.group_code,
-                g.max_capacity,
+                g.capacity as max_capacity,
                 g.current_count
             FROM interview_sessions s
             LEFT JOIN interview_groups g ON s.id = g.session_id
-            WHERE s.scholarship_id = :sid
-            ORDER BY s.session_date ASC, s.time_block ASC, g.group_code ASC
+            ORDER BY s.session_date ASC, s.session_period ASC, g.group_code ASC
         ');
-        $stmt->execute([':sid' => $scholarshipId]);
+        $stmt->execute();
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Organize by session and group
@@ -267,8 +269,8 @@ class InterviewHelper {
             SELECT 
                 ia.id as assignment_id,
                 ia.attendance_status,
-                ia.orientation_status,
-                ia.interview_status,
+                CASE WHEN ia.orientation_completed = 1 THEN "done" ELSE "pending" END as orientation_status,
+                CASE WHEN ia.interview_completed = 1 THEN "done" ELSE "pending" END as interview_status,
                 ia.final_status,
                 ia.notes,
                 a.id as application_id,
@@ -281,7 +283,7 @@ class InterviewHelper {
             JOIN applications a ON ia.application_id = a.id
             JOIN users u ON a.user_id = u.id
             WHERE ia.group_id = :gid
-            ORDER BY ia.assigned_at ASC
+            ORDER BY ia.assignment_number ASC, ia.created_at ASC
         ');
         $stmt->execute([':gid' => $groupId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -302,8 +304,17 @@ class InterviewHelper {
             
             foreach ($updates as $field => $value) {
                 if (in_array($field, $allowedFields)) {
-                    $fields[] = "$field = :$field";
-                    $params[":$field"] = $value;
+                    // Convert status fields to boolean for database
+                    if ($field === 'orientation_status') {
+                        $fields[] = "orientation_completed = :orientation_completed";
+                        $params[":orientation_completed"] = ($value === 'done') ? 1 : 0;
+                    } elseif ($field === 'interview_status') {
+                        $fields[] = "interview_completed = :interview_completed";
+                        $params[":interview_completed"] = ($value === 'done') ? 1 : 0;
+                    } else {
+                        $fields[] = "$field = :$field";
+                        $params[":$field"] = $value;
+                    }
                 }
             }
             

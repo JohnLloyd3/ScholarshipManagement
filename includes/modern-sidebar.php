@@ -49,9 +49,11 @@ if (in_array($current_page, ['scholarships.php', 'scholarship_view.php', 'apply_
   /* Brand */
   .sidebar-brand {
     display: flex; align-items: center; gap: 0.6rem;
-    padding: 1.1rem 1.25rem 0.875rem;
+    padding: 0 1.25rem;
+    height: 72px;
     border-bottom: 1.5px solid #D1D5DB;
     text-decoration: none;
+    flex-shrink: 0;
   }
   .sidebar-brand-icon {
     width: 34px; height: 34px; border-radius: 9px;
@@ -80,7 +82,7 @@ if (in_array($current_page, ['scholarships.php', 'scholarship_view.php', 'apply_
 
   /* Bottom */
   .sidebar-bottom {
-    padding: 0.75rem; border-top: 1.5px solid #D1D5DB;
+    padding: 0.75rem; border-top: 1.5px solid #D1D5DB; margin-top: auto;
   }
 
   @media (max-width: 768px) {
@@ -107,7 +109,6 @@ if (in_array($current_page, ['scholarships.php', 'scholarship_view.php', 'apply_
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>students/dashboard.php" class="sidebar-link <?= $active_section==='dashboard'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-chart-line"></i></span>Dashboard</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>students/scholarships.php" class="sidebar-link <?= $active_section==='scholarships'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-graduation-cap"></i></span>Scholarships</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>students/applications.php" class="sidebar-link <?= $active_section==='applications'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-file-alt"></i></span>My Applications</a></li>
-          <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>students/announcements.php" class="sidebar-link <?= $active_section==='announcements'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-bullhorn"></i></span>Announcements</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>students/interview.php" class="sidebar-link <?= $active_section==='interviews'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-calendar-alt"></i></span>Interview</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>students/payouts.php" class="sidebar-link <?= $active_section==='payouts'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-money-bill-wave"></i></span>My Payouts</a></li>
 
@@ -116,9 +117,8 @@ if (in_array($current_page, ['scholarships.php', 'scholarship_view.php', 'apply_
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/scholarships.php" class="sidebar-link <?= $active_section==='scholarships'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-graduation-cap"></i></span>Scholarships</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/applications.php" class="sidebar-link <?= $active_section==='applications'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-file-alt"></i></span>Applications</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/pending_applications.php" class="sidebar-link <?= $active_section==='pending'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-hourglass-half"></i></span>Pending</a></li>
-          <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/disbursements.php" class="sidebar-link <?= $active_section==='payouts'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-money-bill-wave"></i></span>Disbursements</a></li>
-          <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/documents.php" class="sidebar-link <?= $active_section==='documents'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-file"></i></span>Documents</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/interview_management.php" class="sidebar-link <?= $active_section==='interviews'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-calendar-alt"></i></span>Interview Management</a></li>
+          <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/disbursements.php" class="sidebar-link <?= $active_section==='payouts'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-money-bill-wave"></i></span>Disbursements</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/announcements.php" class="sidebar-link <?= $active_section==='announcements'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-bullhorn"></i></span>Announcements</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/feedback.php" class="sidebar-link <?= $active_section==='feedback'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-star"></i></span>Feedback</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>staff/analytics.php" class="sidebar-link <?= $active_section==='analytics'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-chart-bar"></i></span>Analytics</a></li>
@@ -128,9 +128,9 @@ if (in_array($current_page, ['scholarships.php', 'scholarship_view.php', 'apply_
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/users.php" class="sidebar-link <?= $active_section==='users'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-users"></i></span>Users</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/scholarships.php" class="sidebar-link <?= $active_section==='scholarships'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-graduation-cap"></i></span>Scholarships</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/applications.php" class="sidebar-link <?= $active_section==='applications'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-file-alt"></i></span>Applications</a></li>
-          <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/announcements.php" class="sidebar-link <?= $active_section==='announcements'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-bullhorn"></i></span>Announcements</a></li>
-          <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/disbursements.php" class="sidebar-link <?= $active_section==='payouts'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-money-bill-wave"></i></span>Disbursements</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/interview_management.php" class="sidebar-link <?= $active_section==='interviews'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-calendar-alt"></i></span>Interview Management</a></li>
+          <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/disbursements.php" class="sidebar-link <?= $active_section==='payouts'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-money-bill-wave"></i></span>Disbursements</a></li>
+          <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/announcements.php" class="sidebar-link <?= $active_section==='announcements'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-bullhorn"></i></span>Announcements</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/feedback.php" class="sidebar-link <?= $active_section==='feedback'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-star"></i></span>Feedback</a></li>
           <li class="sidebar-item"><a href="<?= $base_path ?? '../' ?>admin/analytics.php" class="sidebar-link <?= $active_section==='analytics'?'active':'' ?>"><span class="sidebar-icon"><i class="fas fa-chart-bar"></i></span>Analytics</a></li>
         <?php endif; ?>

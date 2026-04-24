@@ -45,8 +45,9 @@ if (!is_file($filePath)) {
     exit;
 }
 
+$fileName = basename($doc['file_path']);
 $webPath = rtrim(APP_BASE, '/') . '/' . ltrim($doc['file_path'], '/');
-$mime = $doc['mime_type'] ?? mime_content_type($filePath);
+$mime = mime_content_type($filePath);
 
 ?>
 <?php
@@ -57,7 +58,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 ?>
 
 <div class="page-header">
-  <h1><i class="fas fa-file"></i> <?= htmlspecialchars($doc['file_name']) ?></h1>
+  <h1><i class="fas fa-file"></i> <?= htmlspecialchars($fileName) ?></h1>
   <p class="text-muted">Type: <?= htmlspecialchars($mime) ?> • Uploaded: <?= htmlspecialchars($doc['uploaded_at'] ?? '') ?></p>
 </div>
 
@@ -103,7 +104,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         })();
       </script>
     <?php elseif (strpos($mime, 'image/') === 0): ?>
-      <img src="<?= $webPath ?>" alt="<?= htmlspecialchars($doc['file_name']) ?>" style="max-width:100%;height:auto;border:1px solid var(--gray-200);padding:var(--space-lg);background:var(--white);border-radius:var(--r-lg);box-shadow:var(--shadow-md);">
+      <img src="<?= $webPath ?>" alt="<?= htmlspecialchars($fileName) ?>" style="max-width:100%;height:auto;border:1px solid var(--gray-200);padding:var(--space-lg);background:var(--white);border-radius:var(--r-lg);box-shadow:var(--shadow-md);">
     <?php else: ?>
       <div class="empty-state">
         <div class="empty-state-icon"><i class="fas fa-file"></i></div>
