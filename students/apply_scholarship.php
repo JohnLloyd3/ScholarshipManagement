@@ -167,15 +167,15 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <div class="form-row-3">
         <div class="form-group">
           <label>Last Name *</label>
-          <input type="text" id="last_name" required placeholder="Dela Cruz">
+          <input type="text" name="last_name" id="last_name" required placeholder="Dela Cruz">
         </div>
         <div class="form-group">
           <label>First Name *</label>
-          <input type="text" id="first_name" required placeholder="Juan">
+          <input type="text" name="first_name" id="first_name" required placeholder="Juan">
         </div>
         <div class="form-group">
           <label>Middle Name</label>
-          <input type="text" id="middle_name" placeholder="Santos">
+          <input type="text" name="middle_name" id="middle_name" placeholder="Santos">
         </div>
       </div>
       <div class="form-row-3">
@@ -223,21 +223,21 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
       <div class="form-row">
         <div class="form-group">
           <label>Street/House No. *</label>
-          <input type="text" id="street" required placeholder="123 Main St">
+          <input type="text" name="street" id="street" required placeholder="123 Main St">
         </div>
         <div class="form-group">
           <label>Barangay *</label>
-          <input type="text" id="barangay" required placeholder="Barangay Name">
+          <input type="text" name="barangay" id="barangay" required placeholder="Barangay Name">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>City/Municipality *</label>
-          <input type="text" id="city" required placeholder="City Name">
+          <input type="text" name="city" id="city" required placeholder="City Name">
         </div>
         <div class="form-group">
           <label>Province *</label>
-          <select id="province" required>
+          <select name="province" id="province" required>
             <option value="">Select Province</option>
             <option value="Abra">Abra</option>
             <option value="Agusan del Norte">Agusan del Norte</option>
@@ -435,61 +435,47 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
   // Auto-calculate age from date of birth
   const dobInput = document.getElementById('dob');
   const ageInput = document.getElementById('age');
-  
   if (dobInput && ageInput) {
     dobInput.addEventListener('change', function() {
       const dob = new Date(this.value);
       const today = new Date();
       let age = today.getFullYear() - dob.getFullYear();
-      const monthDiff = today.getMonth() - dob.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-        age--;
-      }
-      if (age > 0 && age < 120) {
-        ageInput.value = age;
-      }
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+      if (age > 0 && age < 120) ageInput.value = age;
     });
   }
-  
-  // Combine name and address fields before submission
+
   form.addEventListener('submit', function(e) {
-    // Combine name fields
-    const lastName = document.getElementById('last_name').value.trim();
-    const firstName = document.getElementById('first_name').value.trim();
-    const middleName = document.getElementById('middle_name').value.trim();
-    const fullName = `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, ' ').trim();
-    document.getElementById('full_name_hidden').value = fullName;
-    
-    // Combine address fields
-    const street = document.getElementById('street').value.trim();
-    const barangay = document.getElementById('barangay').value.trim();
-    const city = document.getElementById('city').value.trim();
-    const province = document.getElementById('province').value.trim();
-    const homeAddress = `${street}, ${barangay}, ${city}, ${province}`;
-    document.getElementById('home_address_hidden').value = homeAddress;
-    
-    // Validate required files (only for non-draft submissions)
     const isDraft = e.submitter && e.submitter.name === 'save_draft';
-    
+
+    // Combine name into hidden field
+    const ln = (document.getElementById('last_name')?.value || '').trim();
+    const fn = (document.getElementById('first_name')?.value || '').trim();
+    const mn = (document.getElementById('middle_name')?.value || '').trim();
+    document.getElementById('full_name_hidden').value = [fn, mn, ln].filter(Boolean).join(' ');
+
+    // Combine address into hidden field
+    const street   = (document.getElementById('street')?.value   || '').trim();
+    const barangay = (document.getElementById('barangay')?.value || '').trim();
+    const city     = (document.getElementById('city')?.value     || '').trim();
+    const province = (document.getElementById('province')?.value || '').trim();
+    document.getElementById('home_address_hidden').value = [street, barangay, city, province].filter(Boolean).join(', ');
+
     if (!isDraft) {
-      const requiredFiles = ['cert_indigency', 'proof_enrollment', 'id_picture'];
-      let missingFiles = [];
-      
-      for (const fileId of requiredFiles) {
-        const fileInput = document.getElementById(fileId);
-        if (fileInput && !fileInput.files.length) {
-          missingFiles.push(fileInput.previousElementSibling.textContent.replace(' *', ''));
-        }
-      }
-      
-      if (missingFiles.length > 0) {
+      // Check required file uploads
+      const files = ['cert_indigency', 'proof_enrollment', 'id_picture'];
+      const missing = files.filter(id => {
+        const el = document.getElementById(id);
+        return el && !el.files.length;
+      }).map(id => document.getElementById(id).previousElementSibling.textContent.replace(' *',''));
+
+      if (missing.length) {
         e.preventDefault();
-        alert('Please upload the following required documents:\n\n' + missingFiles.join('\n'));
+        alert('Please upload the following required documents:\n\n' + missing.join('\n'));
         return false;
       }
     }
-    
-    return true;
   });
 })();
 </script>

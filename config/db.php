@@ -428,9 +428,15 @@ function getPDO()
             FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
             FOREIGN KEY (group_id) REFERENCES interview_groups(id) ON DELETE CASCADE,
             INDEX idx_group_id (group_id),
-            INDEX idx_locked (locked),
             INDEX idx_final_status (final_status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        // Backfill old column names to new ones for existing installs
+        try { $pdo->exec("ALTER TABLE interview_assignments ADD COLUMN orientation_status ENUM('pending','done') DEFAULT 'pending'"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE interview_assignments ADD COLUMN interview_status ENUM('pending','done') DEFAULT 'pending'"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE interview_assignments ADD COLUMN assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch (Exception $e) {}
+        // Drop old boolean columns if they exist (migration complete)
+        try { $pdo->exec("ALTER TABLE interview_assignments DROP COLUMN orientation_completed"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE interview_assignments DROP COLUMN interview_completed"); } catch (Exception $e) {}
 
         // Ensure feedback table exists
         $pdo->exec("CREATE TABLE IF NOT EXISTS feedback (
@@ -454,6 +460,10 @@ function getPDO()
         try { $pdo->exec("ALTER TABLE applications ADD COLUMN title VARCHAR(255) DEFAULT NULL"); } catch (Exception $e) {}
         try { $pdo->exec("ALTER TABLE applications ADD COLUMN details TEXT DEFAULT NULL"); } catch (Exception $e) {}
         try { $pdo->exec("ALTER TABLE applications ADD COLUMN waitlisted_at DATETIME DEFAULT NULL"); } catch (Exception $e) {}
+        // Fix status enum to include waitlisted
+        try { $pdo->exec("ALTER TABLE applications MODIFY COLUMN status ENUM('draft','submitted','under_review','pending','approved','rejected','withdrawn','waitlisted') DEFAULT 'submitted'"); } catch (Exception $e) {}
+        // Remove unique constraint that blocks multiple applications per user per scholarship (drafts etc.)
+        try { $pdo->exec("ALTER TABLE applications DROP INDEX unique_application"); } catch (Exception $e) {}
 
         // Add missing columns to documents table
         try { $pdo->exec("ALTER TABLE documents ADD COLUMN file_hash VARCHAR(64) DEFAULT NULL"); } catch (Exception $e) {}
@@ -469,7 +479,11 @@ function getPDO()
         // Add missing columns to users table
         try { $pdo->exec("ALTER TABLE users ADD COLUMN profile_picture VARCHAR(500) DEFAULT NULL"); } catch (Exception $e) {}
         try { $pdo->exec("ALTER TABLE users ADD COLUMN student_id VARCHAR(50) UNIQUE DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN username VARCHAR(100) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN last_activity DATETIME DEFAULT NULL"); } catch (Exception $e) {}
         try { $pdo->exec("ALTER TABLE users ADD INDEX idx_student_id (student_id)"); } catch (Exception $e) {}
+        // Backfill username from email for existing users
+        try { $pdo->exec("UPDATE users SET username = SUBSTRING_INDEX(email, '@', 1) WHERE username IS NULL OR username = ''"); } catch (Exception $e) {}
 
         return $pdo;
     } catch (PDOException $e) {

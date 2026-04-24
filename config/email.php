@@ -43,13 +43,13 @@ if (!defined('SMTP_PORT')) {
     define('SMTP_PORT', 587);
 }
 if (!defined('SMTP_USER')) {
-    define('SMTP_USER', 'johnlloydracaza09399561410@gmail.com');
+    define('SMTP_USER', getenv('SMTP_USER') ?: 'your-email@gmail.com');
 }
 if (!defined('SMTP_PASS')) {
-    define('SMTP_PASS', 'enaxvieckvaznjlr');
+    define('SMTP_PASS', getenv('SMTP_PASS') ?: 'your-app-password');
 }
 if (!defined('EMAIL_FROM')) {
-    define('EMAIL_FROM', 'johnlloydracaza09399561410@gmail.com');
+    define('EMAIL_FROM', getenv('EMAIL_FROM') ?: 'noreply@scholarhub.com');
 }
 /**
  * Send email using PHP mail() or SMTP

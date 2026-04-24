@@ -173,6 +173,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 <a href="applications.php" class="btn btn-secondary" style="margin-bottom:var(--space-xl)">? Back to Queue</a>
 
 <?php $appData = json_decode($app['motivational_letter'] ?? '{}', true) ?: []; ?>
+<?php $appData = json_decode($app['details'] ?? $app['motivational_letter'] ?? '{}', true) ?: []; ?>
 <style>
   .detail-section { margin-bottom: 1.5rem; }
   .detail-section h4 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #E53935; border-left: 3px solid #E53935; padding-left: 0.6rem; margin-bottom: 0.875rem; }
@@ -286,11 +287,13 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
             ia.*,
             g.group_code,
             s.session_date,
-            s.session_period,
-            s.start_time,
-            s.end_time,
-            CASE WHEN ia.orientation_completed = 1 THEN "done" ELSE "pending" END as orientation_status,
-            CASE WHEN ia.interview_completed = 1 THEN "done" ELSE "pending" END as interview_status
+            s.time_block,
+            s.time_start,
+            s.time_end,
+            ia.orientation_status,
+            ia.interview_status,
+            ia.attendance_status,
+            ia.final_status
         FROM interview_assignments ia
         JOIN interview_groups g ON ia.group_id = g.id
         JOIN interview_sessions s ON g.session_id = s.id
@@ -310,7 +313,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         <h4 style="margin:0 0 0.75rem 0;color:#1976D2;">Interview Assigned</h4>
         <div style="display:grid;gap:var(--space-sm);color:#555;">
           <div><strong>Date:</strong> <?= date('F d, Y', strtotime($interview['session_date'])) ?></div>
-          <div><strong>Session:</strong> <?= $interview['session_period'] === 'AM' ? 'Morning' : 'Afternoon' ?> (<?= date('g:i A', strtotime($interview['start_time'])) ?> - <?= date('g:i A', strtotime($interview['end_time'])) ?>)</div>
+          <div><strong>Session:</strong> <?= $interview['time_block'] === 'AM' ? 'Morning' : 'Afternoon' ?> (<?= date('g:i A', strtotime($interview['time_start'])) ?> - <?= date('g:i A', strtotime($interview['time_end'])) ?>)</div>
           <div><strong>Group:</strong> <?= htmlspecialchars($interview['group_code']) ?></div>
           <div><strong>Attendance:</strong> <span class="status-badge status-<?= $interview['attendance_status'] ?>"><?= ucfirst($interview['attendance_status']) ?></span></div>
           <div><strong>Progress:</strong> Orientation: <?= ucfirst($interview['orientation_status']) ?>, Interview: <?= ucfirst($interview['interview_status']) ?></div>

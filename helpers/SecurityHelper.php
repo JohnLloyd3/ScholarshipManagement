@@ -258,6 +258,8 @@ function setSecurityHeaders() {
  */
 function startSecureSession(): void {
     if (session_status() === PHP_SESSION_ACTIVE) {
+        // Check session timeout
+        checkSessionTimeout();
         return;
     }
 
@@ -281,7 +283,43 @@ function startSecureSession(): void {
     ]);
 
     session_start();
+    
+    // Initialize session timestamp
+    if (!isset($_SESSION['created_at'])) {
+        $_SESSION['created_at'] = time();
+    }
+    if (!isset($_SESSION['last_activity'])) {
+        $_SESSION['last_activity'] = time();
+    }
+    
+    // Check session timeout
+    checkSessionTimeout();
+    
     setSecurityHeaders();
+}
+
+/**
+ * Check and enforce session timeout
+ */
+function checkSessionTimeout(): void {
+    $timeout = getenv('SESSION_TIMEOUT') ?: 3600; // Default 1 hour
+    
+    if (isset($_SESSION['last_activity'])) {
+        $elapsed = time() - $_SESSION['last_activity'];
+        
+        if ($elapsed > $timeout) {
+            // Session expired
+            session_unset();
+            session_destroy();
+            $_SESSION = [];
+            $_SESSION['flash'] = 'Your session has expired. Please log in again.';
+            header('Location: /auth/login.php');
+            exit;
+        }
+    }
+    
+    // Update last activity time
+    $_SESSION['last_activity'] = time();
 }
 
 /**

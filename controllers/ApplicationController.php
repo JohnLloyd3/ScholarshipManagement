@@ -202,19 +202,26 @@ if ($action === 'create') {
                 exit;
             }
             $name = sanitizeFilename(basename($file['name']));
-            $safe = time() . '_' . preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $name);
+            $safe = bin2hex(random_bytes(8)) . '_' . time() . '_' . preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $name);
             $target = $up . '/' . $safe;
             $file_size = $file['size'];
 
             // duplicate check by file hash
             $fileHash = md5_file($file['tmp_name']);
-            $dupStmt = $pdo->prepare('SELECT id FROM documents WHERE application_id IS NOT NULL AND file_hash = :fhash');
-            $dupStmt->execute([':fhash' => $fileHash]);
-            if ($dupStmt->fetch()) {
-                continue; // skip duplicates silently
+            try {
+                $dupStmt = $pdo->prepare('SELECT id FROM documents WHERE application_id IS NOT NULL AND file_hash = :fhash');
+                $dupStmt->execute([':fhash' => $fileHash]);
+                if ($dupStmt->fetch()) {
+                    continue; // skip duplicates silently
+                }
+            } catch (Exception $e) {
+                // file_hash column may not exist yet, skip duplicate check
             }
 
             if (move_uploaded_file($file['tmp_name'], $target)) {
+                // Set proper file permissions
+                chmod($target, 0644);
+                
                 $pathRel = 'uploads/' . $safe;
                 $uploadedPaths[] = $pathRel;
                 $collectedUploads[] = [
@@ -240,35 +247,69 @@ if ($action === 'create') {
 
         $db_status = $is_draft ? 'draft' : 'submitted';
         $detailsJson = json_encode($posted, JSON_UNESCAPED_UNICODE);
-        if ($is_draft) {
-            $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, status, details, created_at, updated_at) VALUES (:uid, :sid, :status, :details, NOW(), NOW())');
-            $stmt->execute([
-                ':uid'     => $user_id,
-                ':sid'     => $scholarship_id,
-                ':status'  => $db_status,
-                ':details' => $detailsJson,
-            ]);
+        
+        // Check if details column exists
+        $hasDetailsColumn = false;
+        try {
+            $checkCol = $pdo->query("SHOW COLUMNS FROM applications LIKE 'details'");
+            $hasDetailsColumn = (bool)$checkCol->fetch();
+        } catch (Exception $e) {
+            $hasDetailsColumn = false;
+        }
+        
+        if ($hasDetailsColumn) {
+            // Insert with details column
+            if ($is_draft) {
+                $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, status, details, created_at, updated_at) VALUES (:uid, :sid, :status, :details, NOW(), NOW())');
+                $stmt->execute([
+                    ':uid'     => $user_id,
+                    ':sid'     => $scholarship_id,
+                    ':status'  => $db_status,
+                    ':details' => $detailsJson,
+                ]);
+            } else {
+                $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, status, details, submitted_at, created_at, updated_at) VALUES (:uid, :sid, :status, :details, NOW(), NOW(), NOW())');
+                $stmt->execute([
+                    ':uid'     => $user_id,
+                    ':sid'     => $scholarship_id,
+                    ':status'  => $db_status,
+                    ':details' => $detailsJson,
+                ]);
+            }
         } else {
-            $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, status, details, submitted_at, created_at, updated_at) VALUES (:uid, :sid, :status, :details, NOW(), NOW(), NOW())');
-            $stmt->execute([
-                ':uid'     => $user_id,
-                ':sid'     => $scholarship_id,
-                ':status'  => $db_status,
-                ':details' => $detailsJson,
-            ]);
+            // Insert without details column (fallback)
+            if ($is_draft) {
+                $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, status, created_at, updated_at) VALUES (:uid, :sid, :status, NOW(), NOW())');
+                $stmt->execute([
+                    ':uid'     => $user_id,
+                    ':sid'     => $scholarship_id,
+                    ':status'  => $db_status,
+                ]);
+            } else {
+                $stmt = $pdo->prepare('INSERT INTO applications (user_id, scholarship_id, status, submitted_at, created_at, updated_at) VALUES (:uid, :sid, :status, NOW(), NOW(), NOW())');
+                $stmt->execute([
+                    ':uid'     => $user_id,
+                    ':sid'     => $scholarship_id,
+                    ':status'  => $db_status,
+                ]);
+            }
         }
 
         $application_id = $pdo->lastInsertId();
 
         // Insert any uploaded documents and link to application
         if (!empty($collectedUploads)) {
-            $ins = $pdo->prepare('INSERT INTO documents (application_id, document_type, file_path, file_hash, uploaded_at) VALUES (:appid, :doctype, :fpath, :fhash, NOW())');
+            $ins = $pdo->prepare('INSERT INTO documents (application_id, user_id, document_type, file_name, file_path, file_hash, file_size, mime_type, uploaded_at) VALUES (:appid, :uid, :doctype, :fname, :fpath, :fhash, :fsize, :mime, NOW())');
             foreach ($collectedUploads as $u) {
                 $ins->execute([
                     ':appid'   => $application_id,
+                    ':uid'     => $user_id,
                     ':doctype' => 'supporting',
+                    ':fname'   => $u['name'],
                     ':fpath'   => $u['path'],
                     ':fhash'   => $u['hash'] ?? null,
+                    ':fsize'   => $u['size'] ?? 0,
+                    ':mime'    => $u['mime'] ?? '',
                 ]);
             }
         }
@@ -321,7 +362,8 @@ if ($action === 'create') {
             if (is_file($full)) @unlink($full);
         }
         error_log('Application submission failed: ' . $e->getMessage());
-        $_SESSION['flash'] = 'Failed to submit application. Please try again.';
+        error_log('Stack trace: ' . $e->getTraceAsString());
+        $_SESSION['flash'] = 'Failed to submit application: ' . $e->getMessage();
         header('Location: ../students/apply_scholarship.php?scholarship_id=' . $scholarship_id);
         exit;
     }

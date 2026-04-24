@@ -222,7 +222,9 @@ if ($navUserId) {
 $notifCount = 0;
 if ($navRole === 'student') {
     try {
-        $notifCount = (int)$pdo->query("SELECT COUNT(*) FROM notifications WHERE user_id = $navUserId AND seen = 0")->fetchColumn();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = :uid AND seen = 0");
+        $stmt->execute([':uid' => $navUserId]);
+        $notifCount = (int)$stmt->fetchColumn();
     } catch (Exception $e) {}
 }
 ?>

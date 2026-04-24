@@ -66,9 +66,9 @@ $groupStmt = $pdo->prepare('
     SELECT 
         g.*,
         s.session_date,
-        s.session_period as time_block,
-        s.start_time as time_start,
-        s.end_time as time_end
+        s.time_block,
+        s.time_start,
+        s.time_end
     FROM interview_groups g
     JOIN interview_sessions s ON g.session_id = s.id
     WHERE g.id = :gid
@@ -148,7 +148,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     <div>
       <div class="text-muted" style="font-size: 0.9rem;">Total Applicants</div>
       <div style="font-size: 2rem; font-weight: 700; color: var(--primary-color);">
-        <?= count($applicants) ?> / <?= (int)$group['capacity'] ?>
+        <?= count($applicants) ?> / <?= (int)($group['max_capacity'] ?? 10) ?>
       </div>
     </div>
     <div>

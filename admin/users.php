@@ -373,7 +373,7 @@ $countStmt->execute($params);
 $totalUsers_filtered = (int)$countStmt->fetchColumn();
 $totalPages = max(1, (int)ceil($totalUsers_filtered / $perPage));
 
-$query = "SELECT id, first_name, last_name, email, role, student_id, active, created_at, email_verified FROM users" . $baseWhere . " ORDER BY created_at DESC LIMIT $perPage OFFSET $offset";
+$query = "SELECT id, first_name, last_name, email, username, role, student_id, active, created_at, email_verified FROM users" . $baseWhere . " ORDER BY created_at DESC LIMIT $perPage OFFSET $offset";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];

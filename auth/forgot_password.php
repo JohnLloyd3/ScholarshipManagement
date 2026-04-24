@@ -60,6 +60,15 @@ require_once __DIR__ . '/../includes/modern-header.php';
   .auth-logo-icon {
     font-size: 3rem;
     margin-bottom: var(--space-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .auth-logo-icon img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
   }
   
   .auth-logo-text {
@@ -95,7 +104,9 @@ require_once __DIR__ . '/../includes/modern-header.php';
 <div class="auth-container">
   <div class="auth-card fade-in">
     <div class="auth-logo">
-      <div class="auth-logo-icon">??</div>
+      <div class="auth-logo-icon">
+        <img src="../assets/image/logo.svg" alt="ScholarHub Logo" style="width: 48px; height: 48px;">
+      </div>
       <div class="auth-logo-text">ScholarHub</div>
     </div>
     

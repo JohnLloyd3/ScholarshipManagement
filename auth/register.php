@@ -53,6 +53,11 @@ if (isset($_SESSION['user_id'])) {
     .brand-icon {
       width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 20px;
       display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.5rem; overflow: hidden;
+    }
+    .brand-icon img {
+      width: 48px; height: 48px; object-fit: contain;
+    }
       font-size: 2.25rem; margin: 0 auto 1.5rem; backdrop-filter: blur(4px);
     }
     .brand-name { font-size: 2rem; font-weight: 800; color: #fff; margin-bottom: 0.75rem; }
@@ -118,7 +123,9 @@ if (isset($_SESSION['user_id'])) {
 
   <div class="left-panel">
     <div class="left-content">
-      <div class="brand-icon"><i class="fas fa-graduation-cap"></i></div>
+      <div class="brand-icon">
+        <img src="../assets/image/logo.svg" alt="ScholarHub Logo" style="width: 48px; height: 48px;">
+      </div>
       <div class="brand-name">ScholarHub</div>
       <div class="brand-tagline">Your gateway to educational opportunities and scholarship success</div>
       <div class="feature-list">

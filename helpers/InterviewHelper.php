@@ -11,17 +11,10 @@ class InterviewHelper {
         $this->pdo = $pdo;
     }
     
-    /**
-     * Auto-assign approved applicants to interview groups
-     * @param int $scholarshipId
-     * @param string $sessionDate (Y-m-d format)
-     * @return array Result with success status and message
-     */
     public function autoAssignApplicants($scholarshipId, $sessionDate) {
         try {
             $this->pdo->beginTransaction();
             
-            // Get approved applicants who are not yet assigned and don't have existing interview for this scholarship
             $stmt = $this->pdo->prepare('
                 SELECT a.id, a.user_id, a.created_at
                 FROM applications a
@@ -45,21 +38,18 @@ class InterviewHelper {
                 return ['success' => false, 'message' => 'No approved applicants to assign.'];
             }
             
-            // Create or get sessions for the date
             $sessions = $this->createSessionsForDate($scholarshipId, $sessionDate);
             
-            // Get all groups for these sessions
             $groups = [];
             foreach ($sessions as $session) {
                 $groupsStmt = $this->pdo->prepare('
-                    SELECT id, session_id, group_code, capacity as max_capacity, current_count
+                    SELECT id, session_id, group_code, max_capacity, current_count
                     FROM interview_groups
                     WHERE session_id = :sid
                     ORDER BY group_code ASC
                 ');
                 $groupsStmt->execute([':sid' => $session['id']]);
-                $sessionGroups = $groupsStmt->fetchAll(PDO::FETCH_ASSOC);
-                $groups = array_merge($groups, $sessionGroups);
+                $groups = array_merge($groups, $groupsStmt->fetchAll(PDO::FETCH_ASSOC));
             }
             
             if (empty($groups)) {
@@ -67,136 +57,98 @@ class InterviewHelper {
                 return ['success' => false, 'message' => 'No interview groups available.'];
             }
             
-            // Assign applicants sequentially to groups
             $assignedCount = 0;
-            $groupIndex = 0;
-            $assignmentNumber = 1;
+            $groupIndex    = 0;
             
             foreach ($applicants as $applicant) {
-                // Find next available group
                 while ($groupIndex < count($groups)) {
                     $group = $groups[$groupIndex];
-                    
                     if ($group['current_count'] < $group['max_capacity']) {
-                        // Assign to this group
                         $assignStmt = $this->pdo->prepare('
                             INSERT INTO interview_assignments 
-                            (application_id, user_id, session_id, group_id, assignment_number)
-                            VALUES (:app_id, :user_id, :session_id, :group_id, :assignment_number)
+                            (application_id, group_id, assigned_at)
+                            VALUES (:app_id, :group_id, NOW())
                         ');
                         $assignStmt->execute([
-                            ':app_id' => $applicant['id'],
-                            ':user_id' => $applicant['user_id'],
-                            ':session_id' => $group['session_id'],
+                            ':app_id'   => $applicant['id'],
                             ':group_id' => $group['id'],
-                            ':assignment_number' => $assignmentNumber
                         ]);
                         
-                        // Update group count
-                        $updateStmt = $this->pdo->prepare('
-                            UPDATE interview_groups 
-                            SET current_count = current_count + 1
-                            WHERE id = :id
-                        ');
-                        $updateStmt->execute([':id' => $group['id']]);
+                        $this->pdo->prepare('UPDATE interview_groups SET current_count = current_count + 1 WHERE id = :id')
+                            ->execute([':id' => $group['id']]);
                         
                         $groups[$groupIndex]['current_count']++;
                         $assignedCount++;
-                        $assignmentNumber++;
                         break;
                     }
-                    
                     $groupIndex++;
                 }
-                
-                // If all groups are full, stop
-                if ($groupIndex >= count($groups)) {
-                    break;
-                }
+                if ($groupIndex >= count($groups)) break;
             }
             
             $this->pdo->commit();
-            
             return [
-                'success' => true,
-                'message' => "Successfully assigned {$assignedCount} applicant(s) to interview groups.",
-                'assigned_count' => $assignedCount,
+                'success'          => true,
+                'message'          => "Successfully assigned {$assignedCount} applicant(s) to interview groups.",
+                'assigned_count'   => $assignedCount,
                 'total_applicants' => count($applicants)
             ];
             
         } catch (Exception $e) {
-            $this->pdo->rollBack();
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
             error_log('[InterviewHelper] autoAssignApplicants error: ' . $e->getMessage());
             return ['success' => false, 'message' => 'Failed to assign applicants: ' . $e->getMessage()];
         }
     }
     
-    /**
-     * Create sessions and groups for a specific date
-     * @param int $scholarshipId
-     * @param string $sessionDate
-     * @return array Sessions created
-     */
     private function createSessionsForDate($scholarshipId, $sessionDate) {
-        $sessions = [];
-        
-        // Define time blocks
+        $sessions   = [];
         $timeBlocks = [
             'AM' => ['start' => '08:00:00', 'end' => '11:30:00'],
-            'PM' => ['start' => '13:00:00', 'end' => '16:00:00']
+            'PM' => ['start' => '13:00:00', 'end' => '16:00:00'],
         ];
         
         foreach ($timeBlocks as $block => $times) {
-            // Check if session exists
+            // Use correct column names: time_block, time_start, time_end
             $checkStmt = $this->pdo->prepare('
                 SELECT id FROM interview_sessions
-                WHERE session_date = :date AND session_period = :block
+                WHERE session_date = :date AND time_block = :block AND scholarship_id = :sid
             ');
-            $checkStmt->execute([
-                ':date' => $sessionDate,
-                ':block' => $block
-            ]);
+            $checkStmt->execute([':date' => $sessionDate, ':block' => $block, ':sid' => $scholarshipId]);
             $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($existing) {
                 $sessionId = $existing['id'];
             } else {
-                // Create session
                 $createStmt = $this->pdo->prepare('
                     INSERT INTO interview_sessions 
-                    (session_date, session_period, start_time, end_time)
-                    VALUES (:date, :block, :start, :end)
+                    (scholarship_id, session_date, time_block, time_start, time_end)
+                    VALUES (:sid, :date, :block, :start, :end)
                 ');
                 $createStmt->execute([
-                    ':date' => $sessionDate,
+                    ':sid'   => $scholarshipId,
+                    ':date'  => $sessionDate,
                     ':block' => $block,
                     ':start' => $times['start'],
-                    ':end' => $times['end']
+                    ':end'   => $times['end'],
                 ]);
                 $sessionId = $this->pdo->lastInsertId();
             }
             
-            $sessions[] = ['id' => $sessionId, 'session_period' => $block];
+            $sessions[] = ['id' => $sessionId, 'time_block' => $block];
             
             // Create groups for this session
             $groupCodes = $block === 'AM' ? ['A1', 'A2'] : ['B1', 'B2'];
-            
             foreach ($groupCodes as $code) {
-                // Check if group exists
                 $checkGroupStmt = $this->pdo->prepare('
-                    SELECT id FROM interview_groups
-                    WHERE session_id = :sid AND group_code = :code
+                    SELECT id FROM interview_groups WHERE session_id = :sid AND group_code = :code
                 ');
                 $checkGroupStmt->execute([':sid' => $sessionId, ':code' => $code]);
-                
                 if (!$checkGroupStmt->fetch()) {
-                    // Create group
-                    $createGroupStmt = $this->pdo->prepare('
-                        INSERT INTO interview_groups 
-                        (session_id, group_code, capacity, current_count)
+                    $this->pdo->prepare('
+                        INSERT INTO interview_groups (session_id, group_code, max_capacity, current_count)
                         VALUES (:sid, :code, 10, 0)
-                    ');
-                    $createGroupStmt->execute([':sid' => $sessionId, ':code' => $code]);
+                    ')->execute([':sid' => $sessionId, ':code' => $code]);
                 }
             }
         }
@@ -204,73 +156,60 @@ class InterviewHelper {
         return $sessions;
     }
     
-    /**
-     * Get interview schedule for a scholarship
-     * @param int $scholarshipId
-     * @return array Schedule with sessions, groups, and assignments
-     */
     public function getInterviewSchedule($scholarshipId) {
         $stmt = $this->pdo->prepare('
             SELECT 
                 s.id as session_id,
                 s.session_date,
-                s.session_period as time_block,
-                s.start_time as time_start,
-                s.end_time as time_end,
+                s.time_block,
+                s.time_start,
+                s.time_end,
                 s.status as session_status,
                 g.id as group_id,
                 g.group_code,
-                g.capacity as max_capacity,
+                g.max_capacity,
                 g.current_count
             FROM interview_sessions s
             LEFT JOIN interview_groups g ON s.id = g.session_id
-            ORDER BY s.session_date ASC, s.session_period ASC, g.group_code ASC
+            WHERE s.scholarship_id = :sid
+            ORDER BY s.session_date ASC, s.time_block ASC, g.group_code ASC
         ');
-        $stmt->execute();
+        $stmt->execute([':sid' => $scholarshipId]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Organize by session and group
         $schedule = [];
         foreach ($results as $row) {
-            $sessionKey = $row['session_date'] . '_' . $row['time_block'];
-            
-            if (!isset($schedule[$sessionKey])) {
-                $schedule[$sessionKey] = [
-                    'session_id' => $row['session_id'],
-                    'session_date' => $row['session_date'],
-                    'time_block' => $row['time_block'],
-                    'time_start' => $row['time_start'],
-                    'time_end' => $row['time_end'],
+            $key = $row['session_date'] . '_' . $row['time_block'];
+            if (!isset($schedule[$key])) {
+                $schedule[$key] = [
+                    'session_id'     => $row['session_id'],
+                    'session_date'   => $row['session_date'],
+                    'time_block'     => $row['time_block'],
+                    'time_start'     => $row['time_start'],
+                    'time_end'       => $row['time_end'],
                     'session_status' => $row['session_status'],
-                    'groups' => []
+                    'groups'         => [],
                 ];
             }
-            
             if ($row['group_id']) {
-                $schedule[$sessionKey]['groups'][] = [
-                    'group_id' => $row['group_id'],
-                    'group_code' => $row['group_code'],
+                $schedule[$key]['groups'][] = [
+                    'group_id'     => $row['group_id'],
+                    'group_code'   => $row['group_code'],
                     'max_capacity' => $row['max_capacity'],
-                    'current_count' => $row['current_count']
+                    'current_count'=> $row['current_count'],
                 ];
             }
         }
-        
         return array_values($schedule);
     }
     
-    /**
-     * Get applicants assigned to a specific group
-     * @param int $groupId
-     * @return array Applicants with their status
-     */
     public function getGroupApplicants($groupId) {
         $stmt = $this->pdo->prepare('
             SELECT 
                 ia.id as assignment_id,
                 ia.attendance_status,
-                CASE WHEN ia.orientation_completed = 1 THEN "done" ELSE "pending" END as orientation_status,
-                CASE WHEN ia.interview_completed = 1 THEN "done" ELSE "pending" END as interview_status,
+                ia.orientation_status,
+                ia.interview_status,
                 ia.final_status,
                 ia.notes,
                 a.id as application_id,
@@ -283,49 +222,29 @@ class InterviewHelper {
             JOIN applications a ON ia.application_id = a.id
             JOIN users u ON a.user_id = u.id
             WHERE ia.group_id = :gid
-            ORDER BY ia.assignment_number ASC, ia.created_at ASC
+            ORDER BY ia.id ASC
         ');
         $stmt->execute([':gid' => $groupId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    /**
-     * Update applicant interview progress
-     * @param int $assignmentId
-     * @param array $updates (attendance_status, orientation_status, interview_status, final_status, notes)
-     * @return bool Success
-     */
     public function updateApplicantProgress($assignmentId, $updates) {
         try {
             $fields = [];
             $params = [':id' => $assignmentId];
-            
-            $allowedFields = ['attendance_status', 'orientation_status', 'interview_status', 'final_status', 'notes'];
+            $allowed = ['attendance_status', 'orientation_status', 'interview_status', 'final_status', 'notes'];
             
             foreach ($updates as $field => $value) {
-                if (in_array($field, $allowedFields)) {
-                    // Convert status fields to boolean for database
-                    if ($field === 'orientation_status') {
-                        $fields[] = "orientation_completed = :orientation_completed";
-                        $params[":orientation_completed"] = ($value === 'done') ? 1 : 0;
-                    } elseif ($field === 'interview_status') {
-                        $fields[] = "interview_completed = :interview_completed";
-                        $params[":interview_completed"] = ($value === 'done') ? 1 : 0;
-                    } else {
-                        $fields[] = "$field = :$field";
-                        $params[":$field"] = $value;
-                    }
+                if (in_array($field, $allowed)) {
+                    $fields[] = "$field = :$field";
+                    $params[":$field"] = $value;
                 }
             }
             
-            if (empty($fields)) {
-                return false;
-            }
+            if (empty($fields)) return false;
             
             $sql = 'UPDATE interview_assignments SET ' . implode(', ', $fields) . ' WHERE id = :id';
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute($params);
-            
+            $this->pdo->prepare($sql)->execute($params);
             return true;
         } catch (Exception $e) {
             error_log('[InterviewHelper] updateApplicantProgress error: ' . $e->getMessage());

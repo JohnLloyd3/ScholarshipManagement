@@ -105,7 +105,7 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
     @media(max-width:600px){ .detail-grid, .detail-grid-3 { grid-template-columns: 1fr; } }
   </style>
 
-  <?php $appData = json_decode($viewingApp['motivational_letter'] ?? '{}', true) ?: []; ?>
+  <?php $appData = json_decode($viewingApp['details'] ?? $viewingApp['motivational_letter'] ?? '{}', true) ?: []; ?>
 
   <div id="appDetailModal" class="modal" style="display:flex;">
     <div class="modal-content">
@@ -239,6 +239,147 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
 
 <?php else: ?>
   <!-- List View -->
+  <style>
+  .applications-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  @media (max-width: 1400px) {
+    .applications-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  @media (max-width: 1024px) {
+    .applications-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 640px) {
+    .applications-grid { grid-template-columns: 1fr; }
+  }
+
+  .application-box {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .application-box:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+    border-color: var(--primary-color);
+  }
+
+  .application-box.status-submitted { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); }
+  .application-box.status-under_review { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+  .application-box.status-approved { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); }
+  .application-box.status-rejected { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); }
+  .application-box.status-pending { background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); }
+  .application-box.status-draft { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); }
+  .application-box.status-withdrawn { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+
+  .application-id {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: rgba(0,0,0,0.1);
+  }
+
+  .application-box-header {
+    margin-bottom: 1rem;
+  }
+
+  .application-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    padding-right: 2rem;
+  }
+
+  .application-org {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .application-status-badge {
+    display: inline-block;
+    padding: 0.375rem 0.875rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.75rem;
+  }
+
+  .status-badge.status-submitted { background: #3b82f6; color: white; }
+  .status-badge.status-under_review { background: #f59e0b; color: white; }
+  .status-badge.status-approved { background: #10b981; color: white; }
+  .status-badge.status-rejected { background: #ef4444; color: white; }
+  .status-badge.status-pending { background: #6366f1; color: white; }
+  .status-badge.status-draft { background: #6b7280; color: white; }
+  .status-badge.status-withdrawn { background: #d97706; color: white; }
+
+  .application-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .application-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .application-expand-icon {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+  }
+
+  .application-box:hover .application-expand-icon {
+    background: var(--primary-color);
+    color: white;
+    transform: scale(1.1);
+  }
+  </style>
+
   <div class="content-card">
     <?php if (empty($apps)): ?>
       <div class="empty-state">
@@ -248,72 +389,86 @@ require_once __DIR__ . '/../includes/modern-sidebar.php';
         <a href="apply_scholarship.php" class="btn btn-primary" style="margin-top:1rem;">Apply for Scholarship</a>
       </div>
     <?php else: ?>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
         <h3 style="margin:0;">All Applications (<?= count($apps) ?>)</h3>
       </div>
-      <table class="modern-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Scholarship</th>
-            <th>Status</th>
-            <th>Submitted</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($apps as $a): ?>
-            <tr>
-              <td style="color:#9E9E9E;font-size:0.8rem;"><?= $a['id'] ?></td>
-              <td>
-                <div style="font-weight:600;font-size:0.875rem;"><?= htmlspecialchars($a['scholarship_title'] ?? 'General Application') ?></div>
-                <?php if ($a['organization']): ?><div style="font-size:0.75rem;color:#E53935;"><?= htmlspecialchars($a['organization']) ?></div><?php endif; ?>
-              </td>
-              <td><span class="status-badge status-<?= strtolower($a['status']) ?>"><?= ucfirst(str_replace('_',' ',$a['status'])) ?></span></td>
-              <td style="font-size:0.8rem;color:#9E9E9E;"><?= date('M d, Y', strtotime($a['created_at'])) ?></td>
-              <td>
-                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
-                  <a href="applications.php?view=<?= $a['id'] ?>" class="btn btn-ghost btn-sm">View</a>
-                  <?php if ($a['status'] === 'draft'): ?>
-                    <a href="apply_scholarship.php?scholarship_id=<?= (int)$a['scholarship_id'] ?>" class="btn btn-secondary btn-sm">Edit</a>
-                    <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this draft?')">
-                      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-                      <input type="hidden" name="action" value="delete_draft">
-                      <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                      <button class="btn btn-danger btn-sm">Delete</button>
-                    </form>
-                  <?php elseif (in_array($a['status'],['submitted','pending','under_review'])): ?>
-                    <form method="POST" style="display:inline;" onsubmit="return confirm('Withdraw this application?')">
-                      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-                      <input type="hidden" name="action" value="withdraw">
-                      <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                      <button class="btn btn-danger btn-sm">Withdraw</button>
-                    </form>
-                  <?php elseif (in_array($a['status'], ['approved', 'completed'])): ?>
-                    <?php
-                      // Only show feedback if payout is completed
-                      $payoutStmt = $pdo->prepare("SELECT id FROM disbursements WHERE application_id = :aid AND status = 'completed' LIMIT 1");
-                      $payoutStmt->execute([':aid' => $a['id']]);
-                      $hasPayout = $payoutStmt->fetch();
+      
+      <div class="applications-grid">
+        <?php foreach ($apps as $a): ?>
+          <div 
+            class="application-box status-<?= strtolower($a['status']) ?>"
+            onclick="window.location.href='applications.php?view=<?= $a['id'] ?>'"
+          >
+            <div class="application-id">#<?= $a['id'] ?></div>
+            
+            <div class="application-box-header">
+              <h3 class="application-title"><?= htmlspecialchars($a['scholarship_title'] ?? 'General Application') ?></h3>
+              <?php if ($a['organization']): ?>
+                <div class="application-org"><?= htmlspecialchars($a['organization']) ?></div>
+              <?php endif; ?>
+            </div>
+            
+            <span class="status-badge status-<?= strtolower($a['status']) ?>">
+              <?= ucfirst(str_replace('_',' ',$a['status'])) ?>
+            </span>
+            
+            <div class="application-date">
+              <i class="fas fa-calendar"></i>
+              <span><?= date('M d, Y', strtotime($a['created_at'])) ?></span>
+            </div>
+            
+            <div class="application-actions" onclick="event.stopPropagation();">
+              <?php if ($a['status'] === 'draft'): ?>
+                <a href="apply_scholarship.php?scholarship_id=<?= (int)$a['scholarship_id'] ?>" class="btn btn-primary btn-sm" style="flex: 1;">
+                  <i class="fas fa-edit"></i> Edit
+                </a>
+                <form method="POST" style="display:inline;flex:1;" onsubmit="return confirm('Delete this draft?')">
+                  <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                  <input type="hidden" name="action" value="delete_draft">
+                  <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                  <button class="btn btn-danger btn-sm" style="width:100%;">
+                    <i class="fas fa-trash"></i> Delete
+                  </button>
+                </form>
+              <?php elseif (in_array($a['status'],['submitted','pending','under_review'])): ?>
+                <form method="POST" style="display:inline;width:100%;" onsubmit="return confirm('Withdraw this application?')">
+                  <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                  <input type="hidden" name="action" value="withdraw">
+                  <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                  <button class="btn btn-danger btn-sm" style="width:100%;">
+                    <i class="fas fa-times"></i> Withdraw
+                  </button>
+                </form>
+              <?php elseif (in_array($a['status'], ['approved', 'completed'])): ?>
+                <?php
+                  $payoutStmt = $pdo->prepare("SELECT id FROM disbursements WHERE application_id = :aid AND status = 'completed' LIMIT 1");
+                  $payoutStmt->execute([':aid' => $a['id']]);
+                  $hasPayout = $payoutStmt->fetch();
 
-                      if ($hasPayout):
-                        $ratedStmt = $pdo->prepare("SELECT id FROM feedback WHERE application_id = :aid");
-                        $ratedStmt->execute([':aid' => $a['id']]);
-                        $hasRated = $ratedStmt->fetch();
-                    ?>
-                      <?php if ($hasRated): ?>
-                        <span class="btn btn-ghost btn-sm" style="cursor:default;opacity:0.6;">Rated</span>
-                      <?php else: ?>
-                        <a href="feedback.php?application_id=<?= $a['id'] ?>" class="btn btn-primary btn-sm">Feedback</a>
-                      <?php endif; ?>
-                    <?php endif; ?>
+                  if ($hasPayout):
+                    $ratedStmt = $pdo->prepare("SELECT id FROM feedback WHERE application_id = :aid");
+                    $ratedStmt->execute([':aid' => $a['id']]);
+                    $hasRated = $ratedStmt->fetch();
+                ?>
+                  <?php if ($hasRated): ?>
+                    <span class="btn btn-ghost btn-sm" style="cursor:default;opacity:0.6;width:100%;">
+                      <i class="fas fa-check"></i> Rated
+                    </span>
+                  <?php else: ?>
+                    <a href="feedback.php?application_id=<?= $a['id'] ?>" class="btn btn-primary btn-sm" style="width:100%;">
+                      <i class="fas fa-star"></i> Feedback
+                    </a>
                   <?php endif; ?>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+                <?php endif; ?>
+              <?php endif; ?>
+            </div>
+            
+            <div class="application-expand-icon">
+              <i class="fas fa-chevron-right"></i>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
     <?php endif; ?>
   </div>
 <?php endif; ?>

@@ -59,7 +59,10 @@ if (in_array($current_page, ['scholarships.php', 'scholarship_view.php', 'apply_
     width: 34px; height: 34px; border-radius: 9px;
     background: #E53935; display: flex; align-items: center;
     justify-content: center; font-size: 1.1rem; flex-shrink: 0;
-    color: #fff;
+    color: #fff; overflow: hidden;
+  }
+  .sidebar-brand-icon img {
+    width: 28px; height: 28px; object-fit: contain;
   }
   .sidebar-brand-name { font-size: 1.1rem; font-weight: 800; color: #1a1a2e; }
 
@@ -95,7 +98,9 @@ if (in_array($current_page, ['scholarships.php', 'scholarship_view.php', 'apply_
 
     <!-- Brand -->
     <div class="sidebar-brand" style="cursor:default;">
-      <div class="sidebar-brand-icon"><i class="fas fa-graduation-cap"></i></div>
+      <div class="sidebar-brand-icon">
+        <img src="<?= $base_path ?? '../' ?>assets/image/logo.svg" alt="ScholarHub Logo" style="width: 28px; height: 28px;">
+      </div>
       <span class="sidebar-brand-name">ScholarHub</span>
     </div>
 
